@@ -14,6 +14,12 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: APP_URL
+        value: https://tuition-teacher-app.onrender.com
 databases:
   - name: tuition-db
     plan: free

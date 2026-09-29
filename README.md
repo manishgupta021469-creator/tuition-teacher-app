@@ -15,3 +15,11 @@ All required runtime files are intentionally in the repository root so they can 
 Use the repository root as the service Root Directory (leave it blank). Render will run `npm install` and `node index.js`.
 
 The Blueprint creates the web service and PostgreSQL database and supplies `DATABASE_URL`, `JWT_SECRET`, and `NODE_ENV`.
+
+
+## Teacher account security
+- After creating a Teacher ID, the dashboard shows a clear **Teacher ID created successfully** confirmation.
+- A logged-in teacher can use **Change Password** from the dashboard.
+- **Forgot Password** sends a time-limited reset link to the registered email address.
+- Password reset email delivery uses the Resend API. On Render, set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` as environment variables. `APP_URL` is optional; if omitted, the current service URL is used.
+- The reset token expires after 30 minutes and is stored only as a SHA-256 hash.

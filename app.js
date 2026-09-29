@@ -4,12 +4,57 @@ let state={teacher:null,students:[],content:[],results:[]};
 let recognition=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 async function api(url,opt={}){opt.headers={...(opt.headers||{}),'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})};const r=await fetch('/api'+url,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Request failed');return d}
-function authView(){root.innerHTML=`<main class="center"><section class="card"><h1>Tuition Teacher App</h1><p>Teacher Login</p><form id="login"><input name="email" type="email" placeholder="Email" required><input name="password" type="password" placeholder="Password" required><button>Login</button></form><hr><p>Create new Teacher ID</p><form id="reg"><input name="name" placeholder="Teacher name" required><input name="email" type="email" placeholder="Email" required><input name="password" type="password" placeholder="Password" required><button>Create Account</button></form></section></main>`;login.onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(login)))});token=d.token;localStorage.token=token;boot()}catch(x){alert(x.message)}};reg.onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/register',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(reg)))});token=d.token;localStorage.token=token;boot()}catch(x){alert(x.message)}}}
+function authView(){
+  const resetToken=new URLSearchParams(location.search).get('reset');
+  if(resetToken){return resetPasswordView(resetToken)}
+  root.innerHTML=`<main class="center"><section class="card auth-card"><h1>Tuition Teacher App</h1><p>Teacher Login</p><form id="login"><input name="email" type="email" placeholder="Email" required><input name="password" type="password" placeholder="Password" required><button>Login</button></form><button id="forgot" type="button">Forgot Password?</button><hr><p>Create new Teacher ID</p><form id="reg"><input name="name" placeholder="Teacher name" required><input name="email" type="email" placeholder="Email" required><input name="password" type="password" minlength="6" placeholder="Password (minimum 6 characters)" required><button>Create Account</button></form></section></main>`;
+  login.onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(login)))});token=d.token;localStorage.token=token;boot()}catch(x){alert(x.message)}};
+  reg.onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/register',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(reg)))});token=d.token;localStorage.token=token;sessionStorage.teacherCreated=`Teacher ID created successfully!\nName: ${d.teacher.name}\nEmail/Teacher ID: ${d.teacher.email}`;boot()}catch(x){alert(x.message)}};
+  forgot.onclick=forgotPasswordView;
+}
+function forgotPasswordView(){
+  root.innerHTML=`<main class="center"><section class="card"><h1>Forgot Password</h1><p>अपना registered email डालें। Password reset link इसी email पर भेजा जाएगा।</p><form id="forgotForm"><input id="forgotEmail" type="email" placeholder="Registered email" required><button>Send Reset Link</button></form><button id="backLogin" type="button">Back to Login</button></section></main>`;
+  forgotForm.onsubmit=async e=>{e.preventDefault();try{const r=await api('/auth/forgot-password',{method:'POST',body:JSON.stringify({email:forgotEmail.value})});alert(r.message||'Reset link sent.');authView()}catch(x){alert(x.message)}};
+  backLogin.onclick=authView;
+}
+function resetPasswordView(resetToken){
+  root.innerHTML=`<main class="center"><section class="card"><h1>Reset Password</h1><p>नया password सेट करें।</p><form id="resetForm"><input id="newResetPassword" type="password" minlength="6" placeholder="New password (minimum 6 characters)" required><input id="confirmResetPassword" type="password" minlength="6" placeholder="Confirm new password" required><button>Reset Password</button></form></section></main>`;
+  resetForm.onsubmit=async e=>{e.preventDefault();if(newResetPassword.value!==confirmResetPassword.value)return alert('दोनों passwords समान होने चाहिए।');try{const r=await api('/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,newPassword:newResetPassword.value})});alert(r.message||'Password reset successfully.');history.replaceState({},'',location.pathname);authView()}catch(x){alert(x.message)}};
+}
 async function load(){[state.teacher,state.students,state.content,state.results]=await Promise.all([api('/me'),api('/students'),api('/content'),api('/results')])}
-function dashboard(){root.innerHTML=`<header><b>Tuition Teacher App</b><button id="logout">Logout</button></header><main><section class="grid"><div class="card"><h2>Students</h2><p>${state.students.length}/20</p><button id="addStudent">Add Student</button><div id="studentList">${state.students.map((s,i)=>`<button class="list" data-s="${s.id}">${i+1}. ${esc(s.name)} — Class ${esc(s.class_name)}</button>`).join('')||'<p>No students yet.</p>'}</div></div><div class="card"><h2>Performance</h2>${state.results.map((r,i)=>`<div class="result"><b>#${i+1} ${esc(r.name)}</b><span>${r.score}% · ${r.tests} tests</span></div>`).join('')||'<p>No test results yet.</p>'}</div></section><section class="card"><h2>Content</h2><button id="addSubject">Create Subject</button><div id="content">${renderContent()}</div></section></main>`;logout.onclick=()=>{localStorage.clear();location.reload()};addStudent.onclick=addStudentForm;addSubject.onclick=addSubjectForm;document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>studentTests(+b.dataset.s))}
+function dashboard(){
+  const created=sessionStorage.getItem('teacherCreated');
+  sessionStorage.removeItem('teacherCreated');
+  root.innerHTML=`<header><b>Tuition Teacher App</b><div><button id="changePassword" type="button">Change Password</button><button id="logout">Logout</button></div></header><main>${created?`<section class="success-banner"><b>${esc(created).replace(/\n/g,'<br>')}</b></section>`:''}<section class="grid"><div class="card"><h2>Students</h2><p>${state.students.length}/20</p><button id="addStudent">Add Student</button><div id="studentList">${state.students.map((s,i)=>`<div class="student-row"><button class="list" data-s="${s.id}">${i+1}. ${esc(s.name)} — Class ${esc(s.class_name)}</button><button class="delete-student" type="button" data-delete-student="${s.id}">Delete Student</button></div>`).join('')||'<p>No students yet.</p>'}</div></div><div class="card"><h2>Performance</h2>${state.results.map((r,i)=>`<div class="result"><b>#${i+1} ${esc(r.name)}</b><span>${r.score}% · ${r.tests} tests</span></div>`).join('')||'<p>No test results yet.</p>'}</div></section><section class="card"><h2>Content</h2><button id="addSubject">Create Subject</button><div id="content">${renderContent()}</div></section></main>`;
+  logout.onclick=()=>{localStorage.clear();location.reload()};
+  changePassword.onclick=changePasswordForm;
+  addStudent.onclick=addStudentForm;addSubject.onclick=addSubjectForm;
+  document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>studentTests(+b.dataset.s));
+  document.querySelectorAll('[data-delete-student]').forEach(b=>b.onclick=()=>deleteStudent(+b.dataset.deleteStudent));
+}
+function changePasswordForm(){
+  root.innerHTML=`<header><b>Change Password</b><button id="backDash">Back</button></header><main><section class="card"><h2>Change Teacher Password</h2><form id="changePassForm"><input id="currentPassword" type="password" placeholder="Current password" required><input id="newPassword" type="password" minlength="6" placeholder="New password (minimum 6 characters)" required><input id="confirmPassword" type="password" minlength="6" placeholder="Confirm new password" required><button>Change Password</button></form></section></main>`;
+  backDash.onclick=refresh;
+  changePassForm.onsubmit=async e=>{e.preventDefault();if(newPassword.value!==confirmPassword.value)return alert('दोनों new passwords समान होने चाहिए।');try{const r=await api('/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:currentPassword.value,newPassword:newPassword.value})});alert(r.message||'Password changed successfully.');refresh()}catch(x){alert(x.message)}};
+}
 function renderContent(){return state.content.map(s=>`<div class="subject"><h3>${esc(s.name)}</h3><button onclick="addBookForm(${s.id})">+ Book</button>${s.books.map(b=>`<div class="book"><b>${esc(b.name)}</b><button onclick="addChapterForm(${b.id})">+ Chapter</button>${b.chapters.map(c=>`<div class="chapter"><b>${esc(c.name)}</b> <small>${c.paragraphs.length} paragraphs · ${c.qa.length} Q&A</small><button onclick="editChapter(${c.id})">Open</button></div>`).join('')}</div>`).join('')}</div>`).join('')||'<p>No subjects yet.</p>'}
 async function refresh(){await load();dashboard()}
 async function addStudentForm(){const name=prompt('Student name');if(!name)return;const className=prompt('Class');if(!className)return;try{await api('/students',{method:'POST',body:JSON.stringify({name,className})});await refresh()}catch(e){alert(e.message)}}
+async function deleteStudent(id){
+  const student=state.students.find(s=>s.id===id);
+  if(!student)return;
+
+  // Deliberately require three separate confirmations so an accidental tap
+  // on the Delete Student button cannot immediately remove the student.
+  if(!confirm(`पहली पुष्टि: क्या आप छात्र \"${student.name}\" को delete करना चाहते हैं?`))return;
+  if(!confirm(`दूसरी पुष्टि: \"${student.name}\" की ID और उसके सभी saved test results delete हो जाएंगे। क्या आप आगे बढ़ना चाहते हैं?`))return;
+  if(!confirm(`तीसरी और अंतिम पुष्टि: \"${student.name}\" को स्थायी रूप से delete करना है? OK दबाने पर deletion होगा।`))return;
+
+  try{
+    await api('/students/'+id,{method:'DELETE'});
+    await refresh();
+  }catch(e){alert(e.message)}
+}
 async function addSubjectForm(){const name=prompt('Subject name');if(!name)return;try{await api('/subjects',{method:'POST',body:JSON.stringify({name})});await refresh()}catch(e){alert(e.message)}}
 async function addBookForm(subjectId){const name=prompt('Book name');if(!name)return;try{await api('/books',{method:'POST',body:JSON.stringify({subjectId,name})});await refresh()}catch(e){alert(e.message)}}
 async function addChapterForm(bookId){const name=prompt('Chapter name');if(!name)return;const text=prompt('Paste full chapter text. Blank lines/new lines will create paragraphs.');if(text===null)return;try{await api('/chapters',{method:'POST',body:JSON.stringify({bookId,name,text})});await refresh()}catch(e){alert(e.message)}}
@@ -184,5 +229,5 @@ async function savePara(id){try{await api('/paragraphs/'+id,{method:'PUT',body:J
 async function mergePara(firstId,secondId){if(!confirm('इन दोनों paragraphs को एक में merge करें?'))return;try{await api('/paragraphs/merge',{method:'POST',body:JSON.stringify({firstId,secondId})});await refresh()}catch(e){alert(e.message)}}
 async function addPara(cid){const text=prompt('New paragraph text');if(!text)return;try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await refresh()}catch(e){alert(e.message)}}
-async function boot(){try{await load();dashboard()}catch(e){localStorage.clear();authView()}}
+async function boot(){if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;authView();return}try{await load();dashboard()}catch(e){localStorage.clear();token=null;authView()}}
 boot();
