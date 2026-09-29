@@ -4,3 +4,4 @@
 .student-row{display:flex;align-items:center;gap:6px}.student-row .list{flex:1}.delete-student{background:#b42318;white-space:nowrap}@media(max-width:500px){.student-row{align-items:stretch;flex-direction:column}.student-row button{width:100%;margin:4px 0}}
 
 .success-banner{background:#ecfdf3;border:1px solid #a7f3d0;color:#065f46;border-radius:12px;padding:14px 16px;margin:12px 0}.auth-card{width:min(520px,100%)}
+.attempt-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;border-bottom:1px solid #eee;padding:10px 0}.attempt-row span{font-weight:700}.attempt-question{background:#f8f9fa;border-radius:9px;padding:10px;margin:10px 0}@media(max-width:500px){.attempt-row{grid-template-columns:1fr}.attempt-row button{width:100%;margin:0}}

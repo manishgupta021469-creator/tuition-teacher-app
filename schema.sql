@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS test_results (
   score_percent NUMERIC(6,2) NOT NULL,
   passed BOOLEAN NOT NULL,
   spoken_text TEXT,
+  reference_text TEXT,
+  matched_word_indexes JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_students_teacher ON students(teacher_id);
