@@ -1,7 +1,7 @@
 const express=require('express');const cors=require('cors');const path=require('path');const fs=require('fs');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const {Pool}=require('pg');require('dotenv').config();
-const app=express();app.use(cors());app.use(express.json({limit:'2mb'}));
+const app=express();app.use(cors());app.use(express.json({limit:'2mb'}));app.use(express.static(__dirname));
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:false});
-async function init(){const sql=fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8');await pool.query(sql)}
+async function init(){const sql=fs.readFileSync(path.join(__dirname,'schema.sql'),'utf8');await pool.query(sql)}
 const secret=process.env.JWT_SECRET||'dev-only-change-me';
 function auth(req,res,next){try{const h=req.headers.authorization||'';const token=h.startsWith('Bearer ')?h.slice(7):'';req.user=jwt.verify(token,secret);next()}catch(e){res.status(401).json({error:'Unauthorized'})}}
 function words(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
@@ -64,5 +64,5 @@ app.post('/api/tests/score',auth,async(req,res)=>{
   }
 });
 app.get('/api/results',auth,async(req,res)=>{const r=await pool.query(`SELECT s.id student_id,s.name,s.class_name,ROUND(COALESCE(AVG(tr.score_percent),0),2) score,COUNT(tr.id)::int tests FROM students s LEFT JOIN test_results tr ON tr.student_id=s.id AND tr.teacher_id=$1 WHERE s.teacher_id=$1 GROUP BY s.id ORDER BY score DESC, s.name`,[req.user.id]);res.json(r.rows)});
-app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'../client/index.html')));
+app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'index.html')));
 init().then(()=>app.listen(process.env.PORT||10000)).catch(e=>{console.error(e);process.exit(1)});
