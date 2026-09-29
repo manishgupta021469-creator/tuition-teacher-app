@@ -18,7 +18,163 @@ function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.cha
 function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
 function renderWords(reference,matched){const set=new Set(matched||[]);let i=0;return tokenize(reference).map(w=>{const cls=set.has(i)?'word correct':'word';const html=`<span class="${cls}">${esc(w)}</span>`;i++;return html}).join(' ')}
 function speakTest({studentId,chapterId,type,itemId,reference,title,onDone}){if(recognition){try{recognition.stop()}catch{}};const total=tokenize(reference).length;root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div><p>Start Test दबाने के बाद original text छिप जाएगा। उसके बाद microphone में paragraph/answer बोलें।</p><button id="start">Start Test</button><div id="live"></div><div id="score"></div></section></main>`;exit.onclick=()=>{if(recognition){try{recognition.stop()}catch{}};refresh()};start.onclick=()=>{start.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone})}}
-function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone}){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){live.innerHTML='<p>इस browser में Speech Recognition उपलब्ध नहीं है। Chrome Android इस्तेमाल करें।</p>';return}live.innerHTML='<p id="status">Listening… बोलना शुरू करें।</p><button id="stop">Stop Test</button><div id="spoken"></div>';let finalParts=[];let stopped=false;recognition=new SR();recognition.continuous=true;recognition.interimResults=true;const hasHindi=/[\u0900-\u097F]/.test(reference);const hasLatin=/[A-Za-z]/.test(reference);recognition.lang=hasHindi?'hi-IN':'en-IN';recognition.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript.trim();if(e.results[i].isFinal){if(t)finalParts.push(t)}else interim+=(t+' ')}const shown=(finalParts.join(' ')+' '+interim).trim();spoken.textContent=shown;status.textContent='Listening…';};recognition.onerror=e=>{if(e.error!=='aborted')status.textContent='Speech error: '+e.error};recognition.onend=()=>{if(!stopped){try{recognition.start()}catch{}}};const finish=async()=>{if(stopped)return;stopped=true;try{recognition.stop()}catch{};const spokenText=finalParts.join(' ').trim();if(!spokenText){status.textContent='कोई speech detect नहीं हुई।';return}status.textContent='Checking…';try{const r=await api('/tests/score',{method:'POST',body:JSON.stringify({studentId,chapterId,testType:type,itemId,spokenText})});score.innerHTML=`<h3>Score: ${r.percent}%</h3><p>${r.correct}/${r.total} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><div class="word-result">${renderWords(r.referenceText,r.matched)}</div><p class="muted">हरे/marked शब्द सही match हुए हैं।</p><button id="nextButton">${onDone?'Next':'Done'}</button>`;document.getElementById('nextButton').onclick=()=>onDone?onDone(r):refresh()}catch(e){alert(e.message);status.textContent=e.message}};stop.onclick=finish;try{recognition.start()}catch(e){status.textContent='Microphone start failed: '+e.message}}
+function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone}){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){
+    live.innerHTML='<p>इस browser में Speech Recognition उपलब्ध नहीं है। Chrome Android इस्तेमाल करें।</p>';
+    return;
+  }
+
+  live.innerHTML=`<div class="mic-panel">
+    <div class="mic-status"><span id="micDot" class="mic-dot"></span><b id="status">Microphone तैयार हो रहा है…</b></div>
+    <button id="stopTest" type="button">⏹ Stop Test</button>
+  </div>
+  <div class="live-box"><div class="live-label">Live Speech</div><div id="spokenLive" class="spoken-live">बोलना शुरू करें…</div></div>`;
+
+  const statusEl=document.getElementById('status');
+  const spokenEl=document.getElementById('spokenLive');
+  const stopBtn=document.getElementById('stopTest');
+  const dot=document.getElementById('micDot');
+
+  let finalParts=[];
+  let interimText='';
+  let stopping=false;
+  let finished=false;
+  let restarting=false;
+  let finishTimer=null;
+
+  recognition=new SR();
+  const rec=recognition;
+  rec.continuous=true;
+  rec.interimResults=true;
+  rec.maxAlternatives=1;
+
+  // Hindi is selected when the reference contains Devanagari; otherwise Indian English.
+  rec.lang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
+
+  const renderLive=()=>{
+    const finalText=finalParts.join(' ').trim();
+    spokenEl.innerHTML=(esc(finalText)+(interimText?` <span class="interim">${esc(interimText)}</span>`:''))||'बोलना शुरू करें…';
+  };
+
+  const cleanup=()=>{
+    if(finishTimer){clearTimeout(finishTimer);finishTimer=null;}
+    try{rec.onend=null;}catch{}
+    try{rec.stop();}catch{}
+    try{rec.abort();}catch{}
+    if(recognition===rec) recognition=null;
+    dot.classList.remove('active');
+  };
+
+  const submitResult=async()=>{
+    if(finished)return;
+    finished=true;
+    const spokenText=finalParts.join(' ').trim();
+    cleanup();
+    stopBtn.disabled=true;
+    statusEl.textContent='Checking…';
+    dot.classList.remove('active');
+
+    if(!spokenText){
+      statusEl.textContent='कोई speech detect नहीं हुई। फिर से Start Test दबाएँ।';
+      stopBtn.disabled=false;
+      finished=false;
+      return;
+    }
+
+    try{
+      const r=await api('/tests/score',{method:'POST',body:JSON.stringify({studentId,chapterId,testType:type,itemId,spokenText})});
+      score.innerHTML=`<h3>Score: ${r.percent}%</h3><p>${r.correct}/${r.total} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><div class="word-result">${renderWords(r.referenceText,r.matched)}</div><p class="muted">Underline/marked words सही match हुए हैं।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
+      document.getElementById('nextButton').onclick=()=>onDone?onDone(r):refresh();
+    }catch(e){
+      statusEl.textContent=e.message||'Test score नहीं हो सका।';
+      stopBtn.disabled=false;
+      finished=false;
+    }
+  };
+
+  rec.onstart=()=>{
+    restarting=false;
+    statusEl.textContent='Listening… बोलते रहें।';
+    dot.classList.add('active');
+    stopBtn.disabled=false;
+  };
+
+  rec.onspeechstart=()=>{
+    statusEl.textContent='आपकी आवाज़ सुनाई दे रही है…';
+    dot.classList.add('active');
+  };
+
+  rec.onspeechend=()=>{
+    if(!stopping)statusEl.textContent='सुन रहा हूँ…';
+  };
+
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=(e.results[i][0]?.transcript||'').trim();
+      if(!t)continue;
+      if(e.results[i].isFinal)finalParts.push(t);
+      else interim+=(interim?' ':'')+t;
+    }
+    interimText=interim;
+    renderLive();
+    if(finalParts.length)statusEl.textContent='Listening…';
+  };
+
+  rec.onerror=e=>{
+    if(finished)return;
+    if(e.error==='aborted')return;
+    if(e.error==='no-speech'){
+      statusEl.textContent='आवाज़ नहीं मिली — बोलते रहें…';
+      return;
+    }
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      statusEl.textContent='Microphone permission बंद है। Chrome में microphone permission Allow करें।';
+      stopping=true;
+      stopBtn.disabled=true;
+      return;
+    }
+    statusEl.textContent='Speech error: '+e.error;
+  };
+
+  rec.onend=()=>{
+    dot.classList.remove('active');
+    if(finished)return;
+    if(stopping){
+      // Give Chrome a moment to deliver the final result before scoring.
+      if(finishTimer)clearTimeout(finishTimer);
+      finishTimer=setTimeout(submitResult,250);
+      return;
+    }
+    // Android Chrome can end recognition after a short silence. Restart it so
+    // the same test keeps listening without creating a second recognizer.
+    if(!restarting){
+      restarting=true;
+      statusEl.textContent='Listening फिर से शुरू हो रहा है…';
+      setTimeout(()=>{
+        if(stopping||finished||recognition!==rec)return;
+        try{rec.start()}catch{restarting=false;}
+      },180);
+    }
+  };
+
+  stopBtn.onclick=()=>{
+    if(finished||stopping)return;
+    stopping=true;
+    stopBtn.disabled=true;
+    statusEl.textContent='Test रोक रहे हैं…';
+    dot.classList.remove('active');
+    try{rec.stop()}catch{submitResult();}
+  };
+
+  try{
+    rec.start();
+  }catch(e){
+    statusEl.textContent='Microphone start failed: '+e.message;
+    stopBtn.disabled=true;
+  }
+}
 function startParagraphTest(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');let index=0;const run=()=>{const p=c.paragraphs[index];speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>{index++;if(index<c.paragraphs.length)run();else showChapterReady(sid,cid)}})};run()}
 function showChapterReady(sid,cid){const c=getChapter(cid);root.innerHTML=`<header><b>${esc(c.name)}</b><button onclick="refresh()">Exit</button></header><main><section class="card"><h2>All Paragraphs Completed</h2><p>अब पूरा chapter test दिया जा सकता है।</p><button onclick="startChapterTest(${sid},${cid})">Start Complete Chapter Test</button></section></main>`}
 function startQaTest(sid,cid){const c=getChapter(cid);if(!c?.qa.length)return alert('No Q&A');let index=0;const run=()=>{const q=c.qa[index];speakTest({studentId:sid,chapterId:cid,type:'qa',itemId:q.id,reference:q.answer,title:`Q&A ${index+1} of ${c.qa.length} — ${q.question}`,onDone:()=>{index++;if(index<c.qa.length)run();else refresh()}})};run()}
