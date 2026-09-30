@@ -85,6 +85,30 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
 
   let finalParts=[];
   let interimText='';
+  let lastFinalText='';
+
+  // Chrome can occasionally repeat/overlap a final recognition chunk, especially
+  // when continuous recognition is restarted after a short pause. Keep only the
+  // new portion so the live transcript and score do not fill with duplicates.
+  const appendFinalChunk=(text)=>{
+    const t=(text||'').trim();
+    if(!t)return;
+    const prev=lastFinalText.trim();
+    if(prev && (t===prev || prev.endsWith(t)))return;
+    let add=t;
+    if(prev){
+      const a=prev.toLocaleLowerCase().split(/\s+/);
+      const b=t.toLocaleLowerCase().split(/\s+/);
+      const max=Math.min(a.length,b.length);
+      let overlap=0;
+      for(let n=max;n>0;n++){
+        if(a.slice(-n).join(' ')===(b.slice(0,n).join(' '))){overlap=n;break;}
+      }
+      if(overlap) add=t.split(/\s+/).slice(overlap).join(' ');
+    }
+    if(add)finalParts.push(add);
+    lastFinalText=t;
+  };
   let stopping=false;
   let finished=false;
   let restarting=false;
@@ -161,7 +185,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     for(let i=e.resultIndex;i<e.results.length;i++){
       const t=(e.results[i][0]?.transcript||'').trim();
       if(!t)continue;
-      if(e.results[i].isFinal)finalParts.push(t);
+      if(e.results[i].isFinal)appendFinalChunk(t);
       else interim+=(interim?' ':'')+t;
     }
     interimText=interim;
