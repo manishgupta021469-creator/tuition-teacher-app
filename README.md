@@ -40,11 +40,15 @@ The Blueprint creates the web service and PostgreSQL database and supplies `DATA
 - On Android Chrome, the app uses the system share sheet to share the generated PDF directly to WhatsApp when file sharing is supported. If file sharing is unavailable, the PDF is downloaded so the teacher can attach it in WhatsApp manually.
 - Nothing is sent automatically when a test finishes.
 
-### Admin account
+### Admin account — OTP only
+Admin login no longer uses a password. Only the exact email in `ADMIN_EMAIL` can log in.
+
 Set these environment variables on Render (or your server):
-- `ADMIN_EMAIL` — the admin login email you choose.
-- `ADMIN_PASSWORD_HASH` — recommended bcrypt hash of the admin password.
-- `ADMIN_PASSWORD` — optional fallback if you do not use a hash.
+- `ADMIN_EMAIL` — your one authorized Admin email address.
+- `RESEND_API_KEY` — email delivery key used to send the OTP.
+- `RESEND_FROM_EMAIL` — verified sender email/domain for OTP delivery.
+
+Admin flow: enter the authorized email → receive a 6-digit OTP by email → enter OTP → Admin Dashboard opens. OTP expires in 10 minutes, is single-use, and is limited to 5 incorrect attempts. A new OTP request is rate-limited to once per 60 seconds. No Admin password is stored or required.
 
 The Admin Login button appears on the normal login screen. Admin can:
 - View all Teacher IDs.
@@ -53,3 +57,10 @@ The Admin Login button appears on the normal login screen. Admin can:
 - Permanently delete a Teacher ID after three confirmations. PostgreSQL foreign-key cascades remove that teacher's students/content/results as designed.
 
 Do not commit real admin passwords or production secrets to GitHub. Use Render Environment Variables.
+
+
+## Admin OTP
+- Authorized Admin email: Manishgupta021469@gmail.com
+- This email may also be registered as a normal Teacher account; Teacher login and Admin OTP login are separate.
+- Admin login uses OTP only; no Admin password is required.
+- For OTP delivery, configure RESEND_API_KEY and RESEND_FROM_EMAIL on the server.

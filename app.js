@@ -14,8 +14,11 @@ function authView(){
   adminLoginBtn.onclick=adminLoginView;
 }
 function adminLoginView(){
-  root.innerHTML=`<main class="center"><section class="card auth-card"><h1>Admin Login</h1><p>Admin account से Teacher IDs manage और dashboard check करें।</p><form id="adminForm"><input id="adminEmail" type="email" placeholder="Admin email" required><input id="adminPassword" type="password" placeholder="Admin password" required><button>Admin Login</button></form><button id="backTeacherLogin" type="button">Back to Teacher Login</button></section></main>`;
-  adminForm.onsubmit=async e=>{e.preventDefault();try{const d=await api('/admin/login',{method:'POST',body:JSON.stringify({email:adminEmail.value,password:adminPassword.value})});token=d.token;localStorage.token=token;adminDashboard()}catch(x){alert(x.message)}};
+  root.innerHTML=`<main class="center"><section class="card auth-card"><h1>Admin Login</h1><p>केवल आपकी authorized Admin email पर OTP भेजा जाएगा। Password की जरूरत नहीं है।</p><form id="adminRequestForm"><input id="adminEmail" type="email" placeholder="Admin email" required><button>Send OTP</button></form><div id="adminOtpBox" style="display:none;margin-top:12px"><input id="adminOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit OTP" required><button id="adminVerifyBtn" type="button">Verify OTP & Login</button><button id="adminResendBtn" type="button">Resend OTP</button></div><button id="backTeacherLogin" type="button">Back to Teacher Login</button></section></main>`;
+  const sendOtp=async()=>{try{const email=adminEmail.value.trim();if(!email)return alert('Admin email डालें।');const r=await api('/admin/request-otp',{method:'POST',body:JSON.stringify({email})});alert(r.message||'OTP sent');adminOtpBox.style.display='block';adminOtp.focus();}catch(x){alert(x.message)}};
+  adminRequestForm.onsubmit=async e=>{e.preventDefault();await sendOtp()};
+  adminVerifyBtn.onclick=async()=>{try{const email=adminEmail.value.trim(),otp=adminOtp.value.trim();if(!otp)return alert('OTP डालें।');const d=await api('/admin/verify-otp',{method:'POST',body:JSON.stringify({email,otp})});token=d.token;localStorage.token=token;adminDashboard()}catch(x){alert(x.message)}};
+  adminResendBtn.onclick=sendOtp;
   backTeacherLogin.onclick=authView;
 }
 async function adminDashboard(){
