@@ -24,8 +24,10 @@ The Blueprint creates the web service and PostgreSQL database and supplies `DATA
 - Password reset email delivery uses the Resend API. On Render, set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` as environment variables. `APP_URL` is optional; if omitted, the current service URL is used.
 - The reset token expires after 30 minutes and is stored only as a SHA-256 hash.
 
-## V8 Speech Stability Fix
-- Recreates the SpeechRecognition instance after browser/Android Chrome ends recognition during pauses instead of trying to restart a stale instance.
+## V12 Speech Stability Restore (Free / No Paid Speech API)
+- Restores the stable browser SpeechRecognition path that was working before the V11 local-speech change.
 - Stop Test immediately detaches and aborts the active recognizer and then submits the final transcript.
 - Handles `no-speech` and `network` interruptions with automatic recovery while preserving the transcript.
+- Does NOT force experimental `processLocally` or contextual `phrases`, because those features can stall on Android Chrome when a local language pack is unavailable.
+- No paid speech API and no OpenAI API key are required.
 - Existing features remain unchanged.

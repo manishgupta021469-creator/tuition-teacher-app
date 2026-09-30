@@ -94,8 +94,6 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   let lastResultAt=0;
   let activeRec=null;
   let startInProgress=false;
-  const speechLang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
-  const refWords=tokenize(reference).map(w=>w.toLocaleLowerCase());
 
   const appendFinalChunk=(text)=>{
     const t=(text||'').trim();
@@ -189,24 +187,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     rec.continuous=true;
     rec.interimResults=true;
     rec.maxAlternatives=1;
-    rec.lang=speechLang;
-
-    // Use free on-device recognition when this browser exposes it.
-    // If the device has no local language pack, silently fall back to the
-    // browser's normal SpeechRecognition service so the test still works.
-    try{
-      if('processLocally' in rec) rec.processLocally=true;
-    }catch{}
-
-    // Contextual biasing is optional/experimental. When supported, lightly
-    // boost words from the current paragraph so school-book vocabulary is
-    // less likely to be misheard. Never depend on this feature.
-    try{
-      if('phrases' in rec && typeof window.SpeechRecognitionPhrase==='function'){
-        const unique=[...new Set(refWords)].filter(w=>w.length>=2).slice(0,120);
-        rec.phrases=unique.map(w=>new window.SpeechRecognitionPhrase(w,2.5));
-      }
-    }catch{}
+    rec.lang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
 
     rec.onstart=()=>{
       startInProgress=false;
@@ -251,18 +232,6 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
         statusEl.textContent='Speech service reconnect हो रही है…';
         scheduleRestart();
         return;
-      }
-      if(e.error==='language-not-supported' || e.error==='service-not-allowed'){
-        // Some browsers expose processLocally but do not have the requested
-        // language pack. Retry once without forcing local recognition.
-        try{
-          if('processLocally' in rec){
-            rec.processLocally=false;
-            statusEl.textContent='Local speech pack उपलब्ध नहीं है — free browser recognition पर जा रहे हैं…';
-            try{rec.stop()}catch{}
-            return;
-          }
-        }catch{}
       }
       if(e.error==='not-allowed'||e.error==='service-not-allowed'){
         statusEl.textContent='Microphone permission बंद है। Chrome में microphone permission Allow करें।';
