@@ -76,7 +76,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     <div class="mic-status"><span id="micDot" class="mic-dot"></span><b id="status">Microphone तैयार हो रहा है…</b></div>
     <button id="stopTest" type="button">⏹ Stop Test</button>
   </div>
-  <div class="live-box"><div class="live-label">Live Speech</div><div id="spokenLive" class="spoken-live">बोलना शुरू करें…</div></div>`;
+  <div class="live-box"><div class="live-label">Live Speech — बोलते ही शब्द यहाँ दिखाई देंगे</div><div id="spokenLive" class="spoken-live">बोलना शुरू करें…</div></div>`;
 
   const statusEl=document.getElementById('status');
   const spokenEl=document.getElementById('spokenLive');
@@ -90,8 +90,12 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   let finished=false;
   let restartTimer=null;
   let submitTimer=null;
+  let restartDelay=80;
+  let lastResultAt=0;
   let activeRec=null;
   let startInProgress=false;
+  const speechLang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
+  const refWords=tokenize(reference).map(w=>w.toLocaleLowerCase());
 
   const appendFinalChunk=(text)=>{
     const t=(text||'').trim();
@@ -167,12 +171,13 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   };
 
   const scheduleRestart=()=>{
-    if(stopping||finished||restartTimer)return;
+    if(stopping||finished||restartTimer||startInProgress)return;
+    const delay=restartDelay;
     restartTimer=setTimeout(()=>{
       restartTimer=null;
       if(stopping||finished)return;
       startRecognizer();
-    },350);
+    },delay);
   };
 
   const startRecognizer=()=>{
@@ -184,10 +189,28 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     rec.continuous=true;
     rec.interimResults=true;
     rec.maxAlternatives=1;
-    rec.lang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
+    rec.lang=speechLang;
+
+    // Use free on-device recognition when this browser exposes it.
+    // If the device has no local language pack, silently fall back to the
+    // browser's normal SpeechRecognition service so the test still works.
+    try{
+      if('processLocally' in rec) rec.processLocally=true;
+    }catch{}
+
+    // Contextual biasing is optional/experimental. When supported, lightly
+    // boost words from the current paragraph so school-book vocabulary is
+    // less likely to be misheard. Never depend on this feature.
+    try{
+      if('phrases' in rec && typeof window.SpeechRecognitionPhrase==='function'){
+        const unique=[...new Set(refWords)].filter(w=>w.length>=2).slice(0,120);
+        rec.phrases=unique.map(w=>new window.SpeechRecognitionPhrase(w,2.5));
+      }
+    }catch{}
 
     rec.onstart=()=>{
       startInProgress=false;
+      restartDelay=80;
       statusEl.textContent='Listening… बोलते रहें।';
       dot.classList.add('active');
       stopBtn.disabled=false;
@@ -211,6 +234,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
         else interim+=(interim?' ':'')+t;
       }
       interimText=interim;
+      lastResultAt=Date.now();
       renderLive();
       if(finalParts.length&&!stopping)statusEl.textContent='Listening…';
     };
@@ -219,12 +243,26 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
       if(finished||stopping)return;
       if(e.error==='aborted')return;
       if(e.error==='no-speech'){
-        statusEl.textContent='कुछ देर चुप रहे हैं — microphone फिर से सुनना शुरू करेगा…';
+        statusEl.textContent='कुछ देर चुप रहे हैं — microphone तुरंत फिर से सुनना शुरू करेगा…';
         return;
       }
       if(e.error==='network'){
+        restartDelay=Math.min(500,Math.max(120,restartDelay*2));
         statusEl.textContent='Speech service reconnect हो रही है…';
+        scheduleRestart();
         return;
+      }
+      if(e.error==='language-not-supported' || e.error==='service-not-allowed'){
+        // Some browsers expose processLocally but do not have the requested
+        // language pack. Retry once without forcing local recognition.
+        try{
+          if('processLocally' in rec){
+            rec.processLocally=false;
+            statusEl.textContent='Local speech pack उपलब्ध नहीं है — free browser recognition पर जा रहे हैं…';
+            try{rec.stop()}catch{}
+            return;
+          }
+        }catch{}
       }
       if(e.error==='not-allowed'||e.error==='service-not-allowed'){
         statusEl.textContent='Microphone permission बंद है। Chrome में microphone permission Allow करें।';
@@ -249,6 +287,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
       recognition=null;
       startInProgress=false;
       statusEl.textContent='Listening फिर से शुरू हो रहा है…';
+      restartDelay=80;
       scheduleRestart();
     };
 
