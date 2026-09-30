@@ -86,10 +86,13 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   let finalParts=[];
   let interimText='';
   let lastFinalText='';
+  let stopping=false;
+  let finished=false;
+  let restartTimer=null;
+  let submitTimer=null;
+  let activeRec=null;
+  let startInProgress=false;
 
-  // Chrome can occasionally repeat/overlap a final recognition chunk, especially
-  // when continuous recognition is restarted after a short pause. Keep only the
-  // new portion so the live transcript and score do not fill with duplicates.
   const appendFinalChunk=(text)=>{
     const t=(text||'').trim();
     if(!t)return;
@@ -101,50 +104,49 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
       const b=t.toLocaleLowerCase().split(/\s+/);
       const max=Math.min(a.length,b.length);
       let overlap=0;
-      for(let n=max;n>0;n++){
-        if(a.slice(-n).join(' ')===(b.slice(0,n).join(' '))){overlap=n;break;}
+      for(let n=max;n>0;n--){
+        if(a.slice(-n).join(' ')===b.slice(0,n).join(' ')){overlap=n;break;}
       }
-      if(overlap) add=t.split(/\s+/).slice(overlap).join(' ');
+      if(overlap)add=t.split(/\s+/).slice(overlap).join(' ');
     }
     if(add)finalParts.push(add);
     lastFinalText=t;
   };
-  let stopping=false;
-  let finished=false;
-  let restarting=false;
-  let finishTimer=null;
-
-  recognition=new SR();
-  const rec=recognition;
-  rec.continuous=true;
-  rec.interimResults=true;
-  rec.maxAlternatives=1;
-
-  // Hindi is selected when the reference contains Devanagari; otherwise Indian English.
-  rec.lang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
 
   const renderLive=()=>{
     const finalText=finalParts.join(' ').trim();
     spokenEl.innerHTML=(esc(finalText)+(interimText?` <span class="interim">${esc(interimText)}</span>`:''))||'बोलना शुरू करें…';
   };
 
-  const cleanup=()=>{
-    if(finishTimer){clearTimeout(finishTimer);finishTimer=null;}
-    try{rec.onend=null;}catch{}
+  const clearTimers=()=>{
+    if(restartTimer){clearTimeout(restartTimer);restartTimer=null;}
+    if(submitTimer){clearTimeout(submitTimer);submitTimer=null;}
+  };
+
+  const disposeRecognizer=(rec)=>{
+    if(!rec)return;
+    try{rec.onstart=null;rec.onspeechstart=null;rec.onspeechend=null;rec.onresult=null;rec.onerror=null;rec.onend=null;}catch{}
     try{rec.stop();}catch{}
     try{rec.abort();}catch{}
-    if(recognition===rec) recognition=null;
+  };
+
+  const cleanup=()=>{
+    clearTimers();
+    const rec=activeRec;
+    activeRec=null;
+    if(recognition===rec||recognition)recognition=null;
+    disposeRecognizer(rec);
     dot.classList.remove('active');
   };
 
   const submitResult=async()=>{
     if(finished)return;
     finished=true;
+    clearTimers();
     const spokenText=finalParts.join(' ').trim();
     cleanup();
     stopBtn.disabled=true;
     statusEl.textContent='Checking…';
-    dot.classList.remove('active');
 
     if(!spokenText){
       statusEl.textContent='कोई speech detect नहीं हुई। फिर से Start Test दबाएँ।';
@@ -164,87 +166,122 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     }
   };
 
-  rec.onstart=()=>{
-    restarting=false;
-    statusEl.textContent='Listening… बोलते रहें।';
-    dot.classList.add('active');
-    stopBtn.disabled=false;
+  const scheduleRestart=()=>{
+    if(stopping||finished||restartTimer)return;
+    restartTimer=setTimeout(()=>{
+      restartTimer=null;
+      if(stopping||finished)return;
+      startRecognizer();
+    },350);
   };
 
-  rec.onspeechstart=()=>{
-    statusEl.textContent='आपकी आवाज़ सुनाई दे रही है…';
-    dot.classList.add('active');
-  };
+  const startRecognizer=()=>{
+    if(stopping||finished||startInProgress)return;
+    startInProgress=true;
+    const rec=new SR();
+    activeRec=rec;
+    recognition=rec;
+    rec.continuous=true;
+    rec.interimResults=true;
+    rec.maxAlternatives=1;
+    rec.lang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
 
-  rec.onspeechend=()=>{
-    if(!stopping)statusEl.textContent='सुन रहा हूँ…';
-  };
+    rec.onstart=()=>{
+      startInProgress=false;
+      statusEl.textContent='Listening… बोलते रहें।';
+      dot.classList.add('active');
+      stopBtn.disabled=false;
+    };
 
-  rec.onresult=e=>{
-    let interim='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      const t=(e.results[i][0]?.transcript||'').trim();
-      if(!t)continue;
-      if(e.results[i].isFinal)appendFinalChunk(t);
-      else interim+=(interim?' ':'')+t;
-    }
-    interimText=interim;
-    renderLive();
-    if(finalParts.length)statusEl.textContent='Listening…';
-  };
+    rec.onspeechstart=()=>{
+      statusEl.textContent='आपकी आवाज़ सुनाई दे रही है…';
+      dot.classList.add('active');
+    };
 
-  rec.onerror=e=>{
-    if(finished)return;
-    if(e.error==='aborted')return;
-    if(e.error==='no-speech'){
-      statusEl.textContent='आवाज़ नहीं मिली — बोलते रहें…';
-      return;
-    }
-    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
-      statusEl.textContent='Microphone permission बंद है। Chrome में microphone permission Allow करें।';
-      stopping=true;
-      stopBtn.disabled=true;
-      return;
-    }
-    statusEl.textContent='Speech error: '+e.error;
-  };
+    rec.onspeechend=()=>{
+      if(!stopping)statusEl.textContent='Listening जारी है…';
+    };
 
-  rec.onend=()=>{
-    dot.classList.remove('active');
-    if(finished)return;
-    if(stopping){
-      // Give Chrome a moment to deliver the final result before scoring.
-      if(finishTimer)clearTimeout(finishTimer);
-      finishTimer=setTimeout(submitResult,250);
-      return;
-    }
-    // Android Chrome can end recognition after a short silence. Restart it so
-    // the same test keeps listening without creating a second recognizer.
-    if(!restarting){
-      restarting=true;
+    rec.onresult=e=>{
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=(e.results[i][0]?.transcript||'').trim();
+        if(!t)continue;
+        if(e.results[i].isFinal)appendFinalChunk(t);
+        else interim+=(interim?' ':'')+t;
+      }
+      interimText=interim;
+      renderLive();
+      if(finalParts.length&&!stopping)statusEl.textContent='Listening…';
+    };
+
+    rec.onerror=e=>{
+      if(finished||stopping)return;
+      if(e.error==='aborted')return;
+      if(e.error==='no-speech'){
+        statusEl.textContent='कुछ देर चुप रहे हैं — microphone फिर से सुनना शुरू करेगा…';
+        return;
+      }
+      if(e.error==='network'){
+        statusEl.textContent='Speech service reconnect हो रही है…';
+        return;
+      }
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+        statusEl.textContent='Microphone permission बंद है। Chrome में microphone permission Allow करें।';
+        stopping=true;
+        stopBtn.disabled=true;
+        return;
+      }
+      statusEl.textContent='Speech error: '+e.error+' — फिर से listening शुरू होगी।';
+    };
+
+    rec.onend=()=>{
+      if(activeRec!==rec)return;
+      dot.classList.remove('active');
+      if(finished)return;
+      if(stopping){
+        activeRec=null;
+        recognition=null;
+        submitTimer=setTimeout(submitResult,350);
+        return;
+      }
+      activeRec=null;
+      recognition=null;
+      startInProgress=false;
       statusEl.textContent='Listening फिर से शुरू हो रहा है…';
-      setTimeout(()=>{
-        if(stopping||finished||recognition!==rec)return;
-        try{rec.start()}catch{restarting=false;}
-      },180);
+      scheduleRestart();
+    };
+
+    try{
+      rec.start();
+    }catch(e){
+      startInProgress=false;
+      if(activeRec===rec){activeRec=null;recognition=null;}
+      if(!stopping&&!finished){
+        statusEl.textContent='Microphone फिर से शुरू हो रहा है…';
+        scheduleRestart();
+      }
     }
   };
 
   stopBtn.onclick=()=>{
     if(finished||stopping)return;
     stopping=true;
+    clearTimers();
     stopBtn.disabled=true;
     statusEl.textContent='Test रोक रहे हैं…';
     dot.classList.remove('active');
-    try{rec.stop()}catch{submitResult();}
+    const rec=activeRec;
+    activeRec=null;
+    recognition=null;
+    if(rec){
+      try{rec.stop();}catch{}
+      try{rec.abort();}catch{}
+    }
+    submitTimer=setTimeout(submitResult,450);
   };
 
-  try{
-    rec.start();
-  }catch(e){
-    statusEl.textContent='Microphone start failed: '+e.message;
-    stopBtn.disabled=true;
-  }
+  startRecognizer();
 }
 function startParagraphTest(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');let index=0;const run=()=>{const p=c.paragraphs[index];speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>{index++;if(index<c.paragraphs.length)run();else showChapterReady(sid,cid)}})};run()}
 function showChapterReady(sid,cid){const c=getChapter(cid);root.innerHTML=`<header><b>${esc(c.name)}</b><button onclick="refresh()">Exit</button></header><main><section class="card"><h2>All Paragraphs Completed</h2><p>अब पूरा chapter test दिया जा सकता है।</p><button onclick="startChapterTest(${sid},${cid})">Start Complete Chapter Test</button></section></main>`}

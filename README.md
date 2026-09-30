@@ -23,3 +23,9 @@ The Blueprint creates the web service and PostgreSQL database and supplies `DATA
 - **Forgot Password** sends a time-limited reset link to the registered email address.
 - Password reset email delivery uses the Resend API. On Render, set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` as environment variables. `APP_URL` is optional; if omitted, the current service URL is used.
 - The reset token expires after 30 minutes and is stored only as a SHA-256 hash.
+
+## V8 Speech Stability Fix
+- Recreates the SpeechRecognition instance after browser/Android Chrome ends recognition during pauses instead of trying to restart a stale instance.
+- Stop Test immediately detaches and aborts the active recognizer and then submits the final transcript.
+- Handles `no-speech` and `network` interruptions with automatic recovery while preserving the transcript.
+- Existing features remain unchanged.
