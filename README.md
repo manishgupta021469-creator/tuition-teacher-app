@@ -31,3 +31,25 @@ The Blueprint creates the web service and PostgreSQL database and supplies `DATA
 - Does NOT force experimental `processLocally` or contextual `phrases`, because those features can stall on Android Chrome when a local language pack is unavailable.
 - No paid speech API and no OpenAI API key are required.
 - Existing features remain unchanged.
+
+## V17 additions: PDF Report + WhatsApp Share + Admin
+- Student page now has **PDF Report + WhatsApp Share**.
+- The PDF includes only paragraphs for which the student has a saved completed paragraph test.
+- For each tested paragraph, the original paragraph is shown first, followed immediately by every saved attempt, score, percentage, PASS/NOT PASS, and the correctly spoken words underlined.
+- The report also shows Subject → Book → Chapter → Paragraph so tested material stays clearly separated.
+- On Android Chrome, the app uses the system share sheet to share the generated PDF directly to WhatsApp when file sharing is supported. If file sharing is unavailable, the PDF is downloaded so the teacher can attach it in WhatsApp manually.
+- Nothing is sent automatically when a test finishes.
+
+### Admin account
+Set these environment variables on Render (or your server):
+- `ADMIN_EMAIL` — the admin login email you choose.
+- `ADMIN_PASSWORD_HASH` — recommended bcrypt hash of the admin password.
+- `ADMIN_PASSWORD` — optional fallback if you do not use a hash.
+
+The Admin Login button appears on the normal login screen. Admin can:
+- View all Teacher IDs.
+- Open any Teacher's dashboard in **Admin Check Mode** to inspect/use the dashboard features.
+- Return to the Admin Dashboard.
+- Permanently delete a Teacher ID after three confirmations. PostgreSQL foreign-key cascades remove that teacher's students/content/results as designed.
+
+Do not commit real admin passwords or production secrets to GitHub. Use Render Environment Variables.

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS students (
   teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   class_name TEXT NOT NULL,
+  phone TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS subjects (
