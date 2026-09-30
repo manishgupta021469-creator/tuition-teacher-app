@@ -64,7 +64,7 @@ async function studentTests(id){const s=state.students.find(x=>x.id===id);const 
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
 function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
 function renderWords(reference,matched){const set=new Set(matched||[]);let i=0;return tokenize(reference).map(w=>{const cls=set.has(i)?'word correct':'word';const html=`<span class="${cls}">${esc(w)}</span>`;i++;return html}).join(' ')}
-function speakTest({studentId,chapterId,type,itemId,reference,title,onDone}){if(recognition){try{recognition.stop()}catch{}};const total=tokenize(reference).length;root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div><p>Start Test दबाने के बाद original text छिप जाएगा। उसके बाद microphone में paragraph/answer बोलें।</p><button id="start">Start Test</button><div id="live"></div><div id="score"></div></section></main>`;exit.onclick=()=>{if(recognition){try{recognition.stop()}catch{}};refresh()};start.onclick=()=>{start.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone})}}
+function speakTest({studentId,chapterId,type,itemId,reference,title,onDone,onCancel}){if(recognition){try{recognition.stop()}catch{}};const total=tokenize(reference).length;root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div><p>Start Test दबाने के बाद original text छिप जाएगा। उसके बाद microphone में paragraph/answer बोलें।</p><button id="start">Start Test</button><div id="live"></div><div id="score"></div></section></main>`;exit.onclick=()=>{if(recognition){try{recognition.stop()}catch{}};refresh()};start.onclick=()=>{start.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone})}}
 function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone}){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){
@@ -74,13 +74,14 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
 
   live.innerHTML=`<div class="mic-panel">
     <div class="mic-status"><span id="micDot" class="mic-dot"></span><b id="status">Microphone तैयार हो रहा है…</b></div>
-    <button id="stopTest" type="button">⏹ Stop Test</button>
+    <div class="test-actions"><button id="stopTest" type="button">⏹ Finish & Score</button><button id="cancelTest" type="button">✖ Cancel Test — No Score</button></div>
   </div>
   <div class="live-box"><div class="live-label">Live Speech — बोलते ही शब्द यहाँ दिखाई देंगे</div><div id="spokenLive" class="spoken-live">बोलना शुरू करें…</div></div>`;
 
   const statusEl=document.getElementById('status');
   const spokenEl=document.getElementById('spokenLive');
   const stopBtn=document.getElementById('stopTest');
+  const cancelBtn=document.getElementById('cancelTest');
   const dot=document.getElementById('micDot');
   const referenceWords=tokenize(reference);
 
@@ -166,6 +167,22 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     recognition=null;
     disposeRecognizer(rec);
     dot.classList.remove('active');
+  };
+
+  const cancelTest=()=>{
+    if(finished)return;
+    finished=true; stopping=true; clearTimers();
+    stopBtn.disabled=true; cancelBtn.disabled=true; statusEl.textContent='Test cancel किया गया — कोई score save नहीं होगा।'; dot.classList.remove('active');
+    const rec=activeRec; activeRec=null; recognition=null;
+    if(rec){try{rec.stop();}catch{} try{rec.abort();}catch{}}
+    cleanup();
+    if(onCancel){
+      score.innerHTML='<h3>Test Cancelled</h3><p>इस attempt का कोई score या history save नहीं हुआ।</p><button id="retrySame" type="button">↻ इसी Paragraph का Test फिर से दें</button> <button id="backAfterCancel" type="button">Back</button>';
+      document.getElementById('retrySame').onclick=()=>onCancel();
+      document.getElementById('backAfterCancel').onclick=()=>refresh();
+    }else{
+      setTimeout(()=>refresh(),150);
+    }
   };
 
   const submitResult=async()=>{
@@ -263,6 +280,8 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     }
   };
 
+  cancelBtn.onclick=cancelTest;
+
   stopBtn.onclick=()=>{
     if(finished||stopping)return;
     stopping=true; clearTimers(); stopBtn.disabled=true; statusEl.textContent='Test रोक रहे हैं…'; dot.classList.remove('active');
@@ -274,7 +293,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   startRecognizer();
 }
 
-function startParagraphTest(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');let index=0;const run=()=>{const p=c.paragraphs[index];speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>{index++;if(index<c.paragraphs.length)run();else showChapterReady(sid,cid)}})};run()}
+function startParagraphTest(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');let index=0;const run=()=>{const p=c.paragraphs[index];const open=()=>speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>{index++;if(index<c.paragraphs.length)run();else showChapterReady(sid,cid)},onCancel:()=>open()});open()};run()}
 function showChapterReady(sid,cid){const c=getChapter(cid);root.innerHTML=`<header><b>${esc(c.name)}</b><button onclick="refresh()">Exit</button></header><main><section class="card"><h2>All Paragraphs Completed</h2><p>अब पूरा chapter test दिया जा सकता है।</p><button onclick="startChapterTest(${sid},${cid})">Start Complete Chapter Test</button></section></main>`}
 function startQaTest(sid,cid){const c=getChapter(cid);if(!c?.qa.length)return alert('No Q&A');let index=0;const run=()=>{const q=c.qa[index];speakTest({studentId:sid,chapterId:cid,type:'qa',itemId:q.id,reference:q.answer,title:`Q&A ${index+1} of ${c.qa.length} — ${q.question}`,onDone:()=>{index++;if(index<c.qa.length)run();else refresh()}})};run()}
 function startChapterTest(sid,cid){const c=getChapter(cid);const reference=c.paragraphs.map(p=>p.text).join(' ');if(!reference)return alert('No paragraph content');speakTest({studentId:sid,chapterId:cid,type:'chapter',reference,title:c.name+' — Complete Chapter Test'})}
