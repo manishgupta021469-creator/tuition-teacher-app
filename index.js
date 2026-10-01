@@ -25,13 +25,11 @@ function gmailConfig(){
 function gmailTransport(){
   const {user,pass}=gmailConfig();
   return nodemailer.createTransport({
-    host:'smtp.gmail.com',
-    port:465,
-    secure:true,
+    service:'gmail',
     auth:{user,pass},
-    connectionTimeout:15000,
-    greetingTimeout:15000,
-    socketTimeout:20000
+    connectionTimeout:20000,
+    greetingTimeout:20000,
+    socketTimeout:30000
   });
 }
 async function sendAdminMail(to,subject,html){
@@ -44,7 +42,7 @@ async function sendGmail(to,subject,html){
 }
 async function getAdmin(){const r=await pool.query('SELECT * FROM admin_account WHERE id=1');return r.rowCount?r.rows[0]:null}
 app.post('/api/admin/login',async(req,res)=>{try{const email=normalizeEmail(req.body.email),password=String(req.body.password||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const a=await getAdmin();if(!a)return res.status(503).json({error:'Admin password is not initialized. Set ADMIN_INITIAL_PASSWORD once in Render and redeploy.'});if(!(await bcrypt.compare(password,a.password_hash)))return res.status(401).json({error:'Incorrect Admin password'});res.json({token:jwt.sign({role:'admin',email:adminEmail()},secret,{expiresIn:'8h'}),admin:{email:adminEmail()}})}catch(e){console.error(e);res.status(500).json({error:'Admin login failed'})}});
-app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});const existing=adminOtps.get(email);if(existing&&Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another code'});const otp=createOtp();adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});await sendAdminMail(email,'Tuition Teacher App - Admin Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Admin Password Reset</h2><p>Your verification code is:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">${otp}</p><p>This code expires in 10 minutes and can be used only once.</p></div>`);res.json({ok:true,message:'Reset code sent to your authorized email. It expires in 10 minutes.'})}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send reset code'})}});
+app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});const existing=adminOtps.get(email);if(existing&&Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another code'});const otp=createOtp();await sendAdminMail(email,'Tuition Teacher App - Admin Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Admin Password Reset</h2><p>Your 6-digit verification code is:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">${otp}</p><p>This code expires in 10 minutes and can be used only once.</p></div>`);adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});res.json({ok:true,message:'Reset code sent to your authorized email. Check Inbox, Spam and Promotions. It expires in 10 minutes.'})}catch(e){console.error('ADMIN_RESET_EMAIL_ERROR',e);res.status(503).json({error:'Gmail reset code could not be sent. Render Gmail settings need to be checked. Server: '+(e.message||'unknown error')})}});
 app.post('/api/admin/reset-password',async(req,res)=>{try{const email=normalizeEmail(req.body.email),otp=String(req.body.otp||'').trim(),newPassword=String(req.body.newPassword||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});if(newPassword.length<6)return res.status(400).json({error:'New password must be at least 6 characters'});const rec=adminOtps.get(email);if(!rec)return res.status(400).json({error:'Reset code not found. Request a new code.'});if(Date.now()>rec.expiresAt){adminOtps.delete(email);return res.status(400).json({error:'Reset code expired. Request a new code.'});}if(rec.attempts>=5){adminOtps.delete(email);return res.status(429).json({error:'Too many incorrect attempts. Request a new code.'});}const h=crypto.createHash('sha256').update(otp).digest('hex');if(h!==rec.hash){rec.attempts++;return res.status(401).json({error:'Incorrect reset code'});}const ph=await bcrypt.hash(newPassword,12);await pool.query(`INSERT INTO admin_account(id,email,password_hash) VALUES(1,$1,$2) ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash,updated_at=NOW()`,[adminEmail(),ph]);adminOtps.delete(email);res.json({ok:true,message:'Admin password reset successfully.'})}catch(e){console.error(e);res.status(500).json({error:'Could not reset Admin password'})}});
 app.get('/api/admin/me',auth,requireAdmin,async(req,res)=>res.json({role:'admin',email:adminEmail()}));
 function words(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}

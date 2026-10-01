@@ -1,29 +1,21 @@
-# Tuition Teacher App — V24
+# Tuition Teacher App V26 — Admin Gmail Reset Fix
 
-Base: V23. Only the requested Admin teacher-management and Gmail password-reset/security features were added. Existing PDF multi-attachment/select-all and other app features are preserved.
+Base: V25. This version fixes the Admin Forgot Password flow without removing existing functions.
 
-## Admin
-- Fixed Admin email: `Manishgupta021469@gmail.com` (or `ADMIN_EMAIL` in Render).
-- Admin can open/check a teacher dashboard.
-- Admin can set a new teacher password.
-- Existing teacher passwords are stored as secure hashes and are **not viewable**, even by Admin.
-- Admin can block/unblock a teacher. A blocked teacher cannot log in.
-- Admin can permanently delete a teacher (existing 3-confirmation flow).
-
-## Gmail password reset
-- Teacher Forgot Password sends a reset link to the teacher's registered email using Gmail SMTP.
-- Admin Forgot Password sends a one-time code to the fixed Admin email using Gmail SMTP.
-- Reset links expire after 30 minutes.
-- Admin reset codes expire after 10 minutes and are single-use.
+## Admin reset fixes
+- Admin reset code input is visible immediately; it is no longer hidden waiting for the email request to succeed.
+- Admin reset code is a 6-digit code sent to `Manishgupta021469@gmail.com`.
+- OTP is stored only after Gmail successfully accepts the email, so a failed send does not leave a unusable code or block the next request.
+- Gmail transport uses Nodemailer's Gmail service configuration for better compatibility on Render.
+- Gmail App Password whitespace is removed automatically.
+- Admin account does not need to exist before the first reset; successful code verification creates/updates the Admin password.
+- Check Gmail Inbox, Spam and Promotions.
 
 ## Render environment variables
-Set these in Render > Environment:
-- `DATABASE_URL`
-- `JWT_SECRET`
+Set these on the Render web service:
 - `ADMIN_EMAIL=Manishgupta021469@gmail.com`
-- `ADMIN_INITIAL_PASSWORD` (only needed the first time if `admin_account` is not initialized)
 - `GMAIL_USER=Manishgupta021469@gmail.com`
 - `GMAIL_APP_PASSWORD=<Google 16-character App Password>`
-- `APP_URL=https://YOUR-APP.onrender.com`
+- `APP_URL=https://tuition-teacher-app.onrender.com`
 
-Do not put the normal Gmail password in `GMAIL_APP_PASSWORD`. Use a Google App Password.
+Do not use the normal Gmail password. Do not share the App Password in chat.
