@@ -46,7 +46,61 @@ app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEm
 app.post('/api/admin/reset-password',async(req,res)=>{try{const email=normalizeEmail(req.body.email),otp=String(req.body.otp||'').trim(),newPassword=String(req.body.newPassword||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});if(newPassword.length<6)return res.status(400).json({error:'New password must be at least 6 characters'});const rec=adminOtps.get(email);if(!rec)return res.status(400).json({error:'Reset code not found. Request a new code.'});if(Date.now()>rec.expiresAt){adminOtps.delete(email);return res.status(400).json({error:'Reset code expired. Request a new code.'});}if(rec.attempts>=5){adminOtps.delete(email);return res.status(429).json({error:'Too many incorrect attempts. Request a new code.'});}const h=crypto.createHash('sha256').update(otp).digest('hex');if(h!==rec.hash){rec.attempts++;return res.status(401).json({error:'Incorrect reset code'});}const ph=await bcrypt.hash(newPassword,12);await pool.query(`INSERT INTO admin_account(id,email,password_hash) VALUES(1,$1,$2) ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash,updated_at=NOW()`,[adminEmail(),ph]);adminOtps.delete(email);res.json({ok:true,message:'Admin password reset successfully.'})}catch(e){console.error(e);res.status(500).json({error:'Could not reset Admin password'})}});
 app.get('/api/admin/me',auth,requireAdmin,async(req,res)=>res.json({role:'admin',email:adminEmail()}));
 function words(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
-function scoreText(reference,spoken){const a=words(reference).map(x=>x.toLocaleLowerCase());const b=words(spoken).map(x=>x.toLocaleLowerCase());const dp=Array.from({length:a.length+1},()=>Array(b.length+1).fill(0));for(let i=a.length-1;i>=0;i--)for(let j=b.length-1;j>=0;j--)dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);let i=0,j=0;const matched=new Set();while(i<a.length&&j<b.length){if(a[i]===b[j]){matched.add(i);i++;j++}else if(dp[i+1][j]>=dp[i][j+1])i++;else j++}return {total:a.length,correct:matched.size,percent:a.length?Math.round(matched.size/a.length*10000)/100:0,matched:[...matched]}}
+function scriptOf(w){return /[\u0900-\u097F]/u.test(w)?'hi':'en'}
+function devanagariToLatin(input){
+  const s=String(input||'').normalize('NFKC').replace(/़/g,'');
+  const map={
+    'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au',
+    'क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'ny',
+    'ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n',
+    'प':'p','फ':'f','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h',
+    'ड़':'r','ढ़':'rh','क़':'q','ख़':'kh','ग़':'gh','ज़':'z','फ़':'f','य़':'y','ल़':'l','श़':'sh',
+    'ँ':'n','ं':'n','ः':'h','ऽ':'a','्':'','़':''
+  };
+  const vowel={'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o','ो':'o'};
+  let out='';
+  for(let i=0;i<s.length;i++){
+    const ch=s[i];
+    if(vowel[ch]){out+=vowel[ch];continue}
+    if(ch==='्'){continue}
+    out+=map[ch]??ch;
+  }
+  return out.toLowerCase();
+}
+function romanize(w){return /[\u0900-\u097F]/u.test(w)?devanagariToLatin(w):String(w||'').toLowerCase();}
+function phoneticKey(w){
+  let x=romanize(w).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g,'');
+  if(!x)return '';
+  x=x.replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o');
+  x=x.replace(/([a-z])\1+/g,'$1');
+  return x;
+}
+function editSimilarity(a,b){
+  if(a===b)return 1;if(!a||!b)return 0;
+  const A=[...a],B=[...b];let prev=Array(B.length+1).fill(0).map((_,j)=>j);
+  for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}
+  const d=prev[B.length];return 1-d/Math.max(A.length,B.length);
+}
+function tokenSimilarity(a,b){
+  const aa=romanize(a),bb=romanize(b);if(aa===bb)return 1;
+  const pa=phoneticKey(a),pb=phoneticKey(b);if(pa&&pa===pb)return 0.94;
+  const sim=editSimilarity(aa,bb);
+  if(sim>=0.84 && Math.min(aa.length,bb.length)>=3)return sim;
+  return 0;
+}
+function scoreText(reference,spoken){
+  const a=words(reference),b=words(spoken);const n=a.length,m=b.length;
+  const dp=Array.from({length:n+1},()=>Array(m+1).fill(0));const take=Array.from({length:n+1},()=>Array(m+1).fill(false));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--){
+    const sim=tokenSimilarity(a[i],b[j]);
+    const match=sim>=0.84?dp[i+1][j+1]+sim: -1;
+    const skipRef=dp[i+1][j],skipSpoken=dp[i][j+1];
+    if(match>=skipRef && match>=skipSpoken && sim>=0.84){dp[i][j]=match;take[i][j]=true;}else dp[i][j]=Math.max(skipRef,skipSpoken);
+  }
+  let i=0,j=0;const matched=new Set();let quality=0;
+  while(i<n&&j<m){const sim=tokenSimilarity(a[i],b[j]);if(take[i][j]&&sim>=0.84){matched.add(i);quality+=sim;i++;j++;}else if(dp[i+1][j]>=dp[i][j+1])i++;else j++;}
+  const correct=matched.size;return {total:n,correct,percent:n?Math.round(correct/n*10000)/100:0,matched:[...matched],matchQuality:n?Math.round(quality/n*10000)/100:0};
+}
 app.post('/api/admin/request-otp',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const existing=adminOtps.get(email);if(existing && existing.lastSentAt && Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another OTP'});const otp=createAdminOtp();adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});await sendAdminOtpEmail(email,otp);res.json({ok:true,message:'OTP sent to your authorized email. It expires in 10 minutes.'});}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send Admin OTP'})}});
 app.post('/api/admin/verify-otp',async(req,res)=>{try{const email=normalizeEmail(req.body.email);const otp=String(req.body.otp||'').trim();if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const record=adminOtps.get(email);if(!record)return res.status(400).json({error:'OTP not found. Please request a new OTP.'});if(Date.now()>record.expiresAt){adminOtps.delete(email);return res.status(400).json({error:'OTP expired. Please request a new OTP.'});}if(record.attempts>=5){adminOtps.delete(email);return res.status(429).json({error:'Too many incorrect OTP attempts. Please request a new OTP.'});}const hash=crypto.createHash('sha256').update(otp).digest('hex');if(hash!==record.hash){record.attempts++;return res.status(401).json({error:'Incorrect OTP'});}adminOtps.delete(email);res.json({token:jwt.sign({role:'admin',email},secret,{expiresIn:'8h'}),admin:{email}});}catch(e){console.error(e);res.status(500).json({error:'Admin OTP verification failed'})}});
 app.get('/api/admin/teachers',auth,requireAdmin,async(req,res)=>{const r=await pool.query(`SELECT t.id,t.name,t.email,t.created_at,t.is_blocked,COUNT(DISTINCT s.id)::int student_count,COUNT(DISTINCT tr.id)::int test_count FROM teachers t LEFT JOIN students s ON s.teacher_id=t.id LEFT JOIN test_results tr ON tr.teacher_id=t.id GROUP BY t.id ORDER BY t.created_at DESC`);res.json(r.rows)});

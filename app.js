@@ -149,6 +149,8 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   const cancelBtn=document.getElementById('cancelTest');
   const dot=document.getElementById('micDot');
   const referenceWords=tokenize(reference);
+  const hasHindi=referenceWords.some(w=>/[\u0900-\u097F]/u.test(w));
+  const hasEnglish=referenceWords.some(w=>/[A-Za-z]/u.test(w));
 
   let finalParts=[];
   let interimText='';
@@ -164,6 +166,11 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
 
   const normWord=w=>(w||'').toLocaleLowerCase().replace(/[“”‘’'".,!?;:()[\]{}]/g,'');
   const words=s=>tokenize(s).map(normWord);
+  const devMap={'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au','क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'ny','ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n','प':'p','फ':'f','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h','ड़':'r','ढ़':'rh','़':'','ँ':'n','ं':'n','ः':'h','्':''};
+  const devV={'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o'};
+  const romanize=w=>{let out='';for(const ch of String(w||'').normalize('NFKC'))out+=devV[ch]||devMap[ch]||ch;return out.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g,'')};
+  const phonetic=w=>romanize(w).replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o').replace(/([a-z])\1+/g,'$1');
+  const sim=(x,y)=>{x=romanize(x);y=romanize(y);if(x===y)return 1;const px=phonetic(x),py=phonetic(y);if(px&&px===py)return .94;const A=[...x],B=[...y];if(!A.length||!B.length)return 0;let prev=Array(B.length+1).fill(0).map((_,j)=>j);for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}const score=1-prev[B.length]/Math.max(A.length,B.length);return score>=.84&&Math.min(A.length,B.length)>=3?score:0};
   const overlapScore=(a,b)=>{
     const A=words(a),B=words(b); if(!A.length||!B.length)return 0;
     let best=0; const max=Math.min(8,A.length,B.length);
@@ -172,14 +179,11 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   };
   const similarityToReference=(text)=>{
     const a=words(text); if(!a.length)return 0;
-    // Compare against the next part of the stored reference, allowing small
-    // recognition drift. This is only used to choose among browser alternatives.
-    const used=finalParts.join(' ');
-    const pos=words(used).length;
-    const target=referenceWords.slice(Math.max(0,pos-2),Math.min(referenceWords.length,pos+a.length+8)).map(normWord);
+    const used=finalParts.join(' '); const pos=words(used).length;
+    const target=referenceWords.slice(Math.max(0,pos-3),Math.min(referenceWords.length,pos+a.length+10));
     let hits=0;
-    for(const w of a){ if(target.includes(w))hits++; }
-    return hits*3 - Math.max(0,a.length-hits)*0.15;
+    for(const w of a){let best=0;for(const t of target)best=Math.max(best,sim(w,t));if(best>=.84)hits+=best;}
+    return hits*3-Math.max(0,a.length-hits)*.15;
   };
 
   const chooseBestAlternative=(result)=>{
@@ -284,7 +288,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     rec.continuous=true;
     rec.interimResults=true;
     rec.maxAlternatives=5;
-    rec.lang=/[\u0900-\u097F]/.test(reference)?'hi-IN':'en-IN';
+    rec.lang=hasHindi?'hi-IN':'en-IN';
 
     rec.onstart=()=>{
       startInProgress=false; restartDelay=20;
