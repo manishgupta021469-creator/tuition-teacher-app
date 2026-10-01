@@ -12,9 +12,36 @@ const ADMIN_EMAIL_FALLBACK='Manishgupta021469@gmail.com';
 function adminEmail(){return normalizeEmail(process.env.ADMIN_EMAIL||ADMIN_EMAIL_FALLBACK)}
 function isAdminEmail(email){return normalizeEmail(email)===adminEmail()}
 function createOtp(){return String(crypto.randomInt(100000,1000000))}
-function gmailTransport(){const user=process.env.GMAIL_USER||adminEmail();const pass=process.env.GMAIL_APP_PASSWORD;if(!pass)throw new Error('Gmail OTP is not configured. Set GMAIL_APP_PASSWORD in Render.');return nodemailer.createTransport({service:'gmail',auth:{user,pass}})}
-async function sendAdminMail(to,subject,html){const user=process.env.GMAIL_USER||adminEmail();await gmailTransport().sendMail({from:user,to,subject,html})}
-async function sendGmail(to,subject,html){const user=process.env.GMAIL_USER||adminEmail();await gmailTransport().sendMail({from:user,to,subject,html})}
+function gmailConfig(){
+  const user=String(process.env.GMAIL_USER||adminEmail()).trim();
+  // Google displays App Passwords with spaces; remove all whitespace so both
+  // pasted formats (xxxx xxxx xxxx xxxx and xxxxxxxxxxxxxxxx) work.
+  const pass=String(process.env.GMAIL_APP_PASSWORD||'').replace(/\s/g,'');
+  if(!user)throw new Error('GMAIL_USER is not configured in Render.');
+  if(!pass)throw new Error('Gmail is not configured. Set GMAIL_APP_PASSWORD in Render.');
+  if(pass.length!==16)throw new Error('GMAIL_APP_PASSWORD must be the 16-character Google App Password (spaces are optional).');
+  return {user,pass};
+}
+function gmailTransport(){
+  const {user,pass}=gmailConfig();
+  return nodemailer.createTransport({
+    host:'smtp.gmail.com',
+    port:465,
+    secure:true,
+    auth:{user,pass},
+    connectionTimeout:15000,
+    greetingTimeout:15000,
+    socketTimeout:20000
+  });
+}
+async function sendAdminMail(to,subject,html){
+  const {user}=gmailConfig();
+  return gmailTransport().sendMail({from:`Tuition Teacher App <${user}>`,to,subject,html});
+}
+async function sendGmail(to,subject,html){
+  const {user}=gmailConfig();
+  return gmailTransport().sendMail({from:`Tuition Teacher App <${user}>`,to,subject,html});
+}
 async function getAdmin(){const r=await pool.query('SELECT * FROM admin_account WHERE id=1');return r.rowCount?r.rows[0]:null}
 app.post('/api/admin/login',async(req,res)=>{try{const email=normalizeEmail(req.body.email),password=String(req.body.password||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const a=await getAdmin();if(!a)return res.status(503).json({error:'Admin password is not initialized. Set ADMIN_INITIAL_PASSWORD once in Render and redeploy.'});if(!(await bcrypt.compare(password,a.password_hash)))return res.status(401).json({error:'Incorrect Admin password'});res.json({token:jwt.sign({role:'admin',email:adminEmail()},secret,{expiresIn:'8h'}),admin:{email:adminEmail()}})}catch(e){console.error(e);res.status(500).json({error:'Admin login failed'})}});
 app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});const existing=adminOtps.get(email);if(existing&&Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another code'});const otp=createOtp();adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});await sendAdminMail(email,'Tuition Teacher App - Admin Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Admin Password Reset</h2><p>Your verification code is:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">${otp}</p><p>This code expires in 10 minutes and can be used only once.</p></div>`);res.json({ok:true,message:'Reset code sent to your authorized email. It expires in 10 minutes.'})}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send reset code'})}});
