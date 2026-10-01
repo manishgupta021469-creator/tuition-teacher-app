@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS teachers (
   password_hash TEXT NOT NULL,
   reset_token_hash TEXT,
   reset_token_expires_at TIMESTAMPTZ,
+  is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS students (

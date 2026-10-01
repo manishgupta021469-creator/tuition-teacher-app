@@ -1,24 +1,29 @@
-# Tuition Teacher App V21
+# Tuition Teacher App — V24
 
-Based on V20. This version keeps the existing app features and changes only Teacher **Forgot Password** email delivery to use Gmail SMTP, so a separate Resend account/domain is not required.
-
-## Render environment variables
-
-Set:
-- `GMAIL_USER` = `Manishgupta021469@gmail.com` (or the Gmail account used to send app emails)
-- `GMAIL_APP_PASSWORD` = the 16-character Google App Password for that Gmail account
-- `ADMIN_EMAIL` = `Manishgupta021469@gmail.com`
-- `ADMIN_INITIAL_PASSWORD` = your initial Admin password (only needed if the admin account has not yet been initialized)
-- `JWT_SECRET` = a long random secret
-- `DATABASE_URL` = your existing Render PostgreSQL connection string
-- `APP_URL` = your Render app URL (recommended)
-
-Do NOT put the normal Gmail password in Render. Use a Google App Password.
-
-## Teacher Forgot Password
-
-Teacher enters the registered email, receives a reset link at that email, and the link expires after 30 minutes. No paid email API or custom domain is required.
+Base: V23. Only the requested Admin teacher-management and Gmail password-reset/security features were added. Existing PDF multi-attachment/select-all and other app features are preserved.
 
 ## Admin
+- Fixed Admin email: `Manishgupta021469@gmail.com` (or `ADMIN_EMAIL` in Render).
+- Admin can open/check a teacher dashboard.
+- Admin can set a new teacher password.
+- Existing teacher passwords are stored as secure hashes and are **not viewable**, even by Admin.
+- Admin can block/unblock a teacher. A blocked teacher cannot log in.
+- Admin can permanently delete a teacher (existing 3-confirmation flow).
 
-Only `Manishgupta021469@gmail.com` is authorized as Admin. Admin uses the configured Admin password and can reset it through the Gmail OTP flow. Other existing teacher/student/test/speech/PDF/WhatsApp functions are retained.
+## Gmail password reset
+- Teacher Forgot Password sends a reset link to the teacher's registered email using Gmail SMTP.
+- Admin Forgot Password sends a one-time code to the fixed Admin email using Gmail SMTP.
+- Reset links expire after 30 minutes.
+- Admin reset codes expire after 10 minutes and are single-use.
+
+## Render environment variables
+Set these in Render > Environment:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `ADMIN_EMAIL=Manishgupta021469@gmail.com`
+- `ADMIN_INITIAL_PASSWORD` (only needed the first time if `admin_account` is not initialized)
+- `GMAIL_USER=Manishgupta021469@gmail.com`
+- `GMAIL_APP_PASSWORD=<Google 16-character App Password>`
+- `APP_URL=https://YOUR-APP.onrender.com`
+
+Do not put the normal Gmail password in `GMAIL_APP_PASSWORD`. Use a Google App Password.
