@@ -1,4 +1,4 @@
-# Tuition Teacher App — V29
+# Tuition Teacher App — V31
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
 - Admin 6-digit password-reset code
@@ -41,3 +41,7 @@ The scoring layer is intentionally conservative: small pronunciation/transcripti
 V29 adds only Progressive Web App installation support. Existing API, database, login, teacher/student features, tests, speech matching, PDF, WhatsApp and Gmail reset flow are unchanged.
 
 On Android Chrome, open the Render app URL, then use Chrome menu -> Add to Home screen / Install app. The installed app opens in a standalone app-style window with the Easyway Learn name and icon.
+
+
+## V31 Manual underline and score correction
+V31 preserves existing features and adds manual correction after a test is scored. Tap a word to toggle its underline, then select **Save manual underline and recalculate score**. The updated matched word indexes, word count, percentage, and PASS/NOT PASS are saved to that same attempt. The student/teacher can also open an older attempt from history and correct its underline where its original text is available. No new attempt is created, and canceled tests remain unsaved. The PWA cache name is bumped to V31 so updated assets can refresh.
