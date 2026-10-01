@@ -1,21 +1,31 @@
-# Tuition Teacher App V26 — Admin Gmail Reset Fix
+# Tuition Teacher App — V27
 
-Base: V25. This version fixes the Admin Forgot Password flow without removing existing functions.
+V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
+- Admin 6-digit password-reset code
+- Teacher 30-minute password-reset link
 
-## Admin reset fixes
-- Admin reset code input is visible immediately; it is no longer hidden waiting for the email request to succeed.
-- Admin reset code is a 6-digit code sent to `Manishgupta021469@gmail.com`.
-- OTP is stored only after Gmail successfully accepts the email, so a failed send does not leave a unusable code or block the next request.
-- Gmail transport uses Nodemailer's Gmail service configuration for better compatibility on Render.
-- Gmail App Password whitespace is removed automatically.
-- Admin account does not need to exist before the first reset; successful code verification creates/updates the Admin password.
-- Check Gmail Inbox, Spam and Promotions.
+## Why V27 changes email delivery
+Render Free blocks outbound SMTP traffic on ports 25, 465 and 587. V27 therefore sends the email request over normal HTTPS to a free Google Apps Script Web App, and that script sends the email through the Gmail account that owns/authorizes the script.
+
+## One-time Google Apps Script setup
+1. Open Google Apps Script while signed in to the Gmail account that should send the app emails.
+2. Create a new project.
+3. Open `google-apps-script/Code.gs` from this ZIP and copy its full code into the Apps Script editor.
+4. Replace `CHANGE_THIS_TO_A_LONG_RANDOM_SECRET` with a long random secret. Keep it private.
+5. Save the project.
+6. Click **Deploy → New deployment**.
+7. Select **Web app**.
+8. **Execute as:** Me.
+9. **Who has access:** Anyone.
+10. Deploy and authorize the requested Gmail permissions.
+11. Copy the Web App URL ending in `/exec`.
 
 ## Render environment variables
-Set these on the Render web service:
-- `ADMIN_EMAIL=Manishgupta021469@gmail.com`
-- `GMAIL_USER=Manishgupta021469@gmail.com`
-- `GMAIL_APP_PASSWORD=<Google 16-character App Password>`
-- `APP_URL=https://tuition-teacher-app.onrender.com`
+In the existing Render service, add:
+- `GMAIL_WEBHOOK_URL` = the Apps Script `/exec` URL
+- `GMAIL_WEBHOOK_SECRET` = exactly the same secret used in `Code.gs`
 
-Do not use the normal Gmail password. Do not share the App Password in chat.
+The old `GMAIL_APP_PASSWORD` is no longer used by V27 and can be removed. No paid email API is required.
+
+## Important
+Do NOT delete the existing `tuition-db` database. Update only the existing app code in the GitHub repository and let the existing Render service redeploy.

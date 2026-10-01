@@ -14,9 +14,9 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
-      - key: RESEND_API_KEY
+      - key: GMAIL_WEBHOOK_URL
         sync: false
-      - key: RESEND_FROM_EMAIL
+      - key: GMAIL_WEBHOOK_SECRET
         sync: false
       - key: APP_URL
         value: https://tuition-teacher-app.onrender.com

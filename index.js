@@ -1,4 +1,4 @@
-const express=require('express');const cors=require('cors');const path=require('path');const fs=require('fs');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const {Pool}=require('pg');const crypto=require('crypto');const nodemailer=require('nodemailer');require('dotenv').config();
+const express=require('express');const cors=require('cors');const path=require('path');const fs=require('fs');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const {Pool}=require('pg');const crypto=require('crypto');require('dotenv').config();
 const app=express();app.use(cors());app.use(express.json({limit:'2mb'}));app.use(express.static(__dirname));
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:false});
 async function init(){const sql=fs.readFileSync(path.join(__dirname,'schema.sql'),'utf8');await pool.query(sql);await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS reset_token_hash TEXT; ALTER TABLE teachers ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ; ALTER TABLE teachers ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE test_results ADD COLUMN IF NOT EXISTS reference_text TEXT; ALTER TABLE test_results ADD COLUMN IF NOT EXISTS matched_word_indexes JSONB DEFAULT '[]'::jsonb; ALTER TABLE students ADD COLUMN IF NOT EXISTS phone TEXT`);await pool.query(`CREATE TABLE IF NOT EXISTS admin_account (id INTEGER PRIMARY KEY CHECK (id=1), email TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);const email=normalizeEmail(process.env.ADMIN_EMAIL||ADMIN_EMAIL_FALLBACK);const initial=process.env.ADMIN_INITIAL_PASSWORD||'';const ar=await pool.query('SELECT id FROM admin_account WHERE id=1');if(!ar.rowCount && initial){const h=await bcrypt.hash(initial,12);await pool.query('INSERT INTO admin_account(id,email,password_hash) VALUES(1,$1,$2)',[email,h]);}}
@@ -13,36 +13,36 @@ function adminEmail(){return normalizeEmail(process.env.ADMIN_EMAIL||ADMIN_EMAIL
 function isAdminEmail(email){return normalizeEmail(email)===adminEmail()}
 function createOtp(){return String(crypto.randomInt(100000,1000000))}
 function gmailConfig(){
-  const user=String(process.env.GMAIL_USER||adminEmail()).trim();
-  // Google displays App Passwords with spaces; remove all whitespace so both
-  // pasted formats (xxxx xxxx xxxx xxxx and xxxxxxxxxxxxxxxx) work.
-  const pass=String(process.env.GMAIL_APP_PASSWORD||'').replace(/\s/g,'');
-  if(!user)throw new Error('GMAIL_USER is not configured in Render.');
-  if(!pass)throw new Error('Gmail is not configured. Set GMAIL_APP_PASSWORD in Render.');
-  if(pass.length!==16)throw new Error('GMAIL_APP_PASSWORD must be the 16-character Google App Password (spaces are optional).');
-  return {user,pass};
-}
-function gmailTransport(){
-  const {user,pass}=gmailConfig();
-  return nodemailer.createTransport({
-    service:'gmail',
-    auth:{user,pass},
-    connectionTimeout:20000,
-    greetingTimeout:20000,
-    socketTimeout:30000
-  });
-}
-async function sendAdminMail(to,subject,html){
-  const {user}=gmailConfig();
-  return gmailTransport().sendMail({from:`Tuition Teacher App <${user}>`,to,subject,html});
+  const url=String(process.env.GMAIL_WEBHOOK_URL||'').trim();
+  const secret=String(process.env.GMAIL_WEBHOOK_SECRET||'').trim();
+  if(!url)throw new Error('Gmail HTTP email service is not configured. Set GMAIL_WEBHOOK_URL in Render.');
+  if(!secret)throw new Error('Gmail HTTP email service is not configured. Set GMAIL_WEBHOOK_SECRET in Render.');
+  return {url,secret};
 }
 async function sendGmail(to,subject,html){
-  const {user}=gmailConfig();
-  return gmailTransport().sendMail({from:`Tuition Teacher App <${user}>`,to,subject,html});
+  const {url,secret}=gmailConfig();
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),20000);
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret,to,subject,html}),signal:controller.signal});
+    const raw=await r.text();
+    let data={};
+    try{data=JSON.parse(raw||'{}')}catch{}
+    if(!r.ok || data.ok!==true){
+      throw new Error(data.error||`Gmail HTTP email service returned HTTP ${r.status}`);
+    }
+    return data;
+  }catch(e){
+    if(e.name==='AbortError')throw new Error('Gmail HTTP email service timed out after 20 seconds. Check the Apps Script Web App URL and deployment.');
+    throw e;
+  }finally{clearTimeout(timer)}
+}
+async function sendAdminMail(to,subject,html){
+  return sendGmail(to,subject,html);
 }
 async function getAdmin(){const r=await pool.query('SELECT * FROM admin_account WHERE id=1');return r.rowCount?r.rows[0]:null}
 app.post('/api/admin/login',async(req,res)=>{try{const email=normalizeEmail(req.body.email),password=String(req.body.password||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const a=await getAdmin();if(!a)return res.status(503).json({error:'Admin password is not initialized. Set ADMIN_INITIAL_PASSWORD once in Render and redeploy.'});if(!(await bcrypt.compare(password,a.password_hash)))return res.status(401).json({error:'Incorrect Admin password'});res.json({token:jwt.sign({role:'admin',email:adminEmail()},secret,{expiresIn:'8h'}),admin:{email:adminEmail()}})}catch(e){console.error(e);res.status(500).json({error:'Admin login failed'})}});
-app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});const existing=adminOtps.get(email);if(existing&&Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another code'});const otp=createOtp();await sendAdminMail(email,'Tuition Teacher App - Admin Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Admin Password Reset</h2><p>Your 6-digit verification code is:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">${otp}</p><p>This code expires in 10 minutes and can be used only once.</p></div>`);adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});res.json({ok:true,message:'Reset code sent to your authorized email. Check Inbox, Spam and Promotions. It expires in 10 minutes.'})}catch(e){console.error('ADMIN_RESET_EMAIL_ERROR',e);res.status(503).json({error:'Gmail reset code could not be sent. Render Gmail settings need to be checked. Server: '+(e.message||'unknown error')})}});
+app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});const existing=adminOtps.get(email);if(existing&&Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another code'});const otp=createOtp();await sendAdminMail(email,'Tuition Teacher App - Admin Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Admin Password Reset</h2><p>Your 6-digit verification code is:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">${otp}</p><p>This code expires in 10 minutes and can be used only once.</p></div>`);adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});res.json({ok:true,message:'Reset code sent to your authorized email. Check Inbox, Spam and Promotions. It expires in 10 minutes.'})}catch(e){console.error('ADMIN_RESET_EMAIL_ERROR',e);res.status(503).json({error:'Gmail reset code could not be sent. Check the Gmail HTTP email service settings in Render. Server: '+(e.message||'unknown error')})}});
 app.post('/api/admin/reset-password',async(req,res)=>{try{const email=normalizeEmail(req.body.email),otp=String(req.body.otp||'').trim(),newPassword=String(req.body.newPassword||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});if(newPassword.length<6)return res.status(400).json({error:'New password must be at least 6 characters'});const rec=adminOtps.get(email);if(!rec)return res.status(400).json({error:'Reset code not found. Request a new code.'});if(Date.now()>rec.expiresAt){adminOtps.delete(email);return res.status(400).json({error:'Reset code expired. Request a new code.'});}if(rec.attempts>=5){adminOtps.delete(email);return res.status(429).json({error:'Too many incorrect attempts. Request a new code.'});}const h=crypto.createHash('sha256').update(otp).digest('hex');if(h!==rec.hash){rec.attempts++;return res.status(401).json({error:'Incorrect reset code'});}const ph=await bcrypt.hash(newPassword,12);await pool.query(`INSERT INTO admin_account(id,email,password_hash) VALUES(1,$1,$2) ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash,updated_at=NOW()`,[adminEmail(),ph]);adminOtps.delete(email);res.json({ok:true,message:'Admin password reset successfully.'})}catch(e){console.error(e);res.status(500).json({error:'Could not reset Admin password'})}});
 app.get('/api/admin/me',auth,requireAdmin,async(req,res)=>res.json({role:'admin',email:adminEmail()}));
 function words(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
@@ -58,19 +58,7 @@ app.delete('/api/admin/teachers/:id',auth,requireAdmin,async(req,res)=>{const id
 app.post('/api/auth/register',async(req,res)=>{try{const{name,email,password}=req.body;if(!name||!email||!password)return res.status(400).json({error:'Name, email and password are required'});const hash=await bcrypt.hash(password,12);const r=await pool.query('INSERT INTO teachers(name,email,password_hash) VALUES($1,$2,$3) RETURNING id,name,email',[name,email.toLowerCase(),hash]);const t=r.rows[0];res.json({token:jwt.sign({id:t.id},secret,{expiresIn:'30d'}),teacher:t})}catch(e){res.status(400).json({error:e.code==='23505'?'Email already registered':'Registration failed'})}});
 app.post('/api/auth/login',async(req,res)=>{const{email,password}=req.body;const r=await pool.query('SELECT * FROM teachers WHERE email=$1',[String(email||'').toLowerCase()]);if(!r.rowCount)return res.status(401).json({error:'Invalid login'});const t=r.rows[0];if(t.is_blocked)return res.status(403).json({error:'Your Teacher ID is blocked by Admin. Please contact the Admin.'});if(!(await bcrypt.compare(password||'',t.password_hash)))return res.status(401).json({error:'Invalid login'});res.json({token:jwt.sign({id:t.id},secret,{expiresIn:'30d'}),teacher:{id:t.id,name:t.name,email:t.email}})});
 app.post('/api/auth/change-password',auth,async(req,res)=>{try{const{currentPassword,newPassword}=req.body;if(!currentPassword||!newPassword||String(newPassword).length<6)return res.status(400).json({error:'Current password and a new password of at least 6 characters are required'});const r=await pool.query('SELECT password_hash FROM teachers WHERE id=$1',[req.user.id]);if(!r.rowCount||!(await bcrypt.compare(currentPassword,r.rows[0].password_hash)))return res.status(400).json({error:'Current password is incorrect'});const hash=await bcrypt.hash(newPassword,12);await pool.query('UPDATE teachers SET password_hash=$1 WHERE id=$2',[hash,req.user.id]);res.json({ok:true,message:'Password changed successfully'})}catch(e){console.error(e);res.status(500).json({error:'Could not change password'})}});
-async function sendResetEmail(to,resetUrl){
-  const user=process.env.GMAIL_USER||adminEmail();
-  const pass=process.env.GMAIL_APP_PASSWORD;
-  if(!pass)throw new Error('Password reset email is not configured on the server. Set GMAIL_APP_PASSWORD in Render.');
-  const transporter=gmailTransport();
-  await transporter.sendMail({
-    from:user,
-    to,
-    subject:'Tuition Teacher App - Reset Password',
-    html:`<p>You requested a password reset for your Tuition Teacher account.</p><p><a href=\"${resetUrl}\">Reset your password</a></p><p>This link expires in 30 minutes. If you did not request this, you can ignore this email.</p>`
-  });
-}
-app.post('/api/auth/forgot-password',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!email)return res.status(400).json({error:'Email is required'});const r=await pool.query('SELECT id,email,name FROM teachers WHERE email=$1',[email]);if(!r.rowCount)return res.json({message:'If this email is registered, a reset link has been sent.'});const token=crypto.randomBytes(32).toString('hex');const hash=crypto.createHash('sha256').update(token).digest('hex');await pool.query("UPDATE teachers SET reset_token_hash=$1,reset_token_expires_at=NOW()+INTERVAL '30 minutes' WHERE id=$2",[hash,r.rows[0].id]);const base=process.env.APP_URL||`${req.protocol}://${req.get('host')}`;const link=`${base}/?reset=${token}`;await sendGmail(email,'Tuition Teacher App - Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Password Reset</h2><p>Hello ${String(r.rows[0].name||'Teacher').replace(/[<>&"']/g,'')}</p><p>Click the button below to create a new password. This link expires in 30 minutes.</p><p><a href="${link}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;text-decoration:none;border-radius:6px">Reset Password</a></p><p>If you did not request this, you can ignore this email.</p></div>`);res.json({message:'Password reset link has been sent to your registered email. The link expires in 30 minutes.'})}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send password reset email. Set GMAIL_APP_PASSWORD in Render.'})}});
+app.post('/api/auth/forgot-password',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!email)return res.status(400).json({error:'Email is required'});const r=await pool.query('SELECT id,email,name FROM teachers WHERE email=$1',[email]);if(!r.rowCount)return res.json({message:'If this email is registered, a reset link has been sent.'});const token=crypto.randomBytes(32).toString('hex');const hash=crypto.createHash('sha256').update(token).digest('hex');await pool.query("UPDATE teachers SET reset_token_hash=$1,reset_token_expires_at=NOW()+INTERVAL '30 minutes' WHERE id=$2",[hash,r.rows[0].id]);const base=process.env.APP_URL||`${req.protocol}://${req.get('host')}`;const link=`${base}/?reset=${token}`;await sendGmail(email,'Tuition Teacher App - Password Reset',`<div style="font-family:Arial,sans-serif"><h2>Password Reset</h2><p>Hello ${String(r.rows[0].name||'Teacher').replace(/[<>&"']/g,'')}</p><p>Click the button below to create a new password. This link expires in 30 minutes.</p><p><a href="${link}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;text-decoration:none;border-radius:6px">Reset Password</a></p><p>If you did not request this, you can ignore this email.</p></div>`);res.json({message:'Password reset link has been sent to your registered email. The link expires in 30 minutes.'})}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send password reset email. Check GMAIL_WEBHOOK_URL and GMAIL_WEBHOOK_SECRET in Render.'})}});
 app.post('/api/auth/reset-password',async(req,res)=>{try{const{token,newPassword}=req.body;if(!token||!newPassword||String(newPassword).length<6)return res.status(400).json({error:'Reset link and a new password of at least 6 characters are required'});const hash=crypto.createHash('sha256').update(String(token)).digest('hex');const r=await pool.query('SELECT id FROM teachers WHERE reset_token_hash=$1 AND reset_token_expires_at>NOW()',[hash]);if(!r.rowCount)return res.status(400).json({error:'Reset link is invalid or expired'});const pass=await bcrypt.hash(newPassword,12);await pool.query('UPDATE teachers SET password_hash=$1,reset_token_hash=NULL,reset_token_expires_at=NULL WHERE id=$2',[pass,r.rows[0].id]);res.json({ok:true,message:'Password reset successfully. You can now login.'})}catch(e){console.error(e);res.status(500).json({error:'Could not reset password'})}});
 app.get('/api/me',auth,async(req,res)=>{const r=await pool.query('SELECT id,name,email FROM teachers WHERE id=$1',[req.user.id]);res.json(r.rows[0])});
 app.get('/api/students',auth,async(req,res)=>{const r=await pool.query('SELECT * FROM students WHERE teacher_id=$1 ORDER BY name',[req.user.id]);res.json(r.rows)});
