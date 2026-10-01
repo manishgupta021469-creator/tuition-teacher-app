@@ -170,7 +170,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   const devV={'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o'};
   const romanize=w=>{let out='';for(const ch of String(w||'').normalize('NFKC'))out+=devV[ch]||devMap[ch]||ch;return out.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g,'')};
   const phonetic=w=>romanize(w).replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o').replace(/([a-z])\1+/g,'$1');
-  const sim=(x,y)=>{x=romanize(x);y=romanize(y);if(x===y)return 1;const px=phonetic(x),py=phonetic(y);if(px&&px===py)return .94;const A=[...x],B=[...y];if(!A.length||!B.length)return 0;let prev=Array(B.length+1).fill(0).map((_,j)=>j);for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}const score=1-prev[B.length]/Math.max(A.length,B.length);return score>=.84&&Math.min(A.length,B.length)>=3?score:0};
+  const sim=(x,y)=>{x=romanize(x);y=romanize(y);if(x===y)return 1;const px=phonetic(x),py=phonetic(y);if(px&&px===py)return .94;const A=[...x],B=[...y];if(!A.length||!B.length)return 0;let prev=Array(B.length+1).fill(0).map((_,j)=>j);for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}const score=1-prev[B.length]/Math.max(A.length,B.length);return score>=.82&&Math.min(A.length,B.length)>=4?score:0};
   const overlapScore=(a,b)=>{
     const A=words(a),B=words(b); if(!A.length||!B.length)return 0;
     let best=0; const max=Math.min(8,A.length,B.length);
@@ -182,8 +182,22 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     const used=finalParts.join(' '); const pos=words(used).length;
     const target=referenceWords.slice(Math.max(0,pos-3),Math.min(referenceWords.length,pos+a.length+10));
     let hits=0;
-    for(const w of a){let best=0;for(const t of target)best=Math.max(best,sim(w,t));if(best>=.84)hits+=best;}
+    for(const w of a){let best=0;for(const t of target)best=Math.max(best,sim(w,t));if(best>=.82)hits+=best;}
     return hits*3-Math.max(0,a.length-hits)*.15;
+  };
+
+  // Select the recognition language from the next words, so mixed Hindi/English
+  // paragraphs can switch language when Chrome naturally restarts its short sessions.
+  const languageForNextWords=()=>{
+    const pos=words(finalParts.join(' ')).length;
+    const upcoming=referenceWords.slice(pos,Math.min(referenceWords.length,pos+12));
+    let hindi=0,english=0;
+    for(const w of upcoming){
+      if(/[\u0900-\u097F]/u.test(w))hindi++;
+      else if(/[A-Za-z]/u.test(w))english++;
+    }
+    if(hindi===0&&english===0)return hasHindi?'hi-IN':'en-IN';
+    return hindi>=english?'hi-IN':'en-IN';
   };
 
   const chooseBestAlternative=(result)=>{
@@ -288,7 +302,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     rec.continuous=true;
     rec.interimResults=true;
     rec.maxAlternatives=5;
-    rec.lang=hasHindi?'hi-IN':'en-IN';
+    rec.lang=languageForNextWords();
 
     rec.onstart=()=>{
       startInProgress=false; restartDelay=20;

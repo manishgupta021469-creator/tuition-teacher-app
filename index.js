@@ -85,7 +85,7 @@ function tokenSimilarity(a,b){
   const aa=romanize(a),bb=romanize(b);if(aa===bb)return 1;
   const pa=phoneticKey(a),pb=phoneticKey(b);if(pa&&pa===pb)return 0.94;
   const sim=editSimilarity(aa,bb);
-  if(sim>=0.84 && Math.min(aa.length,bb.length)>=3)return sim;
+  if(sim>=0.82 && Math.min(aa.length,bb.length)>=4)return sim;
   return 0;
 }
 function scoreText(reference,spoken){
@@ -93,12 +93,12 @@ function scoreText(reference,spoken){
   const dp=Array.from({length:n+1},()=>Array(m+1).fill(0));const take=Array.from({length:n+1},()=>Array(m+1).fill(false));
   for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--){
     const sim=tokenSimilarity(a[i],b[j]);
-    const match=sim>=0.84?dp[i+1][j+1]+sim: -1;
+    const match=sim>=0.82?dp[i+1][j+1]+sim: -1;
     const skipRef=dp[i+1][j],skipSpoken=dp[i][j+1];
-    if(match>=skipRef && match>=skipSpoken && sim>=0.84){dp[i][j]=match;take[i][j]=true;}else dp[i][j]=Math.max(skipRef,skipSpoken);
+    if(match>=skipRef && match>=skipSpoken && sim>=0.82){dp[i][j]=match;take[i][j]=true;}else dp[i][j]=Math.max(skipRef,skipSpoken);
   }
   let i=0,j=0;const matched=new Set();let quality=0;
-  while(i<n&&j<m){const sim=tokenSimilarity(a[i],b[j]);if(take[i][j]&&sim>=0.84){matched.add(i);quality+=sim;i++;j++;}else if(dp[i+1][j]>=dp[i][j+1])i++;else j++;}
+  while(i<n&&j<m){const sim=tokenSimilarity(a[i],b[j]);if(take[i][j]&&sim>=0.82){matched.add(i);quality+=sim;i++;j++;}else if(dp[i+1][j]>=dp[i][j+1])i++;else j++;}
   const correct=matched.size;return {total:n,correct,percent:n?Math.round(correct/n*10000)/100:0,matched:[...matched],matchQuality:n?Math.round(quality/n*10000)/100:0};
 }
 app.post('/api/admin/request-otp',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const existing=adminOtps.get(email);if(existing && existing.lastSentAt && Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another OTP'});const otp=createAdminOtp();adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});await sendAdminOtpEmail(email,otp);res.json({ok:true,message:'OTP sent to your authorized email. It expires in 10 minutes.'});}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send Admin OTP'})}});

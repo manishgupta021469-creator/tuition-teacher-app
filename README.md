@@ -1,4 +1,4 @@
-# Tuition Teacher App — V28
+# Tuition Teacher App — V29
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
 - Admin 6-digit password-reset code
@@ -35,3 +35,9 @@ Do NOT delete the existing `tuition-db` database. Update only the existing app c
 V28 keeps all V27 features unchanged and only improves the speech-test layer. It adds language-aware matching for Hindi + English paragraphs, pronunciation-tolerant word matching, Devanagari/Latin cross-script matching, and more tolerant selection of browser speech alternatives. The existing free browser SpeechRecognition engine remains the capture engine; no paid AI speech API or subscription is required.
 
 The scoring layer is intentionally conservative: small pronunciation/transcription differences can match, while unrelated words are still treated as incorrect.
+
+
+## V29 PWA install
+V29 adds only Progressive Web App installation support. Existing API, database, login, teacher/student features, tests, speech matching, PDF, WhatsApp and Gmail reset flow are unchanged.
+
+On Android Chrome, open the Render app URL, then use Chrome menu -> Add to Home screen / Install app. The installed app opens in a standalone app-style window with the Easyway Learn name and icon.
