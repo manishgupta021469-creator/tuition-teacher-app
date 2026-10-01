@@ -70,3 +70,11 @@ CREATE INDEX IF NOT EXISTS idx_books_subject ON books(subject_id);
 CREATE INDEX IF NOT EXISTS idx_chapters_book ON chapters(book_id);
 CREATE INDEX IF NOT EXISTS idx_paragraphs_chapter ON paragraphs(chapter_id);
 CREATE INDEX IF NOT EXISTS idx_results_teacher ON test_results(teacher_id);
+
+CREATE TABLE IF NOT EXISTS admin_account (
+  id INTEGER PRIMARY KEY CHECK (id=1),
+  email TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

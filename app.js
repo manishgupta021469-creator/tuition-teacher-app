@@ -14,12 +14,18 @@ function authView(){
   adminLoginBtn.onclick=adminLoginView;
 }
 function adminLoginView(){
-  root.innerHTML=`<main class="center"><section class="card auth-card"><h1>Admin Login</h1><p>केवल आपकी authorized Admin email पर OTP भेजा जाएगा। Password की जरूरत नहीं है।</p><form id="adminRequestForm"><input id="adminEmail" type="email" placeholder="Admin email" required><button>Send OTP</button></form><div id="adminOtpBox" style="display:none;margin-top:12px"><input id="adminOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit OTP" required><button id="adminVerifyBtn" type="button">Verify OTP & Login</button><button id="adminResendBtn" type="button">Resend OTP</button></div><button id="backTeacherLogin" type="button">Back to Teacher Login</button></section></main>`;
-  const sendOtp=async()=>{try{const email=adminEmail.value.trim();if(!email)return alert('Admin email डालें।');const r=await api('/admin/request-otp',{method:'POST',body:JSON.stringify({email})});alert(r.message||'OTP sent');adminOtpBox.style.display='block';adminOtp.focus();}catch(x){alert(x.message)}};
-  adminRequestForm.onsubmit=async e=>{e.preventDefault();await sendOtp()};
-  adminVerifyBtn.onclick=async()=>{try{const email=adminEmail.value.trim(),otp=adminOtp.value.trim();if(!otp)return alert('OTP डालें।');const d=await api('/admin/verify-otp',{method:'POST',body:JSON.stringify({email,otp})});token=d.token;localStorage.token=token;adminDashboard()}catch(x){alert(x.message)}};
-  adminResendBtn.onclick=sendOtp;
+  root.innerHTML=`<main class="center"><section class="card auth-card"><h1>Admin Login</h1><p>केवल <b>Manishgupta021469@gmail.com</b> से Admin Login किया जा सकता है।</p><form id="adminLoginForm"><input id="adminEmail" type="email" value="Manishgupta021469@gmail.com" readonly><input id="adminPassword" type="password" placeholder="Admin Password" required><button>Login</button></form><button id="adminForgotBtn" type="button">Forgot Password?</button><button id="backTeacherLogin" type="button">Back to Teacher Login</button></section></main>`;
+  adminLoginForm.onsubmit=async e=>{e.preventDefault();try{const d=await api('/admin/login',{method:'POST',body:JSON.stringify({email:adminEmail.value,password:adminPassword.value})});token=d.token;localStorage.token=token;adminDashboard()}catch(x){alert(x.message)}};
+  adminForgotBtn.onclick=adminForgotPasswordView;
   backTeacherLogin.onclick=authView;
+}
+function adminForgotPasswordView(){
+  root.innerHTML=`<main class="center"><section class="card auth-card"><h1>Admin Forgot Password</h1><p>Reset code केवल आपकी authorized Admin email <b>Manishgupta021469@gmail.com</b> पर भेजा जाएगा।</p><form id="adminResetRequestForm"><input id="resetAdminEmail" type="email" value="Manishgupta021469@gmail.com" readonly><button>Send Reset Code</button></form><div id="adminResetBox" style="display:none;margin-top:12px"><input id="adminResetOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit reset code"><input id="adminNewPassword" type="password" minlength="6" placeholder="New Admin Password (minimum 6 characters)"><input id="adminConfirmPassword" type="password" minlength="6" placeholder="Confirm new password"><button id="adminResetBtn" type="button">Set New Password</button><button id="adminResendResetBtn" type="button">Resend Code</button></div><button id="adminBackLogin" type="button">Back to Admin Login</button></section></main>`;
+  const send=async()=>{try{const r=await api('/admin/request-reset',{method:'POST',body:JSON.stringify({email:resetAdminEmail.value})});alert(r.message||'Reset code sent.');adminResetBox.style.display='block';adminResetOtp.focus()}catch(x){alert(x.message)}};
+  adminResetRequestForm.onsubmit=async e=>{e.preventDefault();await send()};
+  adminResendResetBtn.onclick=send;
+  adminResetBtn.onclick=async()=>{if(adminNewPassword.value!==adminConfirmPassword.value)return alert('दोनों passwords समान होने चाहिए।');try{const r=await api('/admin/reset-password',{method:'POST',body:JSON.stringify({email:resetAdminEmail.value,otp:adminResetOtp.value,newPassword:adminNewPassword.value})});alert(r.message||'Password reset successfully.');adminLoginView()}catch(x){alert(x.message)}};
+  adminBackLogin.onclick=adminLoginView;
 }
 async function adminDashboard(){
   try{const d=await api('/admin/me');if(d.role!=='admin')throw Error('Admin session required');const teachers=await api('/admin/teachers');
@@ -91,14 +97,14 @@ async function studentTests(id){
   const historyHtml=attempts.length?attempts.map(r=>`<div class="attempt-row"><div><b>Attempt ${r.attempt_no}</b> — ${esc(r.test_type==='paragraph'?'Paragraph':r.test_type==='qa'?'Q&A':'Complete Chapter')} ${r.chapter_name?`— ${esc(r.chapter_name)}`:''}${r.paragraph_position?` · Paragraph ${r.paragraph_position}`:''}</div><span>${Number(r.score_percent).toFixed(2)}%</span><button onclick="showAttemptResult(${r.id})">Open Attempt</button></div>`).join(''):'<p class="muted">अभी कोई attempt नहीं है। Test देने के बाद यहाँ history दिखाई देगी।</p>';
   window.__attempts=attempts;
   root.innerHTML=`<header><b>${esc(s.name)} — Class ${esc(s.class_name)}</b><button onclick="refresh()">Back</button></header><main>
-  <section class="card"><h2>Student WhatsApp</h2><p>${s.phone?`Saved number: <b>${esc(s.phone)}</b>`:'अभी WhatsApp number saved नहीं है।'}</p><button id="setPhone">${s.phone?'Change WhatsApp Number':'Save WhatsApp Number'}</button>${s.phone?`<button id="sendWhatsappReport" type="button">📱 WhatsApp Text Report भेजें</button><button id="makePdfReport" type="button">📄 PDF Report + WhatsApp Share</button><small class="muted">Teacher जब चाहे report भेज सकता है। PDF में केवल tested paragraphs और उनके सभी saved attempts आएंगे। Test खत्म होते ही कुछ अपने-आप नहीं भेजा जाएगा।</small>`:'<small class="muted">पहले student का WhatsApp number save करें। फिर जब चाहें report भेज सकते हैं।</small>'}</section>
+  <section class="card"><h2>Student WhatsApp</h2><p>${s.phone?`Saved number: <b>${esc(s.phone)}</b>`:'अभी WhatsApp number saved नहीं है।'}</p><button id="setPhone">${s.phone?'Change WhatsApp Number':'Save WhatsApp Number'}</button>${s.phone?`<button id="sendWhatsappReport" type="button">📱 WhatsApp Text Report भेजें</button><button id="makePdfReport" type="button">📄 PDF Attachments चुनकर भेजें</button><small class="muted">Test खत्म होते ही कुछ अपने-आप नहीं भेजा जाएगा। नीचे से जितने tested paragraph PDF attachments चाहें select करके भेज सकते हैं, या सभी भेज सकते हैं।</small>`:'<small class="muted">पहले student का WhatsApp number save करें। फिर जब चाहें report भेज सकते हैं।</small>'}</section>
   <section class="card"><h2>Select Test</h2>${chapters.map(c=>`<div class="testrow"><b>${esc(c.name)}</b><span>${c.paragraphs.length} paragraphs · ${c.qa.length} Q&A</span><button onclick="selectParagraph(${id},${c.id})" ${c.paragraphs.length?'':'disabled'}>Choose Paragraph</button><button onclick="startQaTest(${id},${c.id})" ${c.qa.length?'':'disabled'}>Q&A Test</button><button onclick="startChapterTest(${id},${c.id})" ${c.paragraphs.length?'':'disabled'}>Complete Chapter</button></div>`).join('')||'<p>No chapters yet.</p>'}</section>
   <section class="card"><h2>Attempt History</h2>${historyHtml}</section></main>`;
   document.getElementById('setPhone').onclick=async()=>{const phone=prompt('WhatsApp number country code सहित (जैसे 919876543210)',s.phone||'');if(phone===null)return;try{const updated=await api('/students/'+id+'/phone',{method:'PUT',body:JSON.stringify({phone})});s.phone=updated.phone||null;studentTests(id)}catch(e){alert(e.message)}};
   const sendReportBtn=document.getElementById('sendWhatsappReport');
   if(sendReportBtn)sendReportBtn.onclick=()=>openWhatsAppStudentReport(id,attempts);
   const pdfBtn=document.getElementById('makePdfReport');
-  if(pdfBtn)pdfBtn.onclick=()=>generateStudentPdfReport(id,attempts);
+  if(pdfBtn)pdfBtn.onclick=()=>studentPdfAttachmentManager(id,attempts);
 }
 function selectParagraph(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');root.innerHTML=`<header><b>${esc(c.name)} — Paragraph Test</b><button onclick="studentTests(${sid})">Back</button></header><main><section class="card"><h2>किस paragraph का test देना है?</h2><p class="muted">कोई भी paragraph चुनें। किसी क्रम की बाध्यता नहीं है।</p>${c.paragraphs.map((p,i)=>`<div class="testrow"><b>Paragraph ${i+1}</b><span>${tokenize(p.text).length} words</span><button onclick="startSelectedParagraphTest(${sid},${cid},${p.id},${i})">Start Test</button></div>`).join('')}</section></main>`}
 function startSelectedParagraphTest(sid,cid,pid,index){const c=getChapter(cid);const p=c?.paragraphs.find(x=>x.id===pid);if(!p)return alert('Paragraph not found');const open=()=>speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>studentTests(sid),onCancel:()=>open()});open()}
@@ -350,14 +356,53 @@ function openWhatsAppStudentReport(studentId,attempts){
   for(const arr of groups.values()){const r=arr[0],c=byChapter.get(r.chapter_id),p=c?.paragraphs?.find(x=>x.id===r.item_id);if(!p)continue;lines.push(`=== ${c?.subjectName||'Subject'} → ${c?.bookName||'Book'} → ${c?.name||'Chapter'} → Paragraph ${r.paragraph_position||''} ===`);lines.push((arr[0].reference_text||p.text||''));arr.forEach((a,i)=>{const correct=getCorrectWords(a.reference_text||p.text,a.matched_word_indexes||a.matched||[]);lines.push(`Attempt ${i+1}: ${Number(a.score_percent).toFixed(2)}% | ${a.correct_words}/${a.total_words} | ${a.passed?'PASS':'NOT PASS'}`);lines.push(`Correct words: ${correct.join(' ')||'(none)'}`)});lines.push('');}
   const full=lines.join('\n');const parts=[];const max=5000;for(let i=0;i<full.length;i+=max)parts.push(full.slice(i,i+max));if(parts.length>1&&!confirm(`Report ${parts.length} WhatsApp messages में खुलेगा। हर message को WhatsApp में Send करना होगा। आगे बढ़ें?`))return;openWhatsAppPart(st.phone,parts,0);
 }
-async function generateStudentPdfReport(studentId,attempts){
-  const st=state.students.find(x=>x.id===studentId);if(!st)return;const pa=attempts.filter(r=>r.test_type==='paragraph'&&r.item_id);if(!pa.length)return alert('इस student ने अभी किसी paragraph का completed test नहीं दिया है। पहले कम-से-कम एक paragraph test पूरा करें।');if(typeof html2pdf==='undefined')return alert('PDF module अभी load नहीं हुआ। Internet चालू करके page दोबारा खोलें।');
-  const chapters=state.content.flatMap(sub=>sub.books.flatMap(book=>book.chapters.map(c=>({...c,subjectName:sub.name,bookName:book.name}))));const byChapter=new Map(chapters.map(c=>[c.id,c]));const groups=new Map();pa.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(r=>{const k=`${r.chapter_id}:${r.item_id}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)});
-  const sections=[];for(const arr of groups.values()){const r=arr[0],c=byChapter.get(r.chapter_id),p=c?.paragraphs?.find(x=>x.id===r.item_id);if(!p)continue;sections.push(`<section class="pdf-section"><h2>${esc(c?.subjectName||'Subject')} → ${esc(c?.bookName||'Book')} → ${esc(c?.name||'Chapter')} → Paragraph ${esc(r.paragraph_position||'')}</h2><h3>Original Paragraph</h3><p class="pdf-original">${esc(arr[0].reference_text||p.text||'')}</p><h3>Test Attempts</h3>${arr.map((a,i)=>{const ref=a.reference_text||p.text||'';return `<div class="pdf-attempt"><h4>Attempt ${i+1}</h4><p><b>Score:</b> ${Number(a.score_percent).toFixed(2)}% &nbsp; <b>Words:</b> ${a.correct_words}/${a.total_words} &nbsp; <b>Result:</b> ${a.passed?'PASS':'NOT PASS'}</p><div class="pdf-words">${renderWords(ref,a.matched_word_indexes||a.matched||[])}</div></div>`}).join('')}</section>`)}
-  if(!sections.length)return alert('Tested paragraph का material उपलब्ध नहीं मिला।');const wrap=document.createElement('div');wrap.id='pdfReportTemp';wrap.innerHTML=`<div class="pdf-report"><h1>Tuition Student Test Report</h1><p><b>Student:</b> ${esc(st.name)}<br><b>Class:</b> ${esc(st.class_name||'')}</p>${sections.join('')}</div>`;Object.assign(wrap.style,{position:'fixed',left:'-100000px',top:'0',width:'794px',background:'#fff',zIndex:'-1'});document.body.appendChild(wrap);
-  try{const safe=String(st.name||'Student').replace(/[^a-z0-9_-]+/gi,'_');const opt={margin:12,filename:`${safe}-Test-Report.pdf`,image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};const blob=await html2pdf().set(opt).from(wrap).outputPdf('blob');const file=new File([blob],opt.filename,{type:'application/pdf'});
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Student Test Report',text:`${st.name} की test PDF report`});}else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=opt.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);alert('PDF तैयार हो गई है और download शुरू हो गया है। इसे WhatsApp में attach करके भेजें।');}
-  }catch(e){if(e?.name!=='AbortError')alert('PDF बनाने/Share करने में समस्या हुई: '+e.message)}finally{wrap.remove()}
+function getStudentParagraphPdfGroups(attempts){
+  const chapters=state.content.flatMap(sub=>sub.books.flatMap(book=>book.chapters.map(c=>({...c,subjectName:sub.name,bookName:book.name}))));
+  const byChapter=new Map(chapters.map(c=>[c.id,c]));
+  const pa=attempts.filter(r=>r.test_type==='paragraph'&&r.item_id);
+  const groups=new Map();
+  pa.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(r=>{const k=`${r.chapter_id}:${r.item_id}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)});
+  return [...groups.values()].map(arr=>{const r=arr[0],c=byChapter.get(r.chapter_id),p=c?.paragraphs?.find(x=>x.id===r.item_id);return p?{key:`${r.chapter_id}:${r.item_id}`,arr,c,p}:null}).filter(Boolean);
+}
+function studentPdfAttachmentManager(studentId,attempts){
+  const st=state.students.find(x=>x.id===studentId);if(!st)return;
+  const groups=getStudentParagraphPdfGroups(attempts);
+  if(!groups.length)return alert('इस student ने अभी किसी paragraph का completed test नहीं दिया है। पहले कम-से-कम एक paragraph test पूरा करें।');
+  root.innerHTML=`<header><b>PDF Attachments — ${esc(st.name)}</b><button onclick="studentTests(${studentId})">Back</button></header><main><section class="card"><h2>PDF Attachments चुनें</h2><p class="muted">हर tested paragraph की अलग PDF attachment बनेगी। जितनी चाहें select करें, या सभी select करके एक साथ Share करें। PDF में उस paragraph का original text और उसके सभी saved attempts होंगे।</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button id="selectAllPdf" type="button">Select All</button><button id="clearAllPdf" type="button">Clear All</button><button id="sendSelectedPdf" type="button">📎 Selected PDF भेजें</button><button id="sendAllPdf" type="button">📚 सभी PDF भेजें</button></div><div id="pdfAttachmentList">${groups.map((g,i)=>`<label class="student-row" style="display:flex;align-items:center;gap:10px;cursor:pointer"><input class="pdf-select" type="checkbox" value="${esc(g.key)}"><div><b>${i+1}. ${esc(g.subjectName||'Subject')} → ${esc(g.bookName||'Book')} → ${esc(g.c.name||'Chapter')} → Paragraph ${esc(g.arr[0].paragraph_position||'')}</b><br><small>${g.arr.length} saved attempt${g.arr.length===1?'':'s'}</small></div></label>`).join('')}</div></section></main>`;
+  const boxes=()=>[...document.querySelectorAll('.pdf-select')];
+  document.getElementById('selectAllPdf').onclick=()=>boxes().forEach(x=>x.checked=true);
+  document.getElementById('clearAllPdf').onclick=()=>boxes().forEach(x=>x.checked=false);
+  document.getElementById('sendSelectedPdf').onclick=()=>shareStudentPdfAttachments(studentId,attempts,boxes().filter(x=>x.checked).map(x=>x.value));
+  document.getElementById('sendAllPdf').onclick=()=>shareStudentPdfAttachments(studentId,attempts,groups.map(g=>g.key));
+}
+async function createStudentParagraphPdfFile(st,group){
+  const {arr,c,p}=group;
+  const safeBase=String(st.name||'Student').replace(/[^a-z0-9_-]+/gi,'_')||'Student';
+  const pos=String(arr[0].paragraph_position||'').replace(/[^a-z0-9_-]+/gi,'_')||String(arr[0].item_id);
+  const filename=`${safeBase}-Paragraph-${pos}-Test-Report.pdf`;
+  const wrap=document.createElement('div');wrap.id='pdfReportTemp';wrap.innerHTML=`<div class="pdf-report"><h1>Tuition Student Test Report</h1><p><b>Student:</b> ${esc(st.name)}<br><b>Class:</b> ${esc(st.class_name||'')}</p><section class="pdf-section"><h2>${esc(c?.subjectName||'Subject')} → ${esc(c?.bookName||'Book')} → ${esc(c?.name||'Chapter')} → Paragraph ${esc(arr[0].paragraph_position||'')}</h2><h3>Original Paragraph</h3><p class="pdf-original">${esc(arr[0].reference_text||p.text||'')}</p><h3>Test Attempts</h3>${arr.map((a,i)=>{const ref=a.reference_text||p.text||'';return `<div class="pdf-attempt"><h4>Attempt ${i+1}</h4><p><b>Score:</b> ${Number(a.score_percent).toFixed(2)}% &nbsp; <b>Words:</b> ${a.correct_words}/${a.total_words} &nbsp; <b>Result:</b> ${a.passed?'PASS':'NOT PASS'}</p><div class="pdf-words">${renderWords(ref,a.matched_word_indexes||a.matched||[])}</div></div>`}).join('')}</section></div>`;
+  Object.assign(wrap.style,{position:'absolute',left:'0px',top:'0px',width:'794px',background:'#fff',color:'#111',zIndex:'2147483647',pointerEvents:'none'});document.body.appendChild(wrap);
+  try{
+    if(document.fonts&&document.fonts.ready)await document.fonts.ready;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+    const opt={margin:12,filename,image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,windowWidth:794},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
+    const blob=await html2pdf().set(opt).from(wrap.querySelector('.pdf-report')).outputPdf('blob');
+    return new File([blob],filename,{type:'application/pdf'});
+  }finally{wrap.remove()}
+}
+async function shareStudentPdfAttachments(studentId,attempts,keys){
+  const st=state.students.find(x=>x.id===studentId);if(!st)return;
+  if(typeof html2pdf==='undefined')return alert('PDF module अभी load नहीं हुआ। Internet चालू करके page दोबारा खोलें।');
+  const allGroups=getStudentParagraphPdfGroups(attempts);const wanted=new Set(keys);const groups=allGroups.filter(g=>wanted.has(g.key));
+  if(!groups.length)return alert('कम-से-कम एक PDF attachment select करें।');
+  if(!confirm(`${groups.length} PDF attachment तैयार करके Share करना है?`))return;
+  try{
+    const files=[];for(const g of groups)files.push(await createStudentParagraphPdfFile(st,g));
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files})){await navigator.share({files,title:'Student Test PDF Reports',text:`${st.name} की ${files.length} test PDF report attachment${files.length===1?'':'s'}`});}
+    else{
+      for(const file of files){const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);await new Promise(r=>setTimeout(r,300));}
+      alert(`${files.length} PDF तैयार हो गई हैं और download शुरू हो गया है। इन्हें WhatsApp में एक साथ attach करके भेजें।`);
+    }
+  }catch(e){if(e?.name!=='AbortError')alert('PDF बनाने/Share करने में समस्या हुई: '+e.message)}
 }
 function openWhatsAppPart(phone,parts,index){
   const msg=parts[index];

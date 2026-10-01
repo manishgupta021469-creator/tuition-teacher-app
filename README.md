@@ -1,66 +1,24 @@
-# Tuition Teacher App
+# Tuition Teacher App V21
 
-GitHub/Render-ready mobile-friendly tuition teacher web app.
+Based on V20. This version keeps the existing app features and changes only Teacher **Forgot Password** email delivery to use Gmail SMTP, so a separate Resend account/domain is not required.
 
-## Important upload layout
-All required runtime files are intentionally in the repository root so they can be uploaded from an Android phone without losing folder structure:
+## Render environment variables
 
-- `index.js` — Node/Express server
-- `index.html`, `app.js`, `app.css` — web app
-- `schema.sql` — PostgreSQL schema
-- `package.json` — dependencies/start command
-- `render.yaml` — Render Blueprint
+Set:
+- `GMAIL_USER` = `Manishgupta021469@gmail.com` (or the Gmail account used to send app emails)
+- `GMAIL_APP_PASSWORD` = the 16-character Google App Password for that Gmail account
+- `ADMIN_EMAIL` = `Manishgupta021469@gmail.com`
+- `ADMIN_INITIAL_PASSWORD` = your initial Admin password (only needed if the admin account has not yet been initialized)
+- `JWT_SECRET` = a long random secret
+- `DATABASE_URL` = your existing Render PostgreSQL connection string
+- `APP_URL` = your Render app URL (recommended)
 
-## Render
-Use the repository root as the service Root Directory (leave it blank). Render will run `npm install` and `node index.js`.
+Do NOT put the normal Gmail password in Render. Use a Google App Password.
 
-The Blueprint creates the web service and PostgreSQL database and supplies `DATABASE_URL`, `JWT_SECRET`, and `NODE_ENV`.
+## Teacher Forgot Password
 
+Teacher enters the registered email, receives a reset link at that email, and the link expires after 30 minutes. No paid email API or custom domain is required.
 
-## Teacher account security
-- After creating a Teacher ID, the dashboard shows a clear **Teacher ID created successfully** confirmation.
-- A logged-in teacher can use **Change Password** from the dashboard.
-- **Forgot Password** sends a time-limited reset link to the registered email address.
-- Password reset email delivery uses the Resend API. On Render, set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` as environment variables. `APP_URL` is optional; if omitted, the current service URL is used.
-- The reset token expires after 30 minutes and is stored only as a SHA-256 hash.
+## Admin
 
-## V13 Free Speech Capture Restore (Free / No Paid Speech API)
-- Restores the stable browser SpeechRecognition path that was working before the V11 local-speech change.
-- Stop Test immediately detaches and aborts the active recognizer and then submits the final transcript.
-- Handles `no-speech` and `network` interruptions with automatic recovery while preserving the transcript.
-- Does NOT force experimental `processLocally` or contextual `phrases`, because those features can stall on Android Chrome when a local language pack is unavailable.
-- No paid speech API and no OpenAI API key are required.
-- Existing features remain unchanged.
-
-## V17 additions: PDF Report + WhatsApp Share + Admin
-- Student page now has **PDF Report + WhatsApp Share**.
-- The PDF includes only paragraphs for which the student has a saved completed paragraph test.
-- For each tested paragraph, the original paragraph is shown first, followed immediately by every saved attempt, score, percentage, PASS/NOT PASS, and the correctly spoken words underlined.
-- The report also shows Subject → Book → Chapter → Paragraph so tested material stays clearly separated.
-- On Android Chrome, the app uses the system share sheet to share the generated PDF directly to WhatsApp when file sharing is supported. If file sharing is unavailable, the PDF is downloaded so the teacher can attach it in WhatsApp manually.
-- Nothing is sent automatically when a test finishes.
-
-### Admin account — OTP only
-Admin login no longer uses a password. Only the exact email in `ADMIN_EMAIL` can log in.
-
-Set these environment variables on Render (or your server):
-- `ADMIN_EMAIL` — your one authorized Admin email address.
-- `RESEND_API_KEY` — email delivery key used to send the OTP.
-- `RESEND_FROM_EMAIL` — verified sender email/domain for OTP delivery.
-
-Admin flow: enter the authorized email → receive a 6-digit OTP by email → enter OTP → Admin Dashboard opens. OTP expires in 10 minutes, is single-use, and is limited to 5 incorrect attempts. A new OTP request is rate-limited to once per 60 seconds. No Admin password is stored or required.
-
-The Admin Login button appears on the normal login screen. Admin can:
-- View all Teacher IDs.
-- Open any Teacher's dashboard in **Admin Check Mode** to inspect/use the dashboard features.
-- Return to the Admin Dashboard.
-- Permanently delete a Teacher ID after three confirmations. PostgreSQL foreign-key cascades remove that teacher's students/content/results as designed.
-
-Do not commit real admin passwords or production secrets to GitHub. Use Render Environment Variables.
-
-
-## Admin OTP
-- Authorized Admin email: Manishgupta021469@gmail.com
-- This email may also be registered as a normal Teacher account; Teacher login and Admin OTP login are separate.
-- Admin login uses OTP only; no Admin password is required.
-- For OTP delivery, configure RESEND_API_KEY and RESEND_FROM_EMAIL on the server.
+Only `Manishgupta021469@gmail.com` is authorized as Admin. Admin uses the configured Admin password and can reset it through the Gmail OTP flow. Other existing teacher/student/test/speech/PDF/WhatsApp functions are retained.
