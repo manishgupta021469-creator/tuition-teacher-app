@@ -11,3 +11,7 @@
 .manual-word{cursor:pointer;border-radius:4px;touch-action:manipulation}.manual-word:focus{outline:2px solid #64748b;outline-offset:2px}.manual-word.correct{background:#f0fdf4}
 
 .formula-original{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-weight:700;overflow-wrap:anywhere}
+
+/* MathJax formula rendering in paragraph help and PDF reports */
+.math-paragraph mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+.math-paragraph { overflow-wrap: anywhere; line-height: 1.8; }
