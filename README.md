@@ -51,3 +51,7 @@ V31 preserves existing features and adds manual correction after a test is score
 - Added student-facing Pronunciation Help for each paragraph, with formula/equation reading guides and optional browser text-to-speech.
 - Improved duplicate-final-speech filtering for Chrome recognition restarts.
 - Existing app features, database schema, and manual underline behavior are preserved.
+
+
+## V43 camera OCR quality update
+The existing camera-and-scan workflow is retained. OCR now tries both contrast-adjusted grayscale and Otsu-binarized frames, compares confidence, and uses a phone-friendly processing size. Review the recognized text before saving; OCR is not guaranteed to be exact. No image is uploaded or stored by this client-side processing.

@@ -565,42 +565,64 @@ function editChapter(cid){const c=getChapter(cid);root.innerHTML=`<header><b>${e
 async function savePara(id){try{await api('/paragraphs/'+id,{method:'PUT',body:JSON.stringify({text:document.getElementById('p'+id).value})});await refresh()}catch(e){alert(e.message)}}
 async function deleteParagraph(id,cid,number){if(!confirm(`पहली पुष्टि: क्या Paragraph ${number} delete करना चाहते हैं?`))return;if(!confirm('दूसरी पुष्टि: यह paragraph स्थायी रूप से हट जाएगा। पुराने saved test results/history को सुरक्षित रखने का प्रयास किया जाएगा। क्या delete करें?'))return;try{await api('/paragraphs/'+id,{method:'DELETE'});await editChapter(cid)}catch(e){alert(e.message)}}
 async function mergePara(firstId,secondId){if(!confirm('इन दोनों paragraphs को एक में merge करें?'))return;try{await api('/paragraphs/merge',{method:'POST',body:JSON.stringify({firstId,secondId})});await refresh()}catch(e){alert(e.message)}}
-let paragraphCameraStream=null,paragraphOcrLines=[],paragraphOcrScale=1,paragraphSelectedLines=new Set();
+let paragraphCameraStream=null;
 function closeParagraphCamera(){if(paragraphCameraStream){paragraphCameraStream.getTracks().forEach(t=>t.stop());paragraphCameraStream=null;}const v=document.getElementById('paragraphCameraVideo');if(v)v.srcObject=null;}
 async function loadTesseract(){if(window.Tesseract)return window.Tesseract;await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('OCR library लोड नहीं हुई। इंटरनेट कनेक्शन जाँचें।'));document.head.appendChild(script)});return window.Tesseract;}
-function renderParagraphOcrSelection(){
- const layer=document.getElementById('paragraphOcrOverlay'),list=document.getElementById('paragraphOcrLineList'),useBtn=document.getElementById('useSelectedOcrText');if(!layer||!list)return;
- layer.innerHTML='';list.innerHTML='';
- paragraphOcrLines.forEach((line,i)=>{const b=line.bbox||{};const x1=(b.x0||0)/paragraphOcrScale,y1=(b.y0||0)/paragraphOcrScale,x2=(b.x1||0)/paragraphOcrScale,y2=(b.y1||0)/paragraphOcrScale;
- const box=document.createElement('button');box.type='button';box.className='ocr-select-box'+(paragraphSelectedLines.has(i)?' selected':'');box.style.left=(x1*100/paragraphOcrVideoWidth)+'%';box.style.top=(y1*100/paragraphOcrVideoHeight)+'%';box.style.width=Math.max(2,(x2-x1)*100/paragraphOcrVideoWidth)+'%';box.style.height=Math.max(2,(y2-y1)*100/paragraphOcrVideoHeight)+'%';box.setAttribute('aria-label','टेक्स्ट चुनें: '+line.text);box.title=line.text;box.onclick=()=>{if(paragraphSelectedLines.has(i))paragraphSelectedLines.delete(i);else paragraphSelectedLines.add(i);renderParagraphOcrSelection();};layer.appendChild(box);
- const row=document.createElement('label');row.className='ocr-line-row';const cb=document.createElement('input');cb.type='checkbox';cb.checked=paragraphSelectedLines.has(i);cb.onchange=()=>{if(cb.checked)paragraphSelectedLines.add(i);else paragraphSelectedLines.delete(i);renderParagraphOcrSelection();};const txt=document.createElement('span');txt.textContent=line.text;row.append(cb,txt);list.appendChild(row);
- });
- if(useBtn)useBtn.disabled=paragraphSelectedLines.size===0;
-}
-let paragraphOcrVideoWidth=1,paragraphOcrVideoHeight=1;
 async function openParagraphCamera(){
- const video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus');
- if(!navigator.mediaDevices?.getUserMedia){status.textContent='इस ब्राउज़र में कैमरा उपलब्ध नहीं है। ऐप को HTTPS पर खोलें और Chrome इस्तेमाल करें।';return;}
- try{closeParagraphCamera();paragraphCameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=paragraphCameraStream;await video.play();paragraphOcrVideoWidth=video.videoWidth||1;paragraphOcrVideoHeight=video.videoHeight||1;const wrap=document.getElementById('paragraphCameraFrame');if(wrap)wrap.style.aspectRatio=paragraphOcrVideoWidth+'/'+paragraphOcrVideoHeight;video.style.width='100%';video.style.height='100%';status.textContent='पेज कैमरे में दिखता रहेगा। “टेक्स्ट पहचानें” दबाएँ, फिर पेज पर टेक्स्ट की लाइनों को छूकर चुनें।';document.getElementById('scanParagraphCamera').disabled=false;}
- catch(e){status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें।';}
+  const video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus');
+  if(!navigator.mediaDevices?.getUserMedia){status.textContent='इस ब्राउज़र में कैमरा उपलब्ध नहीं है। ऐप को HTTPS पर खोलें और Chrome इस्तेमाल करें।';return;}
+  try{closeParagraphCamera();paragraphCameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=paragraphCameraStream;await video.play();status.textContent='किताब का टेक्स्ट कैमरे में साफ और पूरा दिखाएँ, फिर “दिख रहा टेक्स्ट पहचानें” दबाएँ।';document.getElementById('scanParagraphCamera').disabled=false;}
+  catch(e){status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें।';}
 }
 async function scanParagraphCamera(){
- const video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus'),btn=document.getElementById('scanParagraphCamera');
- if(!video||!video.videoWidth)return alert('पहले कैमरा खोलें और किताब का पेज दिखाएँ।');
- btn.disabled=true;status.textContent='टेक्स्ट पहचाना जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
- try{
-  const Tesseract=await loadTesseract(),lang='hin+eng';
-  if(!window.__paragraphOcrWorker||window.__paragraphOcrLang!==lang){if(window.__paragraphOcrWorker){await window.__paragraphOcrWorker.terminate();window.__paragraphOcrWorker=null;}window.__paragraphOcrWorker=await Tesseract.createWorker(lang,1,{logger:m=>{if(m.status==='recognizing text')status.textContent=`टेक्स्ट पहचाना जा रहा है… ${Math.round((m.progress||0)*100)}%`;}});window.__paragraphOcrLang=lang;await window.__paragraphOcrWorker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300'});}
-  paragraphOcrScale=Math.min(2.5,Math.max(2,1600/video.videoWidth));const canvas=document.createElement('canvas');canvas.width=Math.round(video.videoWidth*paragraphOcrScale);canvas.height=Math.round(video.videoHeight*paragraphOcrScale);const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(video,0,0,canvas.width,canvas.height);const frame=ctx.getImageData(0,0,canvas.width,canvas.height),d=frame.data;for(let i=0;i<d.length;i+=4){const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2],contrast=Math.max(0,Math.min(255,(gray-128)*1.35+128));d[i]=d[i+1]=d[i+2]=contrast;}ctx.putImageData(frame,0,0);
-  const result=await window.__paragraphOcrWorker.recognize(canvas);paragraphOcrLines=(result.data.lines||[]).filter(x=>x.text&&x.text.trim()).sort((a,b)=>((a.bbox?.y0||0)-(b.bbox?.y0||0))||((a.bbox?.x0||0)-(b.bbox?.x0||0)));paragraphSelectedLines=new Set();
-  if(!paragraphOcrLines.length){status.textContent='टेक्स्ट नहीं मिला। पेज सीधा रखें, रोशनी बढ़ाएँ और फिर कोशिश करें।';return;}
-  renderParagraphOcrSelection();document.getElementById('paragraphOcrSelection').hidden=false;status.textContent=`${paragraphOcrLines.length} टेक्स्ट लाइनें मिलीं। कैमरे पर नीले बॉक्स या नीचे सूची में लाइनें चुनें, फिर “चुना हुआ टेक्स्ट इस्तेमाल करें” दबाएँ।`; 
- }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
- finally{btn.disabled=false;}
+  const video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus'),btn=document.getElementById('scanParagraphCamera'),textarea=document.getElementById('newParagraphText');
+  if(!video||!video.videoWidth)return alert('पहले कैमरा खोलें और किताब का पेज दिखाएँ।');
+  btn.disabled=true;status.textContent='टेक्स्ट साफ करके पहचाना जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
+  try{
+    const Tesseract=await loadTesseract();
+    const lang='hin+eng';
+    if(!window.__paragraphOcrWorker||window.__paragraphOcrLang!==lang){
+      if(window.__paragraphOcrWorker){await window.__paragraphOcrWorker.terminate();window.__paragraphOcrWorker=null;}
+      window.__paragraphOcrWorker=await Tesseract.createWorker(lang,1,{logger:m=>{if(m.status==='recognizing text')status.textContent=`टेक्स्ट पहचाना जा रहा है… ${Math.round((m.progress||0)*100)}%`;}});
+      window.__paragraphOcrLang=lang;
+      await window.__paragraphOcrWorker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    }
+    // Keep processing resolution manageable on phones while retaining small Devanagari marks.
+    const scale=Math.min(2,Math.max(1,2400/video.videoWidth));
+    const canvas=document.createElement('canvas');canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const frame=ctx.getImageData(0,0,canvas.width,canvas.height),d=frame.data;
+    // Grayscale + moderate contrast; avoid aggressive sharpening that can destroy matras.
+    const hist=new Uint32Array(256);let total=0;
+    for(let i=0;i<d.length;i+=4){let gray=Math.round(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);gray=Math.max(0,Math.min(255,(gray-128)*1.22+128));d[i]=d[i+1]=d[i+2]=gray;hist[gray]++;total++;}
+    ctx.putImageData(frame,0,0);
+    // First pass preserves gray levels, often better for Devanagari vowel marks.
+    status.textContent='पहला OCR प्रयास…';
+    const first=await window.__paragraphOcrWorker.recognize(canvas);
+    let best=first;
+    // Second pass uses Otsu binarization; it can help when the page has a gray background.
+    // The original grayscale pass is retained as a fallback for uneven lighting.
+    let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sumB=0,wB=0,maxVar=-1,threshold=150;
+    for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=total-wB;if(!wF)break;sumB+=i*hist[i];const mB=sumB/wB,mF=(sum-sumB)/wF;const variance=wB*wF*(mB-mF)*(mB-mF);if(variance>maxVar){maxVar=variance;threshold=i;}}
+    const bin=document.createElement('canvas');bin.width=canvas.width;bin.height=canvas.height;const bctx=bin.getContext('2d',{willReadFrequently:true});bctx.drawImage(canvas,0,0);
+    const bf=bctx.getImageData(0,0,bin.width,bin.height),bd=bf.data;
+    for(let i=0;i<bd.length;i+=4){const v=bd[i]<threshold?0:255;bd[i]=bd[i+1]=bd[i+2]=v;}
+    bctx.putImageData(bf,0,0);
+    status.textContent='दूसरा OCR प्रयास…';
+    const second=await window.__paragraphOcrWorker.recognize(bin);
+    const clean=r=>(r?.data?.text||'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+    const t1=clean(first),t2=clean(second),c1=Number(first?.data?.confidence)||0,c2=Number(second?.data?.confidence)||0;
+    // Prefer confidence, but avoid choosing a near-empty result over a useful full-page read.
+    if(t2.length>Math.max(12,t1.length*0.65)&&c2>c1+2)best=second;
+    let text=clean(best);
+    if(!text){status.textContent='टेक्स्ट नहीं मिला। पेज को सीधा रखें, कैमरा स्थिर करें, रोशनी बढ़ाएँ और फिर कोशिश करें।';return;}
+    textarea.value=textarea.value.trim()?textarea.value.trim()+'\n'+text:text;
+    status.textContent=`टेक्स्ट पहचाना गया (OCR confidence लगभग ${Math.round(Number(best?.data?.confidence)||0)}%)। सेव करने से पहले मात्रा, विराम-चिह्न और सूत्र जाँचें।`;textarea.focus();
+  }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
+  finally{btn.disabled=false;}
 }
-function useSelectedParagraphOcrText(){const selected=paragraphOcrLines.filter((_,i)=>paragraphSelectedLines.has(i)).map(x=>x.text.trim()).filter(Boolean);if(!selected.length)return alert('पहले पेज पर टेक्स्ट की लाइनें चुनें।');const textarea=document.getElementById('newParagraphText');textarea.value=textarea.value.trim()?textarea.value.trim()+'\n'+selected.join('\n'):selected.join('\n');textarea.focus();document.getElementById('paragraphCameraStatus').textContent='चुना हुआ टेक्स्ट एडिटर में आ गया है। सेव करने से पहले जाँचें और जरूरत हो तो सुधारें।';document.getElementById('paragraphOcrSelection').hidden=true;paragraphOcrLines=[];paragraphSelectedLines.clear();}
 async function addPara(cid){
- root.innerHTML=`<header><b>+ Add Paragraph</b><button onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">कैमरे से पेज देखें और सिर्फ जरूरी टेक्स्ट की लाइनें चुनें। कोई फोटो या पेज अपलोड नहीं होगा। चुना गया टेक्स्ट नीचे एडिटर में आएगा; सेव करने से पहले जाँचें।</p><p class="muted">भाषा चुनने की जरूरत नहीं है। हिंदी, संस्कृत और English OCR की कोशिश होगी।</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button type="button" onclick="openParagraphCamera()">📷 कैमरा खोलें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>दिख रहा टेक्स्ट पहचानें</button><button type="button" onclick="closeParagraphCamera();document.getElementById('paragraphCameraStatus').textContent='कैमरा बंद है।'">कैमरा बंद करें</button></div><div id="paragraphCameraFrame" class="ocr-camera-frame"><video id="paragraphCameraVideo" playsinline autoplay muted></video><div id="paragraphOcrOverlay" class="ocr-overlay"></div></div><p id="paragraphCameraStatus" class="muted">कैमरा खोलने के लिए बटन दबाएँ। कैमरा सुविधा HTTPS पर काम करती है।</p><section id="paragraphOcrSelection" hidden><b>पेज पर लाइनें छूकर चुनें</b><div id="paragraphOcrLineList" class="ocr-line-list"></div><button type="button" id="useSelectedOcrText" onclick="useSelectedParagraphOcrText()" disabled>चुना हुआ टेक्स्ट इस्तेमाल करें</button></section><label for="newParagraphText"><b>Paragraph Text</b></label><textarea id="newParagraphText" rows="10" placeholder="चुना हुआ टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
+  root.innerHTML=`<header><b>+ Add Paragraph</b><button onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">कैमरे से किताब का टेक्स्ट पहचानें या नीचे सीधे लिखें/पेस्ट करें। कोई फोटो या पेज अपलोड नहीं करना है। पहचाना गया पूरा टेक्स्ट इसी एक पैराग्राफ में आएगा।</p><p class="muted">भाषा चुनने की जरूरत नहीं है। हिंदी, संस्कृत और English को अपने-आप पहचानने की कोशिश होगी।</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button type="button" onclick="openParagraphCamera()">📷 कैमरा खोलें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>दिख रहा टेक्स्ट पहचानें</button><button type="button" onclick="closeParagraphCamera();document.getElementById('paragraphCameraStatus').textContent='कैमरा बंद है।'">कैमरा बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted style="display:block;width:100%;max-height:45vh;object-fit:contain;background:#111;border-radius:12px"></video><p id="paragraphCameraStatus" class="muted">कैमरा खोलने के लिए बटन दबाएँ। कैमरा सुविधा HTTPS पर काम करती है।</p><label for="newParagraphText"><b>Paragraph Text</b></label><textarea id="newParagraphText" rows="10" placeholder="कैमरे से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
 }
 async function saveNewParagraph(cid){const field=document.getElementById('newParagraphText');const text=field?.value?.trim();if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await refresh()}catch(e){alert(e.message)}}
