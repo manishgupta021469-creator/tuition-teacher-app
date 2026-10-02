@@ -67,3 +67,11 @@ The existing camera-and-scan workflow is retained. OCR now tries both contrast-a
 - Reopens saved attempts with manually corrected words in blue in attempt history and PDF reports.
 - Adds the `manual_word_indexes` JSONB column using `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`; it does not reset or recreate the database.
 - Existing attempts created before this change have no stored manual-word metadata, so their original manual blue words cannot be reconstructed automatically. New saves after deployment will preserve the blue markings.
+
+
+## V46 — Microphone restart stability
+- Kept the existing browser SpeechRecognition approach and all test/scoring flows.
+- Fixed restart timing so Android Chrome waits for the previous recognition session to end before opening another one, reducing overlapping sessions and microphone dropouts.
+- Added a safer delay after no-speech/network errors and bounded retry backoff for recoverable start/network failures.
+- No database schema, account, history, report, OCR, or manual underline behavior changed.
+- Speech recognition still depends on Android Chrome's Web Speech service, microphone permission, internet connection, and the device environment; this update cannot guarantee every spoken word will be recognized.

@@ -274,7 +274,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   let finished=false;
   let restartTimer=null;
   let submitTimer=null;
-  let restartDelay=20;
+  let restartDelay=300;
   let activeRec=null;
   let startInProgress=false;
   let sessionNumber=0;
@@ -435,7 +435,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     rec.lang=languageForNextWords();
 
     rec.onstart=()=>{
-      startInProgress=false; restartDelay=20;
+      startInProgress=false; restartDelay=300;
       statusEl.textContent='Listening… बोलते रहें।'; dot.classList.add('active'); stopBtn.disabled=false;
     };
     rec.onspeechstart=()=>{statusEl.textContent='आपकी आवाज़ सुनाई दे रही है…';dot.classList.add('active');};
@@ -458,20 +458,27 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
       if(finished||stopping)return;
       if(e.error==='aborted')return;
       if(e.error==='no-speech'){
-        statusEl.textContent='फिर से सुन रहा है… बोलते रहें।';
-        restartDelay=10;
-        scheduleRestart();
+        // Let this recognition instance finish first. onend will restart it;
+        // starting a second instance here can leave Android Chrome's mic busy.
+        statusEl.textContent='आवाज़ नहीं मिली—माइक फिर से शुरू होगा। बोलते रहें…';
+        restartDelay=300;
         return;
       }
       if(e.error==='network'){
-        restartDelay=Math.min(250,Math.max(20,restartDelay*2));
-        statusEl.textContent='Speech service फिर से connect हो रही है…'; scheduleRestart(); return;
+        // SpeechRecognition is network-backed in Chrome. Back off, then let
+        // onend restart the same flow instead of opening overlapping sessions.
+        restartDelay=Math.min(3000,Math.max(600,restartDelay*2));
+        statusEl.textContent='Speech service से कनेक्शन दोबारा जोड़ा जा रहा है…';
+        return;
       }
       if(e.error==='not-allowed'||e.error==='service-not-allowed'){
         statusEl.textContent='Microphone permission बंद है। Chrome में microphone permission Allow करें।';
         stopping=true; stopBtn.disabled=true; return;
       }
-      statusEl.textContent='Speech फिर से शुरू हो रही है…'; restartDelay=20; scheduleRestart();
+      // For recoverable errors, wait for onend before restarting. This avoids
+      // two recognizers competing for the microphone on Android.
+      restartDelay=Math.max(300,restartDelay);
+      statusEl.textContent='Speech फिर से शुरू हो रही है…';
     };
 
     rec.onend=()=>{
@@ -481,15 +488,15 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
       if(stopping){activeRec=null;recognition=null;submitTimer=setTimeout(submitResult,300);return;}
       activeRec=null; recognition=null; startInProgress=false;
       interimText=''; renderLive();
-      statusEl.textContent='Listening फिर से शुरू हो रहा है…';
-      restartDelay=20; scheduleRestart();
+      statusEl.textContent='माइक फिर से शुरू हो रहा है…';
+      restartDelay=Math.max(300,restartDelay); scheduleRestart();
     };
 
     try{rec.start();}
     catch(e){
       startInProgress=false;
       if(activeRec===rec){activeRec=null;recognition=null;}
-      if(!stopping&&!finished){restartDelay=Math.min(100,Math.max(20,restartDelay+10));scheduleRestart();}
+      if(!stopping&&!finished){restartDelay=Math.min(3000,Math.max(600,restartDelay*2));scheduleRestart();}
     }
   };
 
