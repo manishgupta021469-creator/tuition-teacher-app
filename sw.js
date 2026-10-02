@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyway-learn-shell-v33';
+const CACHE_NAME = 'easyway-learn-shell-v42';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {

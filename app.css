@@ -15,3 +15,6 @@
 /* MathJax formula rendering in paragraph help and PDF reports */
 .math-paragraph mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .math-paragraph { overflow-wrap: anywhere; line-height: 1.8; }
+
+/* Live camera OCR line selection (V42) */
+.ocr-camera-frame{position:relative;width:100%;max-height:45vh;aspect-ratio:16/9;background:#111;border-radius:12px;overflow:hidden}.ocr-camera-frame video{display:block;object-fit:fill;background:#111}.ocr-overlay{position:absolute;inset:0;pointer-events:none}.ocr-select-box{position:absolute;display:block;margin:0;padding:0;border:2px solid #60a5fa;border-radius:3px;background:#3b82f622;pointer-events:auto;min-width:0;min-height:0;z-index:2}.ocr-select-box.selected{border:3px solid #16a34a;background:#22c55e35}.ocr-line-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}.ocr-line-row{display:flex;align-items:flex-start;gap:8px;border:1px solid #d0d5dd;border-radius:8px;padding:8px;line-height:1.5}.ocr-line-row input{width:auto;margin:4px 0 0;flex-shrink:0}
