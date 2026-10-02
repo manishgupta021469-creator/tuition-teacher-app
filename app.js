@@ -207,16 +207,34 @@ function showPronunciationHelp(sid,cid,pid,index){
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
 function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
 function renderWords(reference,matched){const set=new Set(matched||[]);let i=0;return tokenize(reference).map(w=>{const cls=set.has(i)?'word correct':'word';const html=`<span class="${cls}">${esc(w)}</span>`;i++;return html}).join(' ')}
-function renderEditableWords(reference,matched){const set=new Set(matched||[]);return tokenize(reference).map((w,i)=>`<span class="word manual-word ${set.has(i)?'correct':''}" data-word-index="${i}" role="button" tabindex="0" aria-pressed="${set.has(i)}" title="Tap to toggle underline">${esc(w)}</span>`).join(' ')}
+function renderEditableWords(reference,matched){const set=new Set(matched||[]);return tokenize(reference).map((w,i)=>`<span class="word manual-word ${set.has(i)?'correct speech-detected':''}" data-word-index="${i}" role="button" tabindex="0" aria-pressed="${set.has(i)}" title="Tap to toggle underline">${esc(w)}</span>`).join(' ')}
 function bindManualScoreEditor(container,{resultId,reference,matched,studentId,onSaved}){
-  let selected=new Set(matched||[]);
+  const speechDetected=new Set(matched||[]);
+  const selected=new Set(matched||[]);
+  const manualAdded=new Set();
   const wordsBox=container.querySelector('[data-manual-words]');
   const countEl=container.querySelector('[data-manual-count]');
   const saveBtn=container.querySelector('[data-manual-save]');
   const status=container.querySelector('[data-manual-status]');
   const total=tokenize(reference).length;
-  const paint=()=>{wordsBox.querySelectorAll('[data-word-index]').forEach(el=>{const i=Number(el.dataset.wordIndex),yes=selected.has(i);el.classList.toggle('correct',yes);el.setAttribute('aria-pressed',String(yes))});const pct=total?Math.round(selected.size/total*10000)/100:0;countEl.textContent=`${selected.size}/${total} words · ${pct}% · ${pct>=80?'PASS':'NOT PASS'}`;};
-  const toggle=el=>{const i=Number(el.dataset.wordIndex);if(selected.has(i))selected.delete(i);else selected.add(i);paint()};
+  const paint=()=>{
+    wordsBox.querySelectorAll('[data-word-index]').forEach(el=>{
+      const i=Number(el.dataset.wordIndex),yes=selected.has(i),manual=yes&&manualAdded.has(i),speech=yes&&speechDetected.has(i);
+      el.classList.toggle('correct',yes);el.classList.toggle('speech-detected',speech);el.classList.toggle('manual-added',manual);
+      el.setAttribute('aria-pressed',String(yes));
+      el.title=manual?'मैनुअल अंडरलाइन — नीला':speech?'बोलने से डिटेक्ट हुआ — हरा':'टैप करके अंडरलाइन करें';
+    });
+    const pct=total?Math.round(selected.size/total*10000)/100:0;
+    const speechCount=[...speechDetected].filter(i=>selected.has(i)).length;
+    const manualCount=[...manualAdded].filter(i=>selected.has(i)).length;
+    countEl.innerHTML=`बोलने से डिटेक्ट: <b>${speechCount}</b> · मैनुअल नीले: <b>${manualCount}</b><br>कुल सही: <b>${selected.size}/${total}</b> शब्द · ${pct}% · <b>${pct>=80?'PASS':'NOT PASS'}</b>`;
+  };
+  const toggle=el=>{
+    const i=Number(el.dataset.wordIndex);
+    if(selected.has(i)){selected.delete(i);manualAdded.delete(i)}
+    else {selected.add(i);if(!speechDetected.has(i))manualAdded.add(i)}
+    paint();
+  };
   wordsBox.addEventListener('click',e=>{const el=e.target.closest('[data-word-index]');if(el)toggle(el)});
   wordsBox.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-word-index]')){e.preventDefault();toggle(e.target)}});
   saveBtn.onclick=async()=>{saveBtn.disabled=true;status.textContent='Score save हो रहा है…';try{const r=await api(`/results/${resultId}/matches`,{method:'PUT',body:JSON.stringify({matchedWordIndexes:[...selected]})});status.textContent=`Updated: ${r.correct}/${r.total} words · ${r.percent}% · ${r.passed?'PASS':'NOT PASS'}`;if(onSaved)onSaved(r);if(studentId){const refreshed=await api('/results/'+studentId).catch(()=>null);if(refreshed){refreshed.forEach(a=>{const key=`${a.test_type}:${a.chapter_id}:${a.item_id||0}`;const group=refreshed.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));a.attempt_no=group.findIndex(x=>x.id===a.id)+1});window.__attempts=refreshed}}}catch(e){status.textContent=e.message||'Score update नहीं हुआ।'}finally{saveBtn.disabled=false}};
@@ -390,7 +408,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     }
     try{
       const r=await api('/tests/score',{method:'POST',body:JSON.stringify({studentId,chapterId,testType:type,itemId,spokenText})});
-      const sameAttempts=await api('/results/'+studentId).catch(()=>[]); const key=`${type}:${chapterId}:${itemId||0}`; const attemptNo=sameAttempts.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).length; score.innerHTML=`<h3>Score: <span id="manualScorePercent">${r.percent}%</span></h3><p id="manualScoreSummary">${r.correct}/${r.total} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><p class="muted">अगर कोई सही बोला हुआ शब्द underline नहीं हुआ, तो नीचे उस शब्द पर टैप करें। गलत underline हटाने के लिए भी शब्द पर टैप करें।</p><div class="word-result" data-manual-words>${renderEditableWords(r.referenceText,r.matched)}</div><p><b data-manual-count></b></p><button type="button" data-manual-save>✓ Manual underline save करके score दोबारा निकालें</button><p class="muted" data-manual-status>शब्दों पर टैप करके सही मिलान ठीक करें, फिर Save दबाएँ।</p><p class="muted">WhatsApp message अपने-आप नहीं भेजा जाता।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
+      const sameAttempts=await api('/results/'+studentId).catch(()=>[]); const key=`${type}:${chapterId}:${itemId||0}`; const attemptNo=sameAttempts.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).length; score.innerHTML=`<h3>Score: <span id="manualScorePercent">${r.percent}%</span></h3><p id="manualScoreSummary">${r.correct}/${r.total} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><p class="muted">हरे अंडरलाइन वाले शब्द बोलने से डिटेक्ट हुए हैं। जो शब्द छूट गए, उन्हें टैप करें—वे नीले हो जाएँगे। गलत अंडरलाइन हटाने के लिए उस शब्द पर फिर टैप करें।</p><div class="word-result" data-manual-words>${renderEditableWords(r.referenceText,r.matched)}</div><p><b data-manual-count></b></p><button type="button" data-manual-save>✓ Manual underline save करके score दोबारा निकालें</button><p class="muted" data-manual-status>शब्दों पर टैप करके सही मिलान ठीक करें, फिर Save दबाएँ।</p><p class="muted">WhatsApp message अपने-आप नहीं भेजा जाता।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
       bindManualScoreEditor(score,{resultId:r.resultId,reference:r.referenceText,matched:r.matched,studentId,onSaved:updated=>{r.percent=updated.percent;r.correct=updated.correct;r.total=updated.total;r.passed=updated.passed;r.matched=updated.matched;document.getElementById('manualScorePercent').textContent=`${updated.percent}%`;document.getElementById('manualScoreSummary').innerHTML=`${updated.correct}/${updated.total} words correct — <b>${updated.passed?'PASS':'NOT PASS'}</b>`}});
       document.getElementById('nextButton').onclick=()=>onDone?onDone(r):refresh();
     }catch(e){

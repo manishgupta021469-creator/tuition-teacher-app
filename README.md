@@ -55,3 +55,8 @@ V31 preserves existing features and adds manual correction after a test is score
 
 ## V43 camera OCR quality update
 The existing camera-and-scan workflow is retained. OCR now tries both contrast-adjusted grayscale and Otsu-binarized frames, compares confidence, and uses a phone-friendly processing size. Review the recognized text before saving; OCR is not guaranteed to be exact. No image is uploaded or stored by this client-side processing.
+
+### V44 — Manual underline color and separate counts
+- In the completed test score editor, words matched by speech recognition are underlined in green; words added manually by tapping are underlined in blue.
+- The editor shows separate live counts for speech-detected words and manually marked words, plus the combined score.
+- Saving still stores the final combined matched-word indexes using the existing API; no database schema change is made. The blue/green distinction and separate counts are for the active score-editing screen and are not stored as separate historical categories.
