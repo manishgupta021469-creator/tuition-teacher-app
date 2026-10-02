@@ -139,35 +139,45 @@ function selectParagraph(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.leng
 function startSelectedParagraphTest(sid,cid,pid,index){const c=getChapter(cid);const p=c?.paragraphs.find(x=>x.id===pid);if(!p)return alert('Paragraph not found');const open=()=>speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>studentTests(sid),onCancel:()=>open()});open()}
 
 
-function formulaPronunciation(raw){
-  const letters={A:'ए',B:'बी',C:'सी',D:'डी',E:'ई',F:'एफ',G:'जी',H:'एच',I:'आई',J:'जे',K:'के',L:'एल',M:'एम',N:'एन',O:'ओ',P:'पी',Q:'क्यू',R:'आर',S:'एस',T:'टी',U:'यू',V:'वी',W:'डब्ल्यू',X:'एक्स',Y:'वाई',Z:'ज़ेड'};
-  const nums={'0':'ज़ीरो','1':'वन','2':'टू','3':'थ्री','4':'फोर','5':'फाइव','6':'सिक्स','7':'सेवन','8':'एट','9':'नाइन','₀':'ज़ीरो','₁':'वन','₂':'टू','₃':'थ्री','₄':'फोर','₅':'फाइव','₆':'सिक्स','₇':'सेवन','₈':'एट','₉':'नाइन','⁰':'ज़ीरो','¹':'वन','²':'स्क्वेयर','³':'क्यूब','⁴':'फोर','⁵':'फाइव','⁶':'सिक्स','⁷':'सेवन','⁸':'एट','⁹':'नाइन'};
-  const parts=[];
-  for(const ch of String(raw||'')){
-    if(/[A-Za-z]/.test(ch))parts.push(letters[ch.toUpperCase()]||ch);
-    else if(nums[ch])parts.push(nums[ch]);
-    else if(ch==='(')parts.push('ओपन ब्रैकेट');
-    else if(ch===')')parts.push('क्लोज ब्रैकेट');
-    else if(ch==='[')parts.push('ओपन स्क्वायर ब्रैकेट');
-    else if(ch===']')parts.push('क्लोज स्क्वायर ब्रैकेट');
-    else if(ch==='{')parts.push('ओपन कर्ली ब्रैकेट');
-    else if(ch==='}')parts.push('क्लोज कर्ली ब्रैकेट');
-    else if(ch==='+')parts.push('प्लस');
-    else if(ch==='−'||ch==='-')parts.push('माइनस');
-    else if(ch==='=')parts.push('इक्वल टू');
-    else if(ch==='→')parts.push('रिएक्शन एरो');
-    else if(ch==='←')parts.push('लेफ्ट एरो');
-    else if(ch==='·'||ch==='⋅')parts.push('डॉट');
-    else if(ch==='/')parts.push('डिवाइडेड बाय');
-    else if(ch==='^')parts.push('पावर');
-  }
-  return parts.join(' ');
+function latexToFormulaWords(raw, language='hi'){
+  let s=String(raw||'');
+  // Convert common LaTeX commands into mathematical wording before speech.
+  s=s.replace(/\\(?:left|right)\b/g,' ')
+   .replace(/\\(?:displaystyle|textstyle|quad|qquad)\b/g,' ')
+   .replace(/\\times\b/g,language==='hi'?' गुणा ':' times ')
+   .replace(/\\cdot\b|\\cdotp\b/g,language==='hi'?' डॉट ':' dot ')
+   .replace(/\\div\b/g,language==='hi'?' भाग ':' divided by ')
+   .replace(/\\%/g,language==='hi'?' प्रतिशत ':' percent ')
+   .replace(/\\,/g,' ').replace(/\\;/g,' ').replace(/\\!/g,' ')
+   .replace(/\\text\s*\{([^{}]*)\}/g,' $1 ')
+   .replace(/\\mathrm\s*\{([^{}]*)\}/g,' $1 ')
+   .replace(/\\mathbf\s*\{([^{}]*)\}/g,' $1 ')
+   .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,(_,a,b)=>` ${a} ${language==='hi'?'बटा':'over'} ${b} `)
+   .replace(/\\sqrt\s*\{([^{}]*)\}/g,(_,a)=>` ${language==='hi'?'वर्गमूल':'square root of'} ${a} `)
+   .replace(/\\(?:text|mathrm|operatorname)\b/g,' ')
+   .replace(/\\[A-Za-z]+/g,' ')
+   .replace(/[{}]/g,' ')
+   .replace(/_\s*\{?([0-9]+|[A-Za-z])\}?/g,(_,a)=>` ${language==='hi'?'सबस्क्रिप्ट':'subscript'} ${a} `)
+   .replace(/\^\s*\{?([0-9]+|[A-Za-z])\}?/g,(_,a)=>` ${language==='hi'?'पावर':'power'} ${a} `)
+   .replace(/\\/g,' ');
+  const hiLetters={A:'ए',B:'बी',C:'सी',D:'डी',E:'ई',F:'एफ',G:'जी',H:'एच',I:'आई',J:'जे',K:'के',L:'एल',M:'एम',N:'एन',O:'ओ',P:'पी',Q:'क्यू',R:'आर',S:'एस',T:'टी',U:'यू',V:'वी',W:'डब्ल्यू',X:'एक्स',Y:'वाई',Z:'ज़ेड'};
+  const enLetters={A:'A',B:'B',C:'C',D:'D',E:'E',F:'F',G:'G',H:'H',I:'I',J:'J',K:'K',L:'L',M:'M',N:'N',O:'O',P:'P',Q:'Q',R:'R',S:'S',T:'T',U:'U',V:'V',W:'W',X:'X',Y:'Y',Z:'Z'};
+  const hiNums={'0':'ज़ीरो','1':'वन','2':'टू','3':'थ्री','4':'फोर','5':'फाइव','6':'सिक्स','7':'सेवन','8':'एट','9':'नाइन'};
+  const enNums={'0':'zero','1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'};
+  s=s.replace(/([A-Za-z])|([0-9])|([₀-₉⁰-⁹])|([()+\-=×→←/%])/g,(m,letter,digit,sub,op)=>{
+    if(letter)return (language==='hi'?hiLetters:enLetters)[letter.toUpperCase()]||letter;
+    if(digit)return (language==='hi'?hiNums:enNums)[digit]||digit;
+    if(sub){const n={'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9','⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'}[sub];return (language==='hi'?hiNums:enNums)[n]||n;}
+    const hiOps={'(':'ओपन ब्रैकेट',')':'क्लोज ब्रैकेट','+':'प्लस','-':'माइनस','=':'बराबर','×':'गुणा','→':'रिएक्शन एरो','←':'लेफ्ट एरो','/':'बटा','%':'प्रतिशत'};
+    const enOps={'(':'open bracket',')':'close bracket','+':'plus','-':'minus','=':'equals','×':'times','→':'reacts to','←':'left arrow','/':'divided by','%':'percent'};
+    return (language==='hi'?hiOps:enOps)[op]||op;
+  });
+  if(language==='hi')s=s.replace(/\bpercentage\b/gi,'परसेंटेज').replace(/\bsolution\b/gi,'सॉल्यूशन').replace(/\bin\b/gi,'में').replace(/\bMass\b/gi,'मास').replace(/\bVolume\b/gi,'वॉल्यूम');
+  return s.replace(/\s+/g,' ').trim();
 }
-function formulaSpeechEnglish(raw){
-  const letters={A:'A',B:'B',C:'C',D:'D',E:'E',F:'F',G:'G',H:'H',I:'I',J:'J',K:'K',L:'L',M:'M',N:'N',O:'O',P:'P',Q:'Q',R:'R',S:'S',T:'T',U:'U',V:'V',W:'W',X:'X',Y:'Y',Z:'Z'};
-  const nums={'₀':' zero ','₁':' one ','₂':' two ','₃':' three ','₄':' four ','₅':' five ','₆':' six ','₇':' seven ','₈':' eight ','₉':' nine ','⁰':' zero ','¹':' one ','²':' squared ','³':' cubed ','⁴':' to the power four ','⁵':' to the power five ','⁶':' to the power six ','⁷':' to the power seven ','⁸':' to the power eight ','⁹':' to the power nine '};
-  let out='';for(const ch of String(raw||'')){if(/[A-Za-z]/.test(ch))out+=' '+letters[ch.toUpperCase()];else if(nums[ch])out+=nums[ch];else if(/[0-9]/.test(ch))out+=' '+({'0':'zero','1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'}[ch]);else if(ch==='(')out+=' open bracket ';else if(ch===')')out+=' close bracket ';else if(ch==='[')out+=' open square bracket ';else if(ch===']')out+=' close square bracket ';else if(ch==='+')out+=' plus ';else if(ch==='−'||ch==='-')out+=' minus ';else if(ch==='=')out+=' equals ';else if(ch==='→')out+=' reacts to ';else if(ch==='/')out+=' divided by ';}return out.replace(/\s+/g,' ').trim();
-}
+function paragraphSpeechLanguage(text){return /[\u0900-\u097F]/u.test(String(text||''))?'hi':'en';}
+function formulaPronunciation(raw,language='hi'){return latexToFormulaWords(raw,language);}
+function formulaSpeechEnglish(raw){return latexToFormulaWords(raw,'en');}
 function speakHelpText(text,lang='hi-IN'){
   if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance)return alert('इस मोबाइल/browser में Text-to-Speech उपलब्ध नहीं है।');
   window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=.82;window.speechSynthesis.speak(u);
@@ -179,15 +189,17 @@ function showPronunciationHelp(sid,cid,pid,index){
   // Also detect equations with spaces around operators, e.g. F = ma or 2H₂ + O₂ → 2H₂O.
   const equations=p.text.match(/(?:[A-Za-z0-9₀-₉⁰-⁹()[\]{}]+\s*)?(?:[=+\-→←]\s*[A-Za-z0-9₀-₉⁰-⁹()[\]{}]+\s*)+/g)||[];
   for(const eq of equations){const clean=eq.trim();if(/[A-Za-z]/.test(clean)&&/[=+\-→←]/.test(clean)&&!formulas.includes(clean))formulas.push(clean);}
-  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderMathParagraph(p.text)}</div><button id="speakWholeParagraph" type="button">🔊 पूरा पैराग्राफ सुनें</button></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>ऐसे बोलें:</b> ${esc(formulaPronunciation(f))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
+  const speechLanguage=paragraphSpeechLanguage(p.text);
+  const speechLocale=speechLanguage==='hi'?'hi-IN':'en-IN';
+  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderMathParagraph(p.text)}</div><button id="speakWholeParagraph" type="button">🔊 पूरा पैराग्राफ सुनें</button></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>${speechLanguage==='hi'?'ऐसे बोलें:':'Pronunciation:'}</b> ${esc(formulaPronunciation(f,speechLanguage))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
   typesetMath(root);
   let spokenParagraph=p.text;
   for(const formula of formulas.slice().sort((a,b)=>b.length-a.length)){
     const escaped=formula.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    spokenParagraph=spokenParagraph.replace(new RegExp(escaped,'g'),formulaSpeechEnglish(formula));
+    spokenParagraph=spokenParagraph.replace(new RegExp(escaped,'g'),formulaPronunciation(formula,speechLanguage));
   }
-  document.getElementById('speakWholeParagraph').onclick=()=>speakHelpText(spokenParagraph,/[\u0900-\u097F]/u.test(p.text)?'hi-IN':'en-IN');
-  root.querySelectorAll('[data-speak-formula]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaSpeechEnglish(formulas[Number(btn.dataset.speakFormula)]),'en-IN'));
+  document.getElementById('speakWholeParagraph').onclick=()=>speakHelpText(spokenParagraph,speechLocale);
+  root.querySelectorAll('[data-speak-formula]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaPronunciation(formulas[Number(btn.dataset.speakFormula)],speechLanguage),speechLocale));
 }
 
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
@@ -550,7 +562,33 @@ function showAttemptResult(id){const r=(window.__attempts||[]).find(x=>x.id===id
 function editChapter(cid){const c=getChapter(cid);root.innerHTML=`<header><b>${esc(c.name)}</b><button onclick="refresh()">Back</button></header><main><section class="card"><h2>Edit Chapter</h2><button onclick="editChapterName(${cid})">Edit Chapter Name</button></section><section class="card"><h2>Paragraphs</h2><p class="muted">Text edit करें। Next paragraph से merge करने का option भी है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><textarea id="p${p.id}">${esc(p.text)}</textarea><div><button onclick="savePara(${p.id})">Save</button>${i<c.paragraphs.length-1?`<button onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><h2>Add Q&A</h2><input id="q" placeholder="Question"><textarea id="a" placeholder="Correct answer"></textarea><button onclick="addQA(${cid})">Add Q&A</button></section>${c.qa.length?`<section class="card"><h2>Existing Q&A</h2>${c.qa.map(x=>`<div class="qa"><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
 async function savePara(id){try{await api('/paragraphs/'+id,{method:'PUT',body:JSON.stringify({text:document.getElementById('p'+id).value})});await refresh()}catch(e){alert(e.message)}}
 async function mergePara(firstId,secondId){if(!confirm('इन दोनों paragraphs को एक में merge करें?'))return;try{await api('/paragraphs/merge',{method:'POST',body:JSON.stringify({firstId,secondId})});await refresh()}catch(e){alert(e.message)}}
-async function addPara(cid){const text=prompt('New paragraph text');if(!text)return;try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});await refresh()}catch(e){alert(e.message)}}
+let paragraphCameraStream=null;
+function closeParagraphCamera(){if(paragraphCameraStream){paragraphCameraStream.getTracks().forEach(t=>t.stop());paragraphCameraStream=null;}const v=document.getElementById('paragraphCameraVideo');if(v)v.srcObject=null;}
+async function loadTesseract(){if(window.Tesseract)return window.Tesseract;await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('OCR library लोड नहीं हुई। इंटरनेट कनेक्शन जाँचें।'));document.head.appendChild(script)});return window.Tesseract;}
+async function openParagraphCamera(){
+  const video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus');
+  if(!navigator.mediaDevices?.getUserMedia){status.textContent='इस ब्राउज़र में कैमरा उपलब्ध नहीं है। ऐप को HTTPS पर खोलें और Chrome इस्तेमाल करें।';return;}
+  try{closeParagraphCamera();paragraphCameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=paragraphCameraStream;await video.play();status.textContent='किताब का टेक्स्ट कैमरे में साफ और पूरा दिखाएँ, फिर “दिख रहा टेक्स्ट पहचानें” दबाएँ।';document.getElementById('scanParagraphCamera').disabled=false;}
+  catch(e){status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें।';}
+}
+async function scanParagraphCamera(){
+  const video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus'),btn=document.getElementById('scanParagraphCamera'),textarea=document.getElementById('newParagraphText');
+  if(!video||!video.videoWidth)return alert('पहले कैमरा खोलें और किताब का पेज दिखाएँ।');
+  btn.disabled=true;status.textContent='टेक्स्ट पहचाना जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में थोड़ा समय लग सकता है।';
+  try{
+    const Tesseract=await loadTesseract();
+    if(!window.__paragraphOcrWorker){window.__paragraphOcrWorker=await Tesseract.createWorker('eng+hin',1,{logger:m=>{if(m.status==='recognizing text')status.textContent=`टेक्स्ट पहचाना जा रहा है… ${Math.round((m.progress||0)*100)}%`;}});}
+    const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+    const result=await window.__paragraphOcrWorker.recognize(canvas);const text=(result.data.text||'').trim();
+    if(!text){status.textContent='टेक्स्ट नहीं मिला। पेज पर रोशनी बढ़ाएँ, कैमरा स्थिर रखें और फिर कोशिश करें.';return;}
+    textarea.value=textarea.value.trim()?textarea.value.trim()+'\n'+text:text;status.textContent='टेक्स्ट एडिटर में जोड़ दिया गया है। सेव करने से पहले जाँच/सुधार कर लें। कैमरे से और टेक्स्ट लेने के लिए फिर स्कैन कर सकते हैं।';textarea.focus();
+  }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
+  finally{btn.disabled=false;}
+}
+async function addPara(cid){
+  root.innerHTML=`<header><b>+ Add Paragraph</b><button onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">कैमरे से किताब का टेक्स्ट पहचानें या नीचे सीधे लिखें/पेस्ट करें। कोई फोटो या पेज अपलोड नहीं करना है। पहचाना गया पूरा टेक्स्ट इसी एक पैराग्राफ में आएगा।</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button type="button" onclick="openParagraphCamera()">📷 कैमरा खोलें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>दिख रहा टेक्स्ट पहचानें</button><button type="button" onclick="closeParagraphCamera();document.getElementById('paragraphCameraStatus').textContent='कैमरा बंद है।'">कैमरा बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted style="display:block;width:100%;max-height:45vh;object-fit:contain;background:#111;border-radius:12px"></video><p id="paragraphCameraStatus" class="muted">कैमरा खोलने के लिए बटन दबाएँ। कैमरा सुविधा HTTPS पर काम करती है।</p><label for="newParagraphText"><b>Paragraph Text</b></label><textarea id="newParagraphText" rows="10" placeholder="कैमरे से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
+}
+async function saveNewParagraph(cid){const field=document.getElementById('newParagraphText');const text=field?.value?.trim();if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await refresh()}catch(e){alert(e.message)}}
 async function boot(){if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;authView();return}try{if(decodeJwtRole()==='admin'){await adminDashboard();return}await load();dashboard()}catch(e){localStorage.clear();sessionStorage.removeItem('adminTeacherToken');token=null;authView()}}
 boot();
