@@ -45,3 +45,9 @@ On Android Chrome, open the Render app URL, then use Chrome menu -> Add to Home 
 
 ## V31 Manual underline and score correction
 V31 preserves existing features and adds manual correction after a test is scored. Tap a word to toggle its underline, then select **Save manual underline and recalculate score**. The updated matched word indexes, word count, percentage, and PASS/NOT PASS are saved to that same attempt. The student/teacher can also open an older attempt from history and correct its underline where its original text is available. No new attempt is created, and canceled tests remain unsaved. The PWA cache name is bumped to V31 so updated assets can refresh.
+
+
+## V33 update
+- Added student-facing Pronunciation Help for each paragraph, with formula/equation reading guides and optional browser text-to-speech.
+- Improved duplicate-final-speech filtering for Chrome recognition restarts.
+- Existing app features, database schema, and manual underline behavior are preserved.

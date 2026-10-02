@@ -123,8 +123,59 @@ async function studentTests(id){
   const pdfBtn=document.getElementById('makePdfReport');
   if(pdfBtn)pdfBtn.onclick=()=>studentPdfAttachmentManager(id,attempts);
 }
-function selectParagraph(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');root.innerHTML=`<header><b>${esc(c.name)} — Paragraph Test</b><button onclick="studentTests(${sid})">Back</button></header><main><section class="card"><h2>किस paragraph का test देना है?</h2><p class="muted">कोई भी paragraph चुनें। किसी क्रम की बाध्यता नहीं है।</p>${c.paragraphs.map((p,i)=>`<div class="testrow"><b>Paragraph ${i+1}</b><span>${tokenize(p.text).length} words</span><button onclick="startSelectedParagraphTest(${sid},${cid},${p.id},${i})">Start Test</button></div>`).join('')}</section></main>`}
+function selectParagraph(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');root.innerHTML=`<header><b>${esc(c.name)} — Paragraph Test</b><button onclick="studentTests(${sid})">Back</button></header><main><section class="card"><h2>किस paragraph का test देना है?</h2><p class="muted">कोई भी paragraph चुनें। किसी क्रम की बाध्यता नहीं है।</p>${c.paragraphs.map((p,i)=>`<div class="testrow"><b>Paragraph ${i+1}</b><span>${tokenize(p.text).length} words</span><button onclick="showPronunciationHelp(${sid},${cid},${p.id},${i})">📖 Pronunciation Help</button><button onclick="startSelectedParagraphTest(${sid},${cid},${p.id},${i})">Start Test</button></div>`).join('')}</section></main>`}
 function startSelectedParagraphTest(sid,cid,pid,index){const c=getChapter(cid);const p=c?.paragraphs.find(x=>x.id===pid);if(!p)return alert('Paragraph not found');const open=()=>speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>studentTests(sid),onCancel:()=>open()});open()}
+
+
+function formulaPronunciation(raw){
+  const letters={A:'ए',B:'बी',C:'सी',D:'डी',E:'ई',F:'एफ',G:'जी',H:'एच',I:'आई',J:'जे',K:'के',L:'एल',M:'एम',N:'एन',O:'ओ',P:'पी',Q:'क्यू',R:'आर',S:'एस',T:'टी',U:'यू',V:'वी',W:'डब्ल्यू',X:'एक्स',Y:'वाई',Z:'ज़ेड'};
+  const nums={'0':'ज़ीरो','1':'वन','2':'टू','3':'थ्री','4':'फोर','5':'फाइव','6':'सिक्स','7':'सेवन','8':'एट','9':'नाइन','₀':'ज़ीरो','₁':'वन','₂':'टू','₃':'थ्री','₄':'फोर','₅':'फाइव','₆':'सिक्स','₇':'सेवन','₈':'एट','₉':'नाइन','⁰':'ज़ीरो','¹':'वन','²':'स्क्वेयर','³':'क्यूब','⁴':'फोर','⁵':'फाइव','⁶':'सिक्स','⁷':'सेवन','⁸':'एट','⁹':'नाइन'};
+  const parts=[];
+  for(const ch of String(raw||'')){
+    if(/[A-Za-z]/.test(ch))parts.push(letters[ch.toUpperCase()]||ch);
+    else if(nums[ch])parts.push(nums[ch]);
+    else if(ch==='(')parts.push('ओपन ब्रैकेट');
+    else if(ch===')')parts.push('क्लोज ब्रैकेट');
+    else if(ch==='[')parts.push('ओपन स्क्वायर ब्रैकेट');
+    else if(ch===']')parts.push('क्लोज स्क्वायर ब्रैकेट');
+    else if(ch==='{')parts.push('ओपन कर्ली ब्रैकेट');
+    else if(ch==='}')parts.push('क्लोज कर्ली ब्रैकेट');
+    else if(ch==='+')parts.push('प्लस');
+    else if(ch==='−'||ch==='-')parts.push('माइनस');
+    else if(ch==='=')parts.push('इक्वल टू');
+    else if(ch==='→')parts.push('रिएक्शन एरो');
+    else if(ch==='←')parts.push('लेफ्ट एरो');
+    else if(ch==='·'||ch==='⋅')parts.push('डॉट');
+    else if(ch==='/')parts.push('डिवाइडेड बाय');
+    else if(ch==='^')parts.push('पावर');
+  }
+  return parts.join(' ');
+}
+function formulaSpeechEnglish(raw){
+  const letters={A:'A',B:'B',C:'C',D:'D',E:'E',F:'F',G:'G',H:'H',I:'I',J:'J',K:'K',L:'L',M:'M',N:'N',O:'O',P:'P',Q:'Q',R:'R',S:'S',T:'T',U:'U',V:'V',W:'W',X:'X',Y:'Y',Z:'Z'};
+  const nums={'₀':' zero ','₁':' one ','₂':' two ','₃':' three ','₄':' four ','₅':' five ','₆':' six ','₇':' seven ','₈':' eight ','₉':' nine ','⁰':' zero ','¹':' one ','²':' squared ','³':' cubed ','⁴':' to the power four ','⁵':' to the power five ','⁶':' to the power six ','⁷':' to the power seven ','⁸':' to the power eight ','⁹':' to the power nine '};
+  let out='';for(const ch of String(raw||'')){if(/[A-Za-z]/.test(ch))out+=' '+letters[ch.toUpperCase()];else if(nums[ch])out+=nums[ch];else if(/[0-9]/.test(ch))out+=' '+({'0':'zero','1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'}[ch]);else if(ch==='(')out+=' open bracket ';else if(ch===')')out+=' close bracket ';else if(ch==='[')out+=' open square bracket ';else if(ch===']')out+=' close square bracket ';else if(ch==='+')out+=' plus ';else if(ch==='−'||ch==='-')out+=' minus ';else if(ch==='=')out+=' equals ';else if(ch==='→')out+=' reacts to ';else if(ch==='/')out+=' divided by ';}return out.replace(/\s+/g,' ').trim();
+}
+function speakHelpText(text,lang='hi-IN'){
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance)return alert('इस मोबाइल/browser में Text-to-Speech उपलब्ध नहीं है।');
+  window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=.82;window.speechSynthesis.speak(u);
+}
+function showPronunciationHelp(sid,cid,pid,index){
+  const c=getChapter(cid),p=c?.paragraphs.find(x=>x.id===pid);if(!p)return;
+  const rawTokens=(p.text.match(/[^\s,;:]+/g)||[]).map(t=>t.replace(/^[“”‘’"'`]+|[.,;:!?।॥”’"'`]+$/g,''));
+  const formulas=[...new Set(rawTokens.filter(t=>/[A-Za-z]/.test(t)&&/[0-9₀-₉⁰-⁹()[\]{}^]/.test(t)))];
+  // Also detect equations with spaces around operators, e.g. F = ma or 2H₂ + O₂ → 2H₂O.
+  const equations=p.text.match(/(?:[A-Za-z0-9₀-₉⁰-⁹()[\]{}]+\s*)?(?:[=+\-→←]\s*[A-Za-z0-9₀-₉⁰-⁹()[\]{}]+\s*)+/g)||[];
+  for(const eq of equations){const clean=eq.trim();if(/[A-Za-z]/.test(clean)&&/[=+\-→←]/.test(clean)&&!formulas.includes(clean))formulas.push(clean);}
+  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result">${esc(p.text)}</div><button id="speakWholeParagraph" type="button">🔊 पूरा पैराग्राफ सुनें</button></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>ऐसे बोलें:</b> ${esc(formulaPronunciation(f))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
+  let spokenParagraph=p.text;
+  for(const formula of formulas.slice().sort((a,b)=>b.length-a.length)){
+    const escaped=formula.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    spokenParagraph=spokenParagraph.replace(new RegExp(escaped,'g'),formulaSpeechEnglish(formula));
+  }
+  document.getElementById('speakWholeParagraph').onclick=()=>speakHelpText(spokenParagraph,/[\u0900-\u097F]/u.test(p.text)?'hi-IN':'en-IN');
+  root.querySelectorAll('[data-speak-formula]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaSpeechEnglish(formulas[Number(btn.dataset.speakFormula)]),'en-IN'));
+}
 
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
 function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
@@ -171,6 +222,9 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   let finalParts=[];
   let interimText='';
   let lastFinalText='';
+  // Chrome Android may replay a final phrase after a recognition session restarts.
+  // Remember recent normalized chunks so the same spoken line is not appended repeatedly.
+  const recentFinalChunkKeys=[];
   let stopping=false;
   let finished=false;
   let restartTimer=null;
@@ -230,14 +284,28 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
 
   const appendFinalChunk=(text)=>{
     const t=(text||'').trim(); if(!t)return;
+    const key=words(t).join(' '); if(!key)return;
     const prev=lastFinalText.trim();
-    if(prev && (t===prev || prev.endsWith(t)))return;
-    let add=t;
-    if(prev){
-      const overlap=overlapScore(prev,t);
-      if(overlap) add=tokenize(t).slice(overlap).join(' ');
+    const incoming=key.split(' '), accumulated=words(finalParts.join(' '));
+    const expectedAtCurrent=referenceWords.slice(accumulated.length,accumulated.length+incoming.length).map(normWord).join(' ');
+    if(recentFinalChunkKeys.includes(key)&&expectedAtCurrent!==key)return;
+    // Ignore a repeated multi-word phrase replayed by Chrome after auto-restart.
+    if(incoming.length>=5){
+      outer: for(let i=Math.max(0,accumulated.length-100);i<=accumulated.length-incoming.length;i++){
+        for(let j=0;j<incoming.length;j++)if(accumulated[i+j]!==incoming[j])continue outer;
+        const nextPos=words(finalParts.join(' ')).length;
+        const expected=referenceWords.slice(nextPos,nextPos+incoming.length).map(normWord).join(' ');
+        if(expected!==key)return;
+      }
     }
-    if(add)finalParts.push(add);
+    let add=t;
+    if(prev && (t===prev || words(prev).join(' ').endsWith(key)))return;
+    if(accumulated.length){
+      let overlap=0;const max=Math.min(40,accumulated.length,incoming.length);
+      for(let n=max;n>=1;n--){if(accumulated.slice(-n).join(' ')===incoming.slice(0,n).join(' ')){overlap=n;break}}
+      if(overlap)add=tokenize(t).slice(overlap).join(' ');
+    }
+    if(add){finalParts.push(add);recentFinalChunkKeys.push(key);if(recentFinalChunkKeys.length>12)recentFinalChunkKeys.shift();}
     lastFinalText=t;
   };
 
