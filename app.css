@@ -15,3 +15,6 @@
 /* MathJax formula rendering in paragraph help and PDF reports */
 .math-paragraph mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .math-paragraph { overflow-wrap: anywhere; line-height: 1.8; }
+
+/* Persisted manual corrections remain blue when viewing saved attempt history and PDFs. */
+.word.manual-added{color:#1d4ed8;background:#eff6ff;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:#2563eb;font-weight:700}

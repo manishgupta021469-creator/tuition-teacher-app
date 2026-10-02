@@ -60,3 +60,10 @@ The existing camera-and-scan workflow is retained. OCR now tries both contrast-a
 - In the completed test score editor, words matched by speech recognition are underlined in green; words added manually by tapping are underlined in blue.
 - The editor shows separate live counts for speech-detected words and manually marked words, plus the combined score.
 - Saving still stores the final combined matched-word indexes using the existing API; no database schema change is made. The blue/green distinction and separate counts are for the active score-editing screen and are not stored as separate historical categories.
+
+
+## V45 — Persist manual underline colors in saved history
+- Saves manually added word indexes separately from the total matched word indexes.
+- Reopens saved attempts with manually corrected words in blue in attempt history and PDF reports.
+- Adds the `manual_word_indexes` JSONB column using `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`; it does not reset or recreate the database.
+- Existing attempts created before this change have no stored manual-word metadata, so their original manual blue words cannot be reconstructed automatically. New saves after deployment will preserve the blue markings.

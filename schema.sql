@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS test_results (
   spoken_text TEXT,
   reference_text TEXT,
   matched_word_indexes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  manual_word_indexes JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_students_teacher ON students(teacher_id);
