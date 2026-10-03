@@ -198,3 +198,17 @@ label{color:#344967}
   .section-heading{gap:8px}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* V49: progressive, button-like navigation for learning material. */
+.tree-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;font-weight:750;touch-action:manipulation;padding:10px 12px;border-radius:11px;background:#eef4ff;color:#1c3d78;border:1px solid #dce7f5;}
+.tree-summary::-webkit-details-marker{display:none}
+.tree-summary::after{content:'＋';font-size:1.15rem;flex:0 0 auto;color:#2867e8}
+details[open]>.tree-summary::after{content:'−'}
+.subject-summary{font-size:1.05rem;background:#eaf1ff}
+.book-summary{font-size:.98rem;background:#f7faff}
+.tree-hint{font-size:.76rem;font-weight:550;color:#71809a;text-align:right}
+.tree-actions{display:flex;gap:7px;flex-wrap:wrap;padding:8px 0 2px}
+.tree-actions button{margin:0}
+.subject>summary{margin:-1px}
+.book>summary{margin:0}
+.subject>.book{margin-top:10px}
