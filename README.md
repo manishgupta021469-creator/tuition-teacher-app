@@ -1,4 +1,4 @@
-# Tuition Teacher App — V31
+# Easyway Learn — Tuition Teacher App — V47
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
 - Admin 6-digit password-reset code
@@ -75,3 +75,9 @@ The existing camera-and-scan workflow is retained. OCR now tries both contrast-a
 - Added a safer delay after no-speech/network errors and bounded retry backoff for recoverable start/network failures.
 - No database schema, account, history, report, OCR, or manual underline behavior changed.
 - Speech recognition still depends on Android Chrome's Web Speech service, microphone permission, internet connection, and the device environment; this update cannot guarantee every spoken word will be recognized.
+
+
+## V47 Camera, OCR and interface improvements
+V47 keeps the existing teacher/student, test, score/history, PDF, WhatsApp, speech-recognition, and database functionality in place. It improves the app branding and mobile interface, adds a manual camera-open → capture photo → recognize text flow for chapter/paragraph text and Question & Answer fields, and adds clipboard-paste actions to the relevant text fields. The camera is not opened until the user presses a camera button. OCR remains browser-based with Hindi + English recognition; please review recognized text before saving.
+
+The V47 ZIP does not change `index.js` or `schema.sql`. Do not reset, delete, or recreate the existing Render database; deploy the updated app code to the existing service.
