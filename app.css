@@ -258,3 +258,16 @@ main:has(>#studentActions){display:flex;flex-direction:column}
 .test-type-row .list{width:100%;min-width:0}
 .test-type-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .test-type-row .list{width:100%;min-width:0}
+
+/* Student page polish: clearer avatar, more comfortable action buttons, and paragraph preview. */
+.student-heading .profile-avatar{width:46px;height:46px;flex-basis:46px;font-size:1.2rem;background:linear-gradient(145deg,#e4edff,#c9dcff);box-shadow:0 3px 10px #234fae20;border:2px solid #fff}
+.student-heading #studentMenu{min-width:44px;min-height:44px;font-size:1.35rem;border-radius:13px}
+main:has(>#studentActions) #studentActions button:not(.delete-student){min-height:46px;padding:10px 14px;border-radius:13px;font-size:.96rem}
+main:has(>#studentActions) #studentActions .student-action-button{display:inline-flex;align-items:center;gap:7px;font-weight:750}
+.paragraph-preview{margin:14px 0;padding:13px 15px;border:1px solid #d5e3fb;border-left:4px solid #4778d0;border-radius:12px;background:linear-gradient(135deg,#f5f8ff,#fff)}
+.paragraph-preview span{display:block;color:#55709a;font-size:.78rem;font-weight:800;margin-bottom:5px}
+.paragraph-preview p{margin:0;color:#203d72;font-weight:700;line-height:1.55;overflow-wrap:anywhere}
+@media(max-width:600px){
+  .student-heading .profile-avatar{width:42px;height:42px;flex-basis:42px}
+  main:has(>#studentActions) #studentActions button:not(.delete-student){font-size:.9rem;padding:10px}
+}
