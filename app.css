@@ -271,3 +271,10 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
   .student-heading .profile-avatar{width:42px;height:42px;flex-basis:42px}
   main:has(>#studentActions) #studentActions button:not(.delete-student){font-size:.9rem;padding:10px}
 }
+
+/* V52: dedicated entry choices on the opening screen */
+.auth-choice-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:18px}
+.auth-choice{display:flex;align-items:center;gap:12px;text-align:left;padding:15px;border-radius:16px;background:#fff;border:1px solid #dbe5f3;color:var(--ink);box-shadow:0 4px 14px rgba(35,70,120,.06)}
+.auth-choice>span{font-size:1.65rem;flex:0 0 42px;text-align:center}.auth-choice b{display:block}.auth-choice small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
+.auth-choice:hover{transform:translateY(-1px);border-color:#8fb5ef}
+@media(min-width:560px){.auth-choice-grid{grid-template-columns:1fr 1fr}.auth-choice:last-child{grid-column:1/-1}}
