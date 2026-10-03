@@ -81,3 +81,12 @@ The existing camera-and-scan workflow is retained. OCR now tries both contrast-a
 V47 keeps the existing teacher/student, test, score/history, PDF, WhatsApp, speech-recognition, and database functionality in place. It improves the app branding and mobile interface, adds a manual camera-open → capture photo → recognize text flow for chapter/paragraph text and Question & Answer fields, and adds clipboard-paste actions to the relevant text fields. The camera is not opened until the user presses a camera button. OCR remains browser-based with Hindi + English recognition; please review recognized text before saving.
 
 The V47 ZIP does not change `index.js` or `schema.sql`. Do not reset, delete, or recreate the existing Render database; deploy the updated app code to the existing service.
+
+
+## V53 combined update (October 2026)
+- Complete Paragraph Test combines all saved paragraphs in chapter order and records one chapter-level attempt; newly added paragraphs are included dynamically. The app's existing speech/read-aloud behavior is unchanged.
+- Teacher chapter material now offers separate Paragraph and Question-Answer routes.
+- Camera panel adds best-effort torch and optical/device zoom controls where supported, and captures a centered 4:3 document frame. OCR continues to use Hindi + English Tesseract processing with review-before-save. OCR and browser speech recognition depend on device/browser capabilities and cannot guarantee zero errors.
+- Speech recognition restart timing is less aggressive and keeps available interim words when a browser session ends, to reduce lost words. Microphone accuracy still depends on Android Chrome/Web Speech service, connectivity, permissions, and device conditions.
+- Login, Create Teacher Account, and Admin Login are separated into a choice screen. Student deletion is available on the student page instead of the dashboard list. Student results include weighted chapter/book/subject accuracy navigation.
+- No database reset or schema change was added in this update. Existing database records remain in place.
