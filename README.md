@@ -90,3 +90,21 @@ The V47 ZIP does not change `index.js` or `schema.sql`. Do not reset, delete, or
 - Speech recognition restart timing is less aggressive and keeps available interim words when a browser session ends, to reduce lost words. Microphone accuracy still depends on Android Chrome/Web Speech service, connectivity, permissions, and device conditions.
 - Login, Create Teacher Account, and Admin Login are separated into a choice screen. Student deletion is available on the student page instead of the dashboard list. Student results include weighted chapter/book/subject accuracy navigation.
 - No database reset or schema change was added in this update. Existing database records remain in place.
+
+
+## V54 Combined Update (2026-10-04)
+- Teacher login is required once per new calendar day (India date); the same login remains usable during that calendar day.
+- Admin Login is hidden from the normal Teacher entry screen and is available only at the same Render URL under `/admin`. Server-side Admin authentication remains enforced.
+- Teacher account creation now shows “Account Created Successfully” after successful registration.
+- Test attempts show the recorded date and time in history/result views.
+- Improved speech-recognition restart/language handling from the prior combined build; browser/device speech-service limitations still apply.
+- Camera controls from the prior build remain: 4:3 preview, supported-device Flash and hardware Zoom.
+- OCR improvements from the prior build remain: Hindi+English recognition, text editing, and preserved paragraph ordering/line breaks as far as OCR permits.
+- Complete Paragraph Test remains one combined test using all chapter paragraphs in serial order, without a Next step between paragraphs.
+- Teacher material flow remains Subject → Book → Chapter → Paragraph / Question-Answer.
+- Student delete remains on the student page; dashboard delete buttons remain removed.
+- The “Easyway Learn” branding is slightly larger/more professional.
+- PWA manifest now uses the SVG app icon and the unused PNG icon files are not included, to avoid the browser repeatedly fetching the small PNG logo as a media file.
+- No database reset, account deletion, score/history reset, or replacement of existing data is performed by this build.
+
+**Important:** Test the ZIP locally first. Do not deploy it over the live Render service until login, Admin `/admin`, existing teacher/student data, tests/history, camera/OCR, and WhatsApp/PDF flows have been checked.

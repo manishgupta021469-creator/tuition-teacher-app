@@ -277,3 +277,12 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 .student-heading{flex-wrap:wrap}.student-heading .delete-student{margin-left:auto;}
 
 .auth-choice-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:18px}.auth-choice-grid button{min-height:58px;font-size:1rem;text-align:left;padding:16px}.camera-actions{display:flex;flex-wrap:wrap;gap:8px}.camera-actions button{flex:1 1 auto}
+
+/* Final polish: compact 3-column rank/subject layouts and a stronger app brand. */
+.auth-brand h1{font-size:clamp(1.55rem,5vw,2rem);font-weight:900;letter-spacing:.01em}
+.brand-lockup b{font-size:1.15rem;font-weight:900;letter-spacing:.01em}
+.dashboard-rank-grid,.dashboard-subject-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dashboard-rank-grid .rank-tile,.dashboard-subject-grid .compact-item{min-width:0}
+.dashboard-rank-grid .rank-tile{padding:10px 8px;font-size:.88rem}
+.dashboard-rank-grid .rank-tile span{font-size:.76rem}
+@media(max-width:600px){.dashboard-rank-grid,.dashboard-subject-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.dashboard-rank-grid .rank-tile{font-size:.76rem;padding:9px 5px}.dashboard-rank-grid .rank-tile span{font-size:.67rem}.dashboard-subject-grid .compact-item{font-size:.78rem;padding:10px 5px}.brand-lockup b{font-size:1.05rem}}
