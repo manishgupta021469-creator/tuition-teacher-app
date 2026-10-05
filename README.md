@@ -148,3 +148,11 @@ This release is rebuilt directly from V56 Final Combined Updates. Existing featu
 - Existing accounts, students, content, scores, attempt history, database and unrelated features are preserved. No database reset/recreation is performed.
 
 **Validation performed:** JavaScript syntax check passed and the ZIP archive was tested after packaging. Live Android microphone/Gallery OCR behavior still needs to be checked on the actual phone because Web Speech/Tesseract behavior depends on browser, network, permissions and device.
+
+
+## V63 — Modern Student-Style Teacher Dashboard
+- Built directly from V62 Gallery OCR + Mic Improved.
+- Redesigned the main Tuition Teacher dashboard to closely follow the supplied modern mobile dashboard reference: branded header, welcome/progress card, student cards, learning-material subject cards, performance/result cards, Keep Going prompt and quick-action shortcuts.
+- Existing student, subject, book, chapter, paragraph, Q&A, test, scoring, history, account, authentication, OCR, microphone and report actions are preserved; this dashboard change only changes presentation and the way existing dashboard actions are surfaced.
+- Dashboard data uses the existing live API/state; no new fake student/test records are created.
+- No database reset/recreation is performed.

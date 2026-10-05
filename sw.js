@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyway-learn-shell-v62-gallery-ocr-mic';
+const CACHE_NAME = 'easyway-learn-shell-v63-teacher-dashboard';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/pwa-assets/icon-192.png', '/pwa-assets/icon-512.png'];
 
 self.addEventListener('install', event => {

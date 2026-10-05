@@ -83,21 +83,75 @@ async function load(){[state.teacher,state.students,state.content,state.results]
 function dashboard(){
   const created=sessionStorage.getItem('teacherCreated'); sessionStorage.removeItem('teacherCreated');
   const orderedStudents=state.students;
-  const rankMap=new Map(state.results.slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0)).map((r,i)=>[r.id||r.student_id,i+1]));
-  root.innerHTML=`<header><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><b>Easyway Learn</b><small>Tuition Teacher${decodeJwtRole()==='admin_impersonate'?' · Admin Check Mode':''}</small></div></div><div class="header-actions">${decodeJwtRole()==='admin_impersonate'?'<button id="backAdmin" class="btn-secondary" type="button">Back to Admin</button>':''}<button id="teacherProfile" class="profile-button" type="button" aria-expanded="false"><span class="profile-avatar">${esc((state.teacher?.name||'T').trim().charAt(0).toUpperCase())}</span><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button><button id="logout">Logout</button></div><div id="profileMenu" class="profile-menu" hidden><b>${esc(state.teacher?.name||'Teacher')}</b><small>Teacher ID: ${esc(state.teacher?.email||state.teacher?.id||'')}</small><button id="profileChangePassword" class="btn-secondary" type="button">Change Password</button></div></header><main>${created?`<section class="success-banner"><b>${esc(created).replace(/\n/g,'<br>')}</b></section>`:''}
-  <section class="card"><div class="section-heading"><div><div class="section-kicker">STUDENT MANAGEMENT</div><h2>Students</h2></div><span class="count-pill">${state.students.length}/20</span></div><button id="addStudent">+ Add Student</button><div id="studentList" class="compact-grid">${orderedStudents.slice(0,5).map((st,i)=>`<button class="list compact-item" data-s="${st.id}">${i+1}. ${esc(st.name)}<small>Class ${esc(st.class_name)}</small></button>`).join('')}${orderedStudents.length>5?'<button id="moreStudents" class="btn-secondary compact-item">More</button>':''}</div><div id="extraStudents" class="compact-grid" hidden>${orderedStudents.slice(5).map((st,i)=>`<button class="list compact-item" data-s="${st.id}">${i+6}. ${esc(st.name)}<small>Class ${esc(st.class_name)}</small></button>`).join('')}</div></section>
-  <section class="card"><div class="section-heading"><div><div class="section-kicker">PERFORMANCE</div><h2>Student Rank</h2></div></div><div class="compact-grid rank-grid dashboard-rank-grid">${state.results.slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0)).slice(0,8).map((r,i)=>`<div class="rank-tile"><b>#${i+1} ${esc(r.name)}</b><span>${Number(r.score||0).toFixed(2)}% · ${r.tests||0} tests</span></div>`).join('')||'<p class="muted">टेस्ट पूरा होने पर रैंक दिखाई देगी।</p>'}${state.results.length>8?'<button id="moreRanks" class="btn-secondary compact-item">More</button>':''}</div><div id="extraRanks" class="compact-grid rank-grid" hidden>${state.results.slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0)).slice(8).map((r,i)=>`<div class="rank-tile"><b>#${i+9} ${esc(r.name)}</b><span>${Number(r.score||0).toFixed(2)}% · ${r.tests||0} tests</span></div>`).join('')}</div></section>
-  <section class="card"><div class="section-heading"><div><div class="section-kicker">LEARNING MATERIAL</div><h2>Subjects</h2></div></div><div class="compact-grid dashboard-subject-grid">${state.content.slice(0,5).map((sub,i)=>`<button class="list compact-item" data-teacher-subject="${sub.id}">${i+1}. ${esc(sub.name)}</button>`).join('')}${state.content.length>5?'<button id="moreSubjects" class="btn-secondary compact-item">More</button>':''}<button id="addSubject" class="btn-secondary compact-item">+ Create Subject</button></div><div id="extraSubjects" class="compact-grid" hidden>${state.content.slice(5).map((sub,i)=>`<button class="list compact-item" data-teacher-subject="${sub.id}">${i+6}. ${esc(sub.name)}</button>`).join('')}</div><div id="content" hidden>${renderContent()}</div></section></main>`;
+  const ranked=state.results.slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0));
+  const totalTests=state.results.reduce((sum,r)=>sum+Number(r.tests||0),0);
+  const avgScore=ranked.length?ranked.reduce((sum,r)=>sum+Number(r.score||0),0)/ranked.length:0;
+  const initials=String(state.teacher?.name||'Teacher').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'T';
+  const subjectIcons=['📖','📘','🧪','🧮','🌍'];
+  const subjectClasses=['dash-pink','dash-blue','dash-green','dash-purple','dash-orange'];
+  const recent=ranked.slice(0,3);
+  root.innerHTML=`
+  <header class="dash-header">
+    <div class="dash-brand"><button class="dash-menu" type="button" aria-label="Menu">☰</button><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><b>Easyway Learn</b><small>Read&nbsp; • &nbsp;Practice&nbsp; • &nbsp;Improve</small></div></div></div>
+    <div class="header-actions">
+      ${decodeJwtRole()==='admin_impersonate'?'<button id="backAdmin" class="btn-secondary" type="button">Back to Admin</button>':''}
+      <button id="teacherProfile" class="dash-profile" type="button" aria-expanded="false"><span class="dash-avatar">${esc(initials)}</span><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button>
+      <button id="logout" class="dash-logout">Logout</button>
+    </div>
+    <div id="profileMenu" class="profile-menu" hidden><b>${esc(state.teacher?.name||'Teacher')}</b><small>Teacher ID: ${esc(state.teacher?.email||state.teacher?.id||'')}</small><button id="profileChangePassword" class="btn-secondary" type="button">Change Password</button></div>
+  </header>
+  <main class="teacher-dashboard">
+    ${created?`<section class="success-banner"><b>${esc(created).replace(/\n/g,'<br>')}</b></section>`:''}
+    <section class="dash-welcome">
+      <div class="dash-welcome-person"><span class="dash-big-avatar">${esc(initials)}</span><div><div class="dash-small-title">Welcome,</div><h1>${esc(state.teacher?.name||'Teacher')}</h1><p>Tuition Teacher <span>•</span> ${orderedStudents.length} Students</p></div></div>
+      <div class="dash-progress"><span>📊</span><div><small>Overall Student Progress</small><strong>${avgScore.toFixed(0)}%</strong></div></div>
+    </section>
+
+    <section class="dash-section-head"><div><span class="dash-section-icon">👥</span><h2>My Students</h2></div><span class="count-pill">${orderedStudents.length}/20</span></section>
+    <section class="dash-student-grid">
+      ${orderedStudents.slice(0,4).map((st,i)=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar">${esc(String(st.name||'S').trim().charAt(0).toUpperCase())}</span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}
+      ${orderedStudents.length>4?'<button id="moreStudents" class="dash-more-card" type="button"><span>•••</span><b>More</b><small>View students</small><i>›</i></button>':''}
+      ${orderedStudents.length===0?'<div class="dash-empty">अभी कोई Student नहीं है। नीचे “Add Student” से जोड़ें।</div>':''}
+    </section>
+    <div id="extraStudents" class="dash-student-grid dash-extra" hidden>${orderedStudents.slice(4).map(st=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar">${esc(String(st.name||'S').trim().charAt(0).toUpperCase())}</span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}</div>
+    <div class="dash-action-row"><button id="addStudent" class="dash-primary-action" type="button">＋ Add Student</button></div>
+
+    <section class="dash-section-head"><div><span class="dash-section-icon">📚</span><h2>Learning Materials</h2></div><button id="addSubject" class="dash-link-action" type="button">＋ Create Subject</button></section>
+    <section class="dash-subject-grid">
+      ${state.content.slice(0,5).map((sub,i)=>`<button class="dash-subject-card ${subjectClasses[i%subjectClasses.length]}" data-teacher-subject="${sub.id}" type="button"><span class="dash-subject-icon">${subjectIcons[i%subjectIcons.length]}</span><span><b>${esc(sub.name)}</b><small>${sub.books?.length||0} Books</small></span><span class="dash-manage">Manage</span></button>`).join('')}
+      ${state.content.length>5?'<button id="moreSubjects" class="dash-subject-card dash-more-card" type="button"><span class="dash-subject-icon">•••</span><span><b>More</b><small>Subjects</small></span><span class="dash-arrow">›</span></button>':''}
+      ${state.content.length===0?'<div class="dash-empty">अभी कोई Subject नहीं है। “Create Subject” से शुरू करें।</div>':''}
+    </section>
+    <div id="extraSubjects" class="dash-subject-grid dash-extra" hidden>${state.content.slice(5).map((sub,i)=>`<button class="dash-subject-card ${subjectClasses[(i+5)%subjectClasses.length]}" data-teacher-subject="${sub.id}" type="button"><span class="dash-subject-icon">${subjectIcons[(i+5)%subjectIcons.length]}</span><span><b>${esc(sub.name)}</b><small>${sub.books?.length||0} Books</small></span><span class="dash-manage">Manage</span></button>`).join('')}</div>
+    <div id="content" hidden>${renderContent()}</div>
+
+    <section class="dash-section-head dash-results-head"><div><span class="dash-section-icon">📋</span><h2>Student Performance</h2></div><span class="dash-stat-note">${totalTests} Tests</span></section>
+    <section class="dash-results-card">
+      ${recent.map((r,i)=>`<button class="dash-result-row" data-s="${r.student_id||r.id}" type="button"><span class="dash-result-icon ${['dash-purple','dash-blue','dash-green'][i]}">${i===0?'🎯':i===1?'📄':'✓'}</span><span class="dash-result-main"><b>${esc(r.name)}</b><small>${r.tests||0} test${Number(r.tests||0)===1?'':'s'} completed</small></span><strong>${Number(r.score||0).toFixed(0)}%</strong><span class="dash-arrow">›</span></button>`).join('')||'<div class="dash-empty">टेस्ट पूरा होने के बाद यहाँ Student Performance दिखाई देगी।</div>'}
+    </section>
+
+    <section class="dash-keep-going"><span>🎯</span><div><b>Keep Going!</b><small>Students की practice और scores को बेहतर बनाते रहें।</small></div><button id="dashStartStudent" type="button">Open Student ›</button></section>
+    <section class="dash-quick-grid">
+      <button type="button" data-quick="students"><span>👥</span><b>My Students</b><small>Manage</small></button>
+      <button type="button" data-quick="subjects"><span>📚</span><b>Subjects</b><small>Manage</small></button>
+      <button type="button" data-quick="results"><span>📊</span><b>Results</b><small>View</small></button>
+      <button type="button" data-quick="password"><span>🔐</span><b>Profile</b><small>Settings</small></button>
+    </section>
+  </main>`;
   logout.onclick=()=>{localStorage.clear();sessionStorage.removeItem('adminTeacherToken');location.reload()};
   if(decodeJwtRole()==='admin_impersonate')backAdmin.onclick=backToAdmin;
   teacherProfile.onclick=()=>{const menu=document.getElementById('profileMenu');menu.hidden=!menu.hidden;teacherProfile.setAttribute('aria-expanded',String(!menu.hidden))};
   profileChangePassword.onclick=changePasswordForm;
-  addStudent.onclick=addStudentForm;addSubject.onclick=addSubjectForm;
-  const bindStudentButtons=()=>{document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>studentTests(+b.dataset.s))};bindStudentButtons();
-  const moreStudents=document.getElementById('moreStudents');if(moreStudents)moreStudents.onclick=()=>{document.getElementById('extraStudents').hidden=false;moreStudents.remove();bindStudentButtons()};
-  const moreRanks=document.getElementById('moreRanks');if(moreRanks)moreRanks.onclick=()=>{document.getElementById('extraRanks').hidden=false;moreRanks.remove()};
-  const moreSubjects=document.getElementById('moreSubjects');if(moreSubjects)moreSubjects.onclick=()=>{document.getElementById('extraSubjects').hidden=false;moreSubjects.remove();bindSubjectButtons()};
-  function bindSubjectButtons(){document.querySelectorAll('[data-teacher-subject]').forEach(b=>b.onclick=()=>teacherSubjectFlow(+b.dataset.teacherSubject))}bindSubjectButtons();
+  addStudent.onclick=addStudentForm; addSubject.onclick=addSubjectForm;
+  const bindStudentButtons=()=>{document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>studentTests(+b.dataset.s))}; bindStudentButtons();
+  const moreStudents=document.getElementById('moreStudents'); if(moreStudents)moreStudents.onclick=()=>{document.getElementById('extraStudents').hidden=false;moreStudents.remove();bindStudentButtons()};
+  const moreSubjects=document.getElementById('moreSubjects'); if(moreSubjects)moreSubjects.onclick=()=>{document.getElementById('extraSubjects').hidden=false;moreSubjects.remove();bindSubjectButtons()};
+  function bindSubjectButtons(){document.querySelectorAll('[data-teacher-subject]').forEach(b=>b.onclick=()=>teacherSubjectFlow(+b.dataset.teacherSubject))} bindSubjectButtons();
+  const dashStartStudent=document.getElementById('dashStartStudent'); if(dashStartStudent)dashStartStudent.onclick=()=>{const first=orderedStudents[0];if(first)studentTests(first.id);else addStudentForm()};
+  document.querySelectorAll('[data-quick="students"]').forEach(b=>b.onclick=()=>document.getElementById('addStudent')?.scrollIntoView({behavior:'smooth',block:'center'}));
+  document.querySelectorAll('[data-quick="subjects"]').forEach(b=>b.onclick=()=>document.querySelector('.dash-subject-grid')?.scrollIntoView({behavior:'smooth',block:'center'}));
+  document.querySelectorAll('[data-quick="results"]').forEach(b=>b.onclick=()=>document.querySelector('.dash-results-card')?.scrollIntoView({behavior:'smooth',block:'center'}));
+  document.querySelectorAll('[data-quick="password"]').forEach(b=>b.onclick=changePasswordForm);
 }
 function teacherSubjectFlow(subjectId){const subject=state.content.find(s=>s.id===subjectId);if(!subject)return;root.innerHTML=`<header><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt=""><div><b>Easyway Learn</b><small>${esc(subject.name)}</small></div></div><button class="btn-secondary" onclick="dashboard()">Back</button></header><main><section class="card"><h2>${esc(subject.name)} — Book चुनें</h2><div class="compact-grid">${subject.books.map(b=>`<button class="list compact-item" onclick="teacherBookFlow(${subjectId},${b.id})">${esc(b.name)}</button>`).join('')||'<p class="muted">अभी कोई Book नहीं है।</p>'}</div><div class="button-row"><button onclick="addBookForm(${subjectId})">+ Book</button><button class="btn-secondary" onclick="editSubject(${subjectId})">Edit Subject</button></div></section></main>`}
 function teacherBookFlow(subjectId,bookId){const subject=state.content.find(s=>s.id===subjectId),book=subject?.books.find(b=>b.id===bookId);if(!book)return;root.innerHTML=`<header><b>${esc(book.name)} — Chapter चुनें</b><button class="btn-secondary" onclick="teacherSubjectFlow(${subjectId})">Back</button></header><main><section class="card"><div class="compact-grid">${book.chapters.map(c=>`<button class="list compact-item" onclick="teacherChapterFlow(${subjectId},${bookId},${c.id})">${esc(c.name)}</button>`).join('')||'<p class="muted">अभी कोई Chapter नहीं है।</p>'}</div><button onclick="addChapterForm(${bookId})">+ Chapter</button><button class="btn-secondary" onclick="editBook(${bookId})">Edit Book</button></section></main>`}
