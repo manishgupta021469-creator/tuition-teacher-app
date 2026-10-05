@@ -1,13 +1,3 @@
-# V57 — Icon Download Fix
-
-Based directly on **V56 Final Combined Updates**. This release only fixes the PWA/app-icon asset handling so the icon is not treated as a downloadable SVG file on Android/Chrome. Existing application features, authentication, student data, test logic, scores, histories, OCR, speaker controls, admin activity and database behavior are preserved. No database reset or recreation is included.
-
-## Icon fix
-- PWA manifest now uses PNG icons (`icon-192.png`, `icon-512.png`).
-- Browser favicon and Apple touch icon use PNG.
-- Service-worker shell/cache uses PNG icons and a new cache version.
-- SVG icon assets are removed from the release to prevent repeated `icon-512.svg` downloads.
-
 # Easyway Learn — Tuition Teacher App — V56
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
@@ -134,3 +124,7 @@ A website cannot universally prove that an app is installed on every Android lau
 
 ### Important
 Test the ZIP locally first. Do not deploy over the live Render service until teacher login, Admin `/admin`, existing teacher/student data, tests/history, camera/OCR, Speaker ON/OFF, and WhatsApp/PDF flows have been checked.
+
+
+## V58 — Gallery Icon Fix (V56 Base)
+This release is rebuilt directly from V56 Final Combined Updates. Existing features, logic, database schema and data behavior are preserved. PWA icons were moved into `pwa-assets/`, converted to PNG, and the folder contains an Android `.nomedia` marker so the media scanner should not index the PWA icon files into Gallery when a project ZIP is extracted into Downloads. Manifest, favicon, app-logo and service-worker references were updated. Old root SVG icon files are removed from this release. Existing files already stored on a phone from older V55/V56/V57 ZIP folders are not deleted automatically and should be removed once manually.

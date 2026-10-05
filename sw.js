@@ -1,5 +1,5 @@
-const CACHE_NAME = 'easyway-learn-shell-v57-icon-fix';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'easyway-learn-shell-v58-gallery-icon-fix';
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/pwa-assets/icon-192.png', '/pwa-assets/icon-512.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
