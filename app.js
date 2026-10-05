@@ -620,7 +620,8 @@ let paragraphCameraCapturedCanvas=null;
 let paragraphCameraTrack=null;
 let paragraphCameraZoom=1;
 let paragraphCameraTorch=false;
-function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Document Camera / Gallery</b><p class="muted">कैमरे से पेज स्कैन करें या Gallery से कोई इमेज चुनकर सीधे टेक्स्ट पहचानें। चुनी हुई इमेज ऐप में सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted hidden></video><div class="button-row camera-actions"><button type="button" id="cameraFlashToggle" class="btn-secondary" onclick="toggleParagraphCameraFlash()" disabled>🔦 Flash OFF</button><button type="button" id="cameraZoomOut" class="btn-secondary" onclick="adjustParagraphCameraZoom(-1)" disabled>− Zoom</button><button type="button" id="cameraZoomIn" class="btn-secondary" onclick="adjustParagraphCameraZoom(1)" disabled>+ Zoom</button></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से Image Scan</button><button type="button" class="btn-secondary" onclick="openGoogleLensOCR()">🔍 Google Lens OCR</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><canvas id="paragraphCameraPreview" hidden></canvas><div class="button-row camera-actions"><button type="button" id="captureParagraphCamera" onclick="captureParagraphFrame()" disabled>📸 फोटो लें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>✨ टेक्स्ट पहचानें</button></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">कैमरा शुरू करने के लिए ऊपर का कैमरा बटन दबाएँ, या Gallery से इमेज चुनें।</p></div>`}
+let paragraphLensMode=false;
+function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Document Camera / Gallery</b><p class="muted">कैमरे से पेज स्कैन करें या Gallery से कोई इमेज चुनकर सीधे टेक्स्ट पहचानें। चुनी हुई इमेज ऐप में सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted hidden></video><div class="button-row camera-actions"><button type="button" id="cameraFlashToggle" class="btn-secondary" onclick="toggleParagraphCameraFlash()" disabled>🔦 Flash OFF</button><button type="button" id="cameraZoomOut" class="btn-secondary" onclick="adjustParagraphCameraZoom(-1)" disabled>− Zoom</button><button type="button" id="cameraZoomIn" class="btn-secondary" onclick="adjustParagraphCameraZoom(1)" disabled>+ Zoom</button></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से Image Scan</button><button type="button" class="btn-secondary" onclick="openGoogleLensOCR()">🔍 Google Lens जैसा OCR</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><canvas id="paragraphCameraPreview" hidden></canvas><div class="button-row camera-actions"><button type="button" id="captureParagraphCamera" onclick="captureParagraphFrame()" disabled>📸 फोटो लें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>✨ टेक्स्ट पहचानें</button></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">कैमरा शुरू करने के लिए ऊपर का कैमरा बटन दबाएँ, या Gallery से इमेज चुनें।</p></div>`}
 function closeParagraphCamera(){if(paragraphCameraStream){paragraphCameraStream.getTracks().forEach(t=>{try{t.stop()}catch{}});paragraphCameraStream=null;}paragraphCameraTrack=null;paragraphCameraZoom=1;paragraphCameraTorch=false;const v=document.getElementById('paragraphCameraVideo');if(v){v.pause();v.srcObject=null;v.hidden=true;}const panel=document.getElementById('paragraphCameraPanel');if(panel)panel.hidden=true;const preview=document.getElementById('paragraphCameraPreview');if(preview){preview.hidden=true;const ctx=preview.getContext('2d');if(ctx)ctx.clearRect(0,0,preview.width,preview.height);}paragraphCameraCapturedCanvas=null;}
 async function toggleParagraphCameraFlash(){const track=paragraphCameraTrack;if(!track)return;const caps=track.getCapabilities?.()||{};if(!caps.torch){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='इस डिवाइस/ब्राउज़र में कैमरा Flash/Torch सपोर्ट नहीं है।';return;}try{paragraphCameraTorch=!paragraphCameraTorch;await track.applyConstraints({advanced:[{torch:paragraphCameraTorch}]});const b=document.getElementById('cameraFlashToggle');if(b)b.textContent=paragraphCameraTorch?'🔦 Flash ON':'🔦 Flash OFF';}catch(e){paragraphCameraTorch=!paragraphCameraTorch;const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='Flash नियंत्रित नहीं हो सकी; कैमरा सामान्य रूप से चालू है।';}}
 async function adjustParagraphCameraZoom(delta){const track=paragraphCameraTrack;if(!track)return;const caps=track.getCapabilities?.()||{};if(!caps.zoom){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='इस डिवाइस/ब्राउज़र में वास्तविक कैमरा Zoom सपोर्ट नहीं है।';return;}const step=Number(caps.zoom.step)||0.1;paragraphCameraZoom=Math.max(caps.zoom.min,Math.min(caps.zoom.max,paragraphCameraZoom+delta*step*5));try{await track.applyConstraints({advanced:[{zoom:paragraphCameraZoom}]});}catch(e){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='कैमरा Zoom बदल नहीं सका; कैमरा सामान्य रूप से चालू है।';}}
@@ -636,15 +637,45 @@ async function openParagraphCamera(targetId='newParagraphText'){
   if(captureButton){captureButton.disabled=true;captureButton.textContent='📸 फोटो लें';}if(scanButton)scanButton.disabled=true;if(preview)preview.hidden=true;
   if(!navigator.mediaDevices?.getUserMedia){status.textContent='इस ब्राउज़र में कैमरा उपलब्ध नहीं है। ऐप को HTTPS पर खोलें और Chrome इस्तेमाल करें।';return;}
   try{
-    paragraphCameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1440},aspectRatio:{ideal:4/3},frameRate:{ideal:30,max:30}},audio:false});
-    video.srcObject=paragraphCameraStream;video.hidden=false;await video.play();
+    // Use a conservative 4:3 request first; some Android browsers/phones can open a
+    // stream but fail to render a high-resolution constrained stream. If that fails,
+    // fall back to a simple environment camera request.
+    const constraints=[
+      {video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960},aspectRatio:{ideal:4/3}},audio:false},
+      {video:{facingMode:'environment',width:{ideal:1280},height:{ideal:960}},audio:false},
+      {video:{facingMode:'environment'},audio:false},
+      {video:true,audio:false}
+    ];
+    let lastError=null;
+    for(const c of constraints){
+      try{ paragraphCameraStream=await navigator.mediaDevices.getUserMedia(c); break; }
+      catch(e){ lastError=e; paragraphCameraStream=null; }
+    }
+    if(!paragraphCameraStream) throw lastError||new Error('Camera stream unavailable');
+    video.srcObject=paragraphCameraStream;video.hidden=false;video.setAttribute('playsinline','');video.autoplay=true;video.muted=true;
+    await new Promise((resolve,reject)=>{
+      if(video.readyState>=2 && video.videoWidth>0){resolve();return;}
+      const timer=setTimeout(()=>reject(new Error('Camera preview did not start')),5000);
+      video.onloadedmetadata=()=>{clearTimeout(timer);resolve();};
+    });
+    try{await video.play();}catch{}
+    if(!video.videoWidth){throw new Error('Camera preview has no video frame');}
     const track=paragraphCameraStream.getVideoTracks()[0];paragraphCameraTrack=track;paragraphCameraZoom=Number(track.getSettings?.().zoom)||1;
     const caps=track.getCapabilities?.()||{};const flashBtn=document.getElementById('cameraFlashToggle'),zoomIn=document.getElementById('cameraZoomIn'),zoomOut=document.getElementById('cameraZoomOut');if(flashBtn){flashBtn.disabled=!caps.torch;flashBtn.textContent=caps.torch?'🔦 Flash OFF':'🔦 Flash Not Supported';}if(zoomIn)zoomIn.disabled=!(caps.zoom&&caps.zoom.max>caps.zoom.min);if(zoomOut)zoomOut.disabled=!(caps.zoom&&caps.zoom.max>caps.zoom.min);
     // Ask capable phone cameras for continuous focus/exposure without failing on unsupported devices.
     try{const advanced={};if(caps.focusMode?.includes('continuous'))advanced.focusMode='continuous';if(caps.exposureMode?.includes('continuous'))advanced.exposureMode='continuous';if(caps.whiteBalanceMode?.includes('continuous'))advanced.whiteBalanceMode='continuous';if(Object.keys(advanced).length)await track.applyConstraints({advanced:[advanced]});}catch{}
     if(captureButton)captureButton.disabled=false;
-    status.textContent='किताब का टेक्स्ट साफ दिखने पर “फोटो लें” दबाएँ। उसके बाद “टेक्स्ट पहचानें” दबाएँ।';
-  }catch(e){status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें और सुनिश्चित करें कि दूसरा ऐप कैमरा इस्तेमाल नहीं कर रहा।';if(captureButton)captureButton.disabled=true;}
+    if(paragraphLensMode){
+      status.textContent='Google Lens जैसा OCR: टेक्स्ट फ्रेम में रखें…';
+      setTimeout(async()=>{
+        if(!paragraphCameraStream)return;
+        try{captureParagraphFrame(); await scanParagraphCamera();}catch{}
+        paragraphLensMode=false;
+      },1200);
+    }else{
+      status.textContent='किताब का टेक्स्ट साफ दिखने पर “फोटो लें” दबाएँ। उसके बाद “टेक्स्ट पहचानें” दबाएँ।';
+    }
+  }catch(e){paragraphLensMode=false;status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें और सुनिश्चित करें कि दूसरा ऐप कैमरा इस्तेमाल नहीं कर रहा।';if(captureButton)captureButton.disabled=true;}
 }
 function captureParagraphFrame(){
   const video=document.getElementById('paragraphCameraVideo'),preview=document.getElementById('paragraphCameraPreview'),status=document.getElementById('paragraphCameraStatus'),scan=document.getElementById('scanParagraphCamera');
@@ -655,20 +686,14 @@ function captureParagraphFrame(){
   const capture=document.getElementById('captureParagraphCamera');if(capture)capture.textContent='📸 फिर से फोटो लें';
   if(status)status.textContent=`फोटो तैयार है (${preview.width} × ${preview.height})। टेक्स्ट पहचानने से पहले पेज सीधा और अक्षर साफ होने की जाँच करें।`;
 }
-function openGoogleLensOCR(){
+async function openGoogleLensOCR(){
+  // Do not launch the external Google Lens app/Play Store. A normal PWA cannot
+  // embed Google's private Lens UI/API, so this button provides a Lens-like
+  // camera-and-text-detection flow entirely inside Easyway Learn.
+  paragraphLensMode=true;
   const status=document.getElementById('paragraphCameraStatus');
-  if(status)status.textContent='Google Lens खोला जा रहा है… Lens में टेक्स्ट पहचानकर Copy करें, फिर Easyway Learn में Paste करें।';
-  const fallback='https://lens.google.com/';
-  let opened=false;
-  try{
-    const w=window.open('intent://#Intent;scheme=googlelens;package=com.google.ar.lens;end','_blank');
-    opened=!!w;
-  }catch{}
-  setTimeout(()=>{
-    try{
-      if(document.visibilityState==='visible') window.open(fallback,'_blank','noopener,noreferrer');
-    }catch{ try{ window.location.href=fallback; }catch{} }
-  },900);
+  if(status)status.textContent='Google Lens जैसा OCR शुरू हो रहा है… कैमरे के सामने टेक्स्ट रखें।';
+  await openParagraphCamera(paragraphCameraTargetId);
 }
 async function chooseParagraphGalleryImage(){
   const input=document.getElementById('paragraphGalleryInput');
