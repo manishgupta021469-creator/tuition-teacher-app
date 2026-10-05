@@ -621,7 +621,7 @@ let paragraphCameraTrack=null;
 let paragraphCameraZoom=1;
 let paragraphCameraTorch=false;
 let paragraphLensMode=false;
-function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Document Camera / Gallery</b><p class="muted">कैमरे से पेज स्कैन करें या Gallery से कोई इमेज चुनकर सीधे टेक्स्ट पहचानें। चुनी हुई इमेज ऐप में सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted hidden></video><div class="button-row camera-actions"><button type="button" id="cameraFlashToggle" class="btn-secondary" onclick="toggleParagraphCameraFlash()" disabled>🔦 Flash OFF</button><button type="button" id="cameraZoomOut" class="btn-secondary" onclick="adjustParagraphCameraZoom(-1)" disabled>− Zoom</button><button type="button" id="cameraZoomIn" class="btn-secondary" onclick="adjustParagraphCameraZoom(1)" disabled>+ Zoom</button></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से Image Scan</button><button type="button" class="btn-secondary" onclick="openGoogleLensOCR()">🔍 Google Lens जैसा OCR</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><canvas id="paragraphCameraPreview" hidden></canvas><div class="button-row camera-actions"><button type="button" id="captureParagraphCamera" onclick="captureParagraphFrame()" disabled>📸 फोटो लें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>✨ टेक्स्ट पहचानें</button></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">कैमरा शुरू करने के लिए ऊपर का कैमरा बटन दबाएँ, या Gallery से इमेज चुनें।</p></div>`}
+function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Document Camera / Gallery</b><p class="muted">कैमरे से पेज स्कैन करें या Gallery से कोई इमेज चुनकर सीधे टेक्स्ट पहचानें। चुनी हुई इमेज ऐप में सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted hidden></video><div class="button-row camera-actions"><button type="button" id="cameraFlashToggle" class="btn-secondary" onclick="toggleParagraphCameraFlash()" disabled>🔦 Flash OFF</button><button type="button" id="cameraZoomOut" class="btn-secondary" onclick="adjustParagraphCameraZoom(-1)" disabled>− Zoom</button><button type="button" id="cameraZoomIn" class="btn-secondary" onclick="adjustParagraphCameraZoom(1)" disabled>+ Zoom</button></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से Image Scan</button><button type="button" class="btn-secondary" onclick="openGoogleLensOCR()">🔍 Google Lens जैसा OCR</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><div id="lensOcrResultBox" hidden><div class="lens-viewer-help"><b>Google Lens जैसा Text Selection</b><span>फोटो खुली रहेगी। फोटो के ऊपर दिख रहे पहचाने गए शब्दों को उंगली से select करें, फिर Copy Selected या Paragraph में Paste दबाएँ।</span></div><div id="lensImageViewer" class="lens-image-viewer"><img id="lensSourceImage" alt="Selected page" hidden><div id="lensTextOverlay" class="lens-text-overlay" aria-label="OCR text selection"></div></div><textarea id="lensOcrResult" rows="5" hidden></textarea><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="copyLensSelectedText()">📋 Copy Selected</button><button type="button" class="btn-secondary" onclick="copyLensAllText()">📋 Copy All</button><button type="button" onclick="pasteLensTextToParagraph()">⬇️ Paragraph में Paste</button></div></div><canvas id="paragraphCameraPreview" hidden></canvas><div class="button-row camera-actions"><button type="button" id="captureParagraphCamera" onclick="captureParagraphFrame()" disabled>📸 फोटो लें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>✨ टेक्स्ट पहचानें</button></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">कैमरा शुरू करने के लिए ऊपर का कैमरा बटन दबाएँ, या Gallery से इमेज चुनें।</p></div>`}
 function closeParagraphCamera(){if(paragraphCameraStream){paragraphCameraStream.getTracks().forEach(t=>{try{t.stop()}catch{}});paragraphCameraStream=null;}paragraphCameraTrack=null;paragraphCameraZoom=1;paragraphCameraTorch=false;const v=document.getElementById('paragraphCameraVideo');if(v){v.pause();v.srcObject=null;v.hidden=true;}const panel=document.getElementById('paragraphCameraPanel');if(panel)panel.hidden=true;const preview=document.getElementById('paragraphCameraPreview');if(preview){preview.hidden=true;const ctx=preview.getContext('2d');if(ctx)ctx.clearRect(0,0,preview.width,preview.height);}paragraphCameraCapturedCanvas=null;}
 async function toggleParagraphCameraFlash(){const track=paragraphCameraTrack;if(!track)return;const caps=track.getCapabilities?.()||{};if(!caps.torch){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='इस डिवाइस/ब्राउज़र में कैमरा Flash/Torch सपोर्ट नहीं है।';return;}try{paragraphCameraTorch=!paragraphCameraTorch;await track.applyConstraints({advanced:[{torch:paragraphCameraTorch}]});const b=document.getElementById('cameraFlashToggle');if(b)b.textContent=paragraphCameraTorch?'🔦 Flash ON':'🔦 Flash OFF';}catch(e){paragraphCameraTorch=!paragraphCameraTorch;const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='Flash नियंत्रित नहीं हो सकी; कैमरा सामान्य रूप से चालू है।';}}
 async function adjustParagraphCameraZoom(delta){const track=paragraphCameraTrack;if(!track)return;const caps=track.getCapabilities?.()||{};if(!caps.zoom){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='इस डिवाइस/ब्राउज़र में वास्तविक कैमरा Zoom सपोर्ट नहीं है।';return;}const step=Number(caps.zoom.step)||0.1;paragraphCameraZoom=Math.max(caps.zoom.min,Math.min(caps.zoom.max,paragraphCameraZoom+delta*step*5));try{await track.applyConstraints({advanced:[{zoom:paragraphCameraZoom}]});}catch(e){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='कैमरा Zoom बदल नहीं सका; कैमरा सामान्य रूप से चालू है।';}}
@@ -665,16 +665,8 @@ async function openParagraphCamera(targetId='newParagraphText'){
     // Ask capable phone cameras for continuous focus/exposure without failing on unsupported devices.
     try{const advanced={};if(caps.focusMode?.includes('continuous'))advanced.focusMode='continuous';if(caps.exposureMode?.includes('continuous'))advanced.exposureMode='continuous';if(caps.whiteBalanceMode?.includes('continuous'))advanced.whiteBalanceMode='continuous';if(Object.keys(advanced).length)await track.applyConstraints({advanced:[advanced]});}catch{}
     if(captureButton)captureButton.disabled=false;
-    if(paragraphLensMode){
-      status.textContent='Google Lens जैसा OCR: टेक्स्ट फ्रेम में रखें…';
-      setTimeout(async()=>{
-        if(!paragraphCameraStream)return;
-        try{captureParagraphFrame(); await scanParagraphCamera();}catch{}
-        paragraphLensMode=false;
-      },1200);
-    }else{
-      status.textContent='किताब का टेक्स्ट साफ दिखने पर “फोटो लें” दबाएँ। उसके बाद “टेक्स्ट पहचानें” दबाएँ।';
-    }
+    paragraphLensMode=false;
+    status.textContent='किताब का टेक्स्ट साफ दिखने पर “फोटो लें” दबाएँ। उसके बाद “टेक्स्ट पहचानें” दबाएँ।';
   }catch(e){paragraphLensMode=false;status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें और सुनिश्चित करें कि दूसरा ऐप कैमरा इस्तेमाल नहीं कर रहा।';if(captureButton)captureButton.disabled=true;}
 }
 function captureParagraphFrame(){
@@ -687,13 +679,39 @@ function captureParagraphFrame(){
   if(status)status.textContent=`फोटो तैयार है (${preview.width} × ${preview.height})। टेक्स्ट पहचानने से पहले पेज सीधा और अक्षर साफ होने की जाँच करें।`;
 }
 async function openGoogleLensOCR(){
-  // Do not launch the external Google Lens app/Play Store. A normal PWA cannot
-  // embed Google's private Lens UI/API, so this button provides a Lens-like
-  // camera-and-text-detection flow entirely inside Easyway Learn.
+  // Lens-like flow: upload/select an existing photo, recognize its text,
+  // then let the teacher select/copy only the required text before pasting it.
   paragraphLensMode=true;
   const status=document.getElementById('paragraphCameraStatus');
-  if(status)status.textContent='Google Lens जैसा OCR शुरू हो रहा है… कैमरे के सामने टेक्स्ट रखें।';
-  await openParagraphCamera(paragraphCameraTargetId);
+  if(status)status.textContent='Google Lens जैसा OCR: Gallery से फोटो चुनें। फोटो अपने-आप कैमरे से क्लिक नहीं होगी। फोटो के ऊपर पहचाना गया टेक्स्ट select किया जा सकेगा।';
+  chooseParagraphGalleryImage();
+}
+async function copyLensSelectedText(){
+  const selection=window.getSelection?.();
+  const selected=(selection?.toString?.()||'').trim();
+  if(!selected){alert('पहले फोटो के ऊपर पहचाने गए टेक्स्ट में जरूरी हिस्सा उंगली से select करें।');return;}
+  try{await navigator.clipboard.writeText(selected);alert('Selected text clipboard में copy हो गया। अब Paragraph में Paste करें।');}
+  catch{const box=document.getElementById('lensOcrResult');if(box){box.hidden=false;box.value=selected;box.focus();box.select();document.execCommand('copy');box.hidden=true;}alert('Selected text copy करने की कोशिश की गई।');}
+}
+async function copyLensAllText(){
+  const box=document.getElementById('lensOcrResult');
+  if(!box||!box.value.trim()){alert('पहले फोटो का टेक्स्ट पहचानें।');return;}
+  try{await navigator.clipboard.writeText(box.value);alert('पूरा पहचाना गया टेक्स्ट clipboard में copy हो गया।');}
+  catch{box.focus();box.select();document.execCommand('copy');alert('पूरा टेक्स्ट copy करने की कोशिश की गई।');}
+}
+async function pasteLensTextToParagraph(){
+  const box=document.getElementById('lensOcrResult');
+  const target=document.getElementById(paragraphCameraTargetId);
+  if(!box||!target)return;
+  const selected=box.value.slice(box.selectionStart||0,box.selectionEnd||0);
+  const text=selected||box.value;
+  if(!text.trim()){alert('पहले टेक्स्ट पहचानें।');return;}
+  const existing=String(target.value||'').trim();
+  target.value=existing?existing+'\n\n'+text.trim():text.trim();
+  target.dispatchEvent(new Event('input',{bubbles:true}));
+  target.focus();
+  const status=document.getElementById('paragraphCameraStatus');
+  if(status)status.textContent=selected?'चुना हुआ Lens-जैसा टेक्स्ट Paragraph में paste हो गया।':'पूरा Lens-जैसा टेक्स्ट Paragraph में paste हो गया।';
 }
 async function chooseParagraphGalleryImage(){
   const input=document.getElementById('paragraphGalleryInput');
@@ -706,7 +724,9 @@ async function scanParagraphGalleryImage(input){
   if(!file)return;
   if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}
   const textarea=document.getElementById(paragraphCameraTargetId);
-  if(!textarea){if(status)status.textContent='जिस फ़ील्ड में टेक्स्ट डालना है, वह नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}
+  const lensBox=document.getElementById('lensOcrResult');
+  const targetTextarea=paragraphLensMode?null:textarea;
+  if(!targetTextarea && !lensBox){if(status)status.textContent='टेक्स्ट फ़ील्ड नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}
   try{
     if(status)status.textContent='Gallery की इमेज तैयार की जा रही है…';
     const url=URL.createObjectURL(file);
@@ -717,7 +737,14 @@ async function scanParagraphGalleryImage(input){
       const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);
       const preview=document.getElementById('paragraphCameraPreview');
       if(preview){preview.width=canvas.width;preview.height=canvas.height;const pctx=preview.getContext('2d',{willReadFrequently:true});pctx.drawImage(canvas,0,0);preview.hidden=false;paragraphCameraCapturedCanvas=preview;}
-      await scanParagraphSource(canvas,textarea,status);
+      const resultTarget=paragraphLensMode?lensBox:targetTextarea;
+      if(paragraphLensMode){
+        const box=document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
+        const viewer=document.getElementById('lensImageViewer'),imgEl=document.getElementById('lensSourceImage');
+        if(imgEl){imgEl.src=canvas.toDataURL('image/jpeg',0.94);imgEl.hidden=false;}
+        if(viewer)viewer.style.aspectRatio=`${canvas.width}/${canvas.height}`;
+      }
+      await scanParagraphSource(canvas,resultTarget,status,{appendToTarget:!paragraphLensMode,lensOverlay:paragraphLensMode});
     }finally{URL.revokeObjectURL(url);}
   }catch(e){if(status)status.textContent='Gallery image scan नहीं हो पाया: '+(e.message||'कृपया दूसरी image चुनें।');}
   finally{input.value='';}
@@ -731,7 +758,7 @@ async function scanParagraphCamera(){
   btn.disabled=true;
   try{await scanParagraphSource(source,textarea,status);}finally{btn.disabled=false;}
 }
-async function scanParagraphSource(source,textarea,status){
+async function scanParagraphSource(source,textarea,status,options={}){
   status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
   try{
     const Tesseract=await loadTesseract();const lang='hin+eng';
@@ -759,9 +786,31 @@ async function scanParagraphSource(source,textarea,status){
     if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
     scored.sort((a,b)=>{const ca=a.confidence,cb=b.confidence;const la=a.text.length,lb=b.text.length;const sa=ca+Math.min(12,la/200),sb=cb+Math.min(12,lb/200);return sb-sa;});
     const best=scored[0],text=best.text;
-    const existing=String(textarea.value||'').trim(),separator=textarea.tagName==='TEXTAREA'? (existing?'\n\n':'') : ' ';
-    textarea.value=existing?existing+separator+text:text;textarea.dispatchEvent(new Event('input',{bubbles:true}));textarea.focus();
-    status.textContent=`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). तीन OCR passes में बेहतर परिणाम चुना गया। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
+    if(options.lensOverlay){
+      const overlay=document.getElementById('lensTextOverlay');
+      const imgEl=document.getElementById('lensSourceImage');
+      if(overlay){
+        overlay.innerHTML='';
+        const words=(best.r?.data?.words||[]).filter(w=>String(w.text||'').trim()&&w.bbox);
+        const sw=source.width||1, sh=source.height||1;
+        for(const w of words){
+          const span=document.createElement('span'); span.className='lens-word'; span.textContent=w.text+' ';
+          const x0=Math.max(0,Math.min(sw,w.bbox.x0||0)), y0=Math.max(0,Math.min(sh,w.bbox.y0||0));
+          const x1=Math.max(x0,Math.min(sw,w.bbox.x1||x0)), y1=Math.max(y0,Math.min(sh,w.bbox.y1||y0));
+          span.style.left=(x0/sw*100)+'%'; span.style.top=(y0/sh*100)+'%'; span.style.width=((x1-x0)/sw*100)+'%'; span.style.height=Math.max(1,(y1-y0)/sh*100)+'%';
+          span.style.fontSize=Math.max(10,((y1-y0)/sh)*100*0.82)+'%'; overlay.appendChild(span);
+        }
+        if(imgEl)imgEl.hidden=false;
+      }
+    }
+    if(options.appendToTarget!==false){
+      const existing=String(textarea.value||'').trim(),separator=textarea.tagName==='TEXTAREA'?(existing?'\n\n':''):' ';
+      textarea.value=existing?existing+separator+text:text;textarea.dispatchEvent(new Event('input',{bubbles:true}));textarea.focus();
+    }else{
+      textarea.value=text;
+      const box=document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
+    }
+    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। अब ऊपर पहचाने गए टेक्स्ट में जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). तीन OCR passes में बेहतर परिणाम चुना गया। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
