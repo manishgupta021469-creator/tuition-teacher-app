@@ -128,3 +128,11 @@ Test the ZIP locally first. Do not deploy over the live Render service until tea
 
 ## V58 — Gallery Icon Fix (V56 Base)
 This release is rebuilt directly from V56 Final Combined Updates. Existing features, logic, database schema and data behavior are preserved. PWA icons were moved into `pwa-assets/`, converted to PNG, and the folder contains an Android `.nomedia` marker so the media scanner should not index the PWA icon files into Gallery when a project ZIP is extracted into Downloads. Manifest, favicon, app-logo and service-worker references were updated. Old root SVG icon files are removed from this release. Existing files already stored on a phone from older V55/V56/V57 ZIP folders are not deleted automatically and should be removed once manually.
+
+
+## V59 — Google Lens OCR Option (V58 Base)
+- Built directly from V58 Gallery Icon Fix (V56 Base).
+- Added a separate Google Lens OCR button to the existing Document Camera / Gallery panel.
+- On Android, it attempts to open the Google Lens app; if that is unavailable, it falls back to the Google Lens web page.
+- Existing Camera OCR, Gallery Image Scan, Flash, Zoom, test logic, accounts, histories and database behavior are unchanged.
+- Lens is an external option: text recognized by Lens must be copied and pasted back into the Easyway Learn text field; Google Lens OCR is not embedded inside the PWA.
