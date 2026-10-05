@@ -43,7 +43,7 @@ function adminForgotPasswordView(){
 }
 async function adminDashboard(){
   try{const d=await api('/admin/me');if(d.role!=='admin')throw Error('Admin session required');const teachers=await api('/admin/teachers');
-    root.innerHTML=`<header><b>Admin Dashboard</b><button id="adminLogout">Logout</button></header><main><section class="card"><h2>Teacher IDs</h2><p class="muted">Admin किसी Teacher का dashboard check कर सकता है, password बदल सकता है, Teacher को block/unblock कर सकता है या उसकी पूरी ID delete कर सकता है। सुरक्षा के लिए किसी Teacher का मौजूदा password कभी दिखाया नहीं जाएगा; Admin नया password सेट कर सकता है।</p><div id="adminTeacherList">${teachers.map(t=>`<div class="student-row"><div><b>${esc(t.name)}</b> ${t.is_blocked?'<span class="muted">(BLOCKED)</span>':''}<br><small>${esc(t.email)} · Teacher ID #${t.id} · ${t.student_count} students · ${t.test_count} tests</small></div><div><button type="button" data-admin-open="${t.id}">Open Dashboard</button><button type="button" data-admin-password="${t.id}">Change Password</button><button type="button" data-admin-block="${t.id}" data-blocked="${t.is_blocked?'1':'0'}">${t.is_blocked?'Unblock Teacher':'Block Teacher'}</button><button type="button" data-admin-delete="${t.id}">Delete Teacher</button></div></div>`).join('')||'<p>No teachers registered yet.</p>'}</div></section></main>`;
+    root.innerHTML=`<header><b>Admin Dashboard</b><button id="adminLogout">Logout</button></header><main><section class="card"><h2>Teacher IDs & Activity</h2><p class="muted">Admin यहाँ देख सकता है कि कौन-से teachers ने आज login किया है और किन phones पर PWA installation detect हुई है। Installation status तभी निश्चित रूप से <b>Installed</b> होगा जब ऐप standalone/PWA mode में खुला हो या install event detect हुआ हो।</p><div id="adminTeacherList">${teachers.map(t=>`<div class="student-row"><div><b>${esc(t.name)}</b> ${t.is_blocked?'<span class="muted">(BLOCKED)</span>':''}<br><small>${esc(t.email)} · Teacher ID #${t.id} · ${t.student_count} students · ${t.test_count} tests</small><br><small><b>आज Login:</b> ${t.today_login?'YES':'NO'} · <b>App Install:</b> ${t.installed?'YES — Detected':'NOT DETECTED'}${t.last_app_open_at?` · Last Open: ${new Date(t.last_app_open_at).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'})}`:''}</small></div><div><button type="button" data-admin-open="${t.id}">Open Dashboard</button><button type="button" data-admin-password="${t.id}">Change Password</button><button type="button" data-admin-block="${t.id}" data-blocked="${t.is_blocked?'1':'0'}">${t.is_blocked?'Unblock Teacher':'Block Teacher'}</button><button type="button" data-admin-delete="${t.id}">Delete Teacher</button></div></div>`).join('')||'<p>No teachers registered yet.</p>'}</div></section></main>`;
     adminLogout.onclick=()=>{localStorage.removeItem('token');location.href='/admin'};
     document.querySelectorAll('[data-admin-open]').forEach(b=>b.onclick=()=>adminOpenTeacher(+b.dataset.adminOpen));
     document.querySelectorAll('[data-admin-password]').forEach(b=>b.onclick=()=>adminSetTeacherPassword(+b.dataset.adminPassword));
@@ -51,7 +51,7 @@ async function adminDashboard(){
     document.querySelectorAll('[data-admin-delete]').forEach(b=>b.onclick=()=>adminDeleteTeacher(+b.dataset.adminDelete));
   }catch(e){localStorage.removeItem('token');alert(e.message||'Admin session expired');adminLoginView()}
 }
-async function adminOpenTeacher(id){try{const r=await api('/admin/teachers/'+id+'/impersonate',{method:'POST'});sessionStorage.adminTeacherToken=token;token=r.token;localStorage.token=token;await load();dashboard()}catch(e){alert(e.message)}}
+async function adminOpenTeacher(id){try{const r=await api('/admin/teachers/'+id+'/impersonate',{method:'POST'});sessionStorage.adminTeacherToken=token;token=r.token;localStorage.token=token;await load();dashboard();reportTeacherActivity().catch(()=>{})}catch(e){alert(e.message)}}
 async function adminSetTeacherPassword(id){
   const teachers=await api('/admin/teachers');const t=teachers.find(x=>x.id===id);if(!t)return;
   const newPassword=prompt(`Teacher "${t.name}" के लिए नया password डालें (कम से कम 6 characters):`);if(newPassword===null)return;
@@ -109,7 +109,7 @@ function changePasswordForm(){
   changePassForm.onsubmit=async e=>{e.preventDefault();if(newPassword.value!==confirmPassword.value)return alert('दोनों new passwords समान होने चाहिए।');try{const r=await api('/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:currentPassword.value,newPassword:newPassword.value})});alert(r.message||'Password changed successfully.');refresh()}catch(x){alert(x.message)}};
 }
 function renderContent(){return state.content.map(s=>`<details class="subject"><summary class="tree-summary subject-summary">${esc(s.name)} <span class="tree-hint">${s.books.length} books · खोलने के लिए दबाएँ</span></summary><div class="tree-actions"><button onclick="editSubject(${s.id})">Edit Subject</button><button onclick="deleteSubject(${s.id})">Delete Subject</button><button onclick="addBookForm(${s.id})">+ Book</button></div>${s.books.map(b=>`<details class="book"><summary class="tree-summary book-summary">${esc(b.name)} <span class="tree-hint">${b.chapters.length} chapters · खोलें</span></summary><div class="tree-actions"><button onclick="editBook(${b.id})">Edit Book</button><button onclick="addChapterForm(${b.id})">+ Chapter</button></div>${b.chapters.map(c=>`<div class="chapter"><b>${esc(c.name)}</b> <small>${c.paragraphs.length} paragraphs · ${c.qa.length} Q&A</small><div class="button-row"><button onclick="editChapter(${c.id})">Open / Edit Chapter</button><button onclick="deleteChapter(${c.id})">Delete Chapter</button></div></div>`).join('')}</details>`).join('')}</details>`).join('')||'<p>No subjects yet.</p>'}
-async function refresh(){closeParagraphCamera();await load();dashboard()}
+async function refresh(){closeParagraphCamera();await load();dashboard();reportTeacherActivity().catch(()=>{})}
 async function addStudentForm(){const name=prompt('Student name');if(!name)return;const className=prompt('Class');if(!className)return;const phone=prompt('WhatsApp number (country code सहित, जैसे 919876543210)');try{await api('/students',{method:'POST',body:JSON.stringify({name,className,phone})});await refresh()}catch(e){alert(e.message)}}
 async function deleteStudent(id){
   const student=state.students.find(s=>s.id===id);
@@ -204,6 +204,7 @@ function speakHelpText(text,lang='hi-IN'){
   if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance)return alert('इस मोबाइल/browser में Text-to-Speech उपलब्ध नहीं है।');
   window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=.82;window.speechSynthesis.speak(u);
 }
+function stopSpeaker(){if('speechSynthesis' in window)window.speechSynthesis.cancel();}
 function showPronunciationHelp(sid,cid,pid,index){
   const c=getChapter(cid),p=c?.paragraphs.find(x=>x.id===pid);if(!p)return;
   const rawTokens=(p.text.match(/[^\s,;:]+/g)||[]).map(t=>t.replace(/^[“”‘’"'`]+|[.,;:!?।॥”’"'`]+$/g,''));
@@ -213,14 +214,14 @@ function showPronunciationHelp(sid,cid,pid,index){
   for(const eq of equations){const clean=eq.trim();if(/[A-Za-z]/.test(clean)&&/[=+\-→←]/.test(clean)&&!formulas.includes(clean))formulas.push(clean);}
   const speechLanguage=paragraphSpeechLanguage(p.text);
   const speechLocale=speechLanguage==='hi'?'hi-IN':'en-IN';
-  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderMathParagraph(p.text)}</div><button id="speakWholeParagraph" type="button">🔊 पूरा पैराग्राफ सुनें</button></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>${speechLanguage==='hi'?'ऐसे बोलें:':'Pronunciation:'}</b> ${esc(formulaPronunciation(f,speechLanguage))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
+  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderMathParagraph(p.text)}</div><div class="button-row"><button id="speakWholeParagraph" type="button">🔊 Speaker ON — पूरा पैराग्राफ सुनें</button><button id="stopWholeParagraph" type="button" class="btn-secondary">⏹ Speaker OFF / Stop</button></div></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>${speechLanguage==='hi'?'ऐसे बोलें:':'Pronunciation:'}</b> ${esc(formulaPronunciation(f,speechLanguage))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
   typesetMath(root);
   let spokenParagraph=p.text;
   for(const formula of formulas.slice().sort((a,b)=>b.length-a.length)){
     const escaped=formula.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     spokenParagraph=spokenParagraph.replace(new RegExp(escaped,'g'),formulaPronunciation(formula,speechLanguage));
   }
-  document.getElementById('speakWholeParagraph').onclick=()=>speakHelpText(spokenParagraph,speechLocale);
+  document.getElementById('speakWholeParagraph').onclick=()=>speakHelpText(spokenParagraph,speechLocale);document.getElementById('stopWholeParagraph').onclick=stopSpeaker;
   root.querySelectorAll('[data-speak-formula]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaPronunciation(formulas[Number(btn.dataset.speakFormula)],speechLanguage),speechLocale));
 }
 
@@ -691,30 +692,36 @@ async function scanParagraphCamera(){
   try{await scanParagraphSource(source,textarea,status);}finally{btn.disabled=false;}
 }
 async function scanParagraphSource(source,textarea,status){
-  status.textContent='इमेज साफ करके टेक्स्ट पहचाना जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
+  status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
   try{
     const Tesseract=await loadTesseract();const lang='hin+eng';
     if(!window.__paragraphOcrWorker||window.__paragraphOcrLang!==lang){
       if(window.__paragraphOcrWorker){await window.__paragraphOcrWorker.terminate();window.__paragraphOcrWorker=null;}
       window.__paragraphOcrWorker=await Tesseract.createWorker(lang,1,{logger:m=>{if(m.status==='recognizing text')status.textContent=`टेक्स्ट पहचाना जा रहा है… ${Math.round((m.progress||0)*100)}%`;}});
-      window.__paragraphOcrLang=lang;await window.__paragraphOcrWorker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300'});
+      window.__paragraphOcrLang=lang;
+      await window.__paragraphOcrWorker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_pageseg_mode:'6'});
     }
-    const scale=Math.min(2.5,Math.max(1,2800/source.width));const canvas=document.createElement('canvas');canvas.width=Math.round(source.width*scale);canvas.height=Math.round(source.height*scale);
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,canvas.width,canvas.height);
-    const frame=ctx.getImageData(0,0,canvas.width,canvas.height),d=frame.data;const hist=new Uint32Array(256);let total=0;
-    for(let i=0;i<d.length;i+=4){const gray=Math.max(0,Math.min(255,Math.round((0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]-128)*1.22+128)));d[i]=d[i+1]=d[i+2]=gray;hist[gray]++;total++;}ctx.putImageData(frame,0,0);
-    status.textContent='पहला OCR प्रयास…';const first=await window.__paragraphOcrWorker.recognize(canvas);let best=first;
+    const maxSide=3600,scale=Math.min(2.8,Math.max(1,maxSide/Math.max(source.width,source.height)));const base=document.createElement('canvas');base.width=Math.round(source.width*scale);base.height=Math.round(source.height*scale);
+    const ctx=base.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,base.width,base.height);
+    const frame=ctx.getImageData(0,0,base.width,base.height),d=frame.data;const hist=new Uint32Array(256);let total=0;
+    for(let i=0;i<d.length;i+=4){const gray=Math.max(0,Math.min(255,Math.round(.299*d[i]+.587*d[i+1]+.114*d[i+2])));hist[gray]++;total++;}
     let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sumB=0,wB=0,maxVar=-1,threshold=150;
     for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=total-wB;if(!wF)break;sumB+=i*hist[i];const mB=sumB/wB,mF=(sum-sumB)/wF;const variance=wB*wF*(mB-mF)*(mB-mF);if(variance>maxVar){maxVar=variance;threshold=i;}}
-    const bin=document.createElement('canvas');bin.width=canvas.width;bin.height=canvas.height;const bctx=bin.getContext('2d',{willReadFrequently:true});bctx.drawImage(canvas,0,0);const bf=bctx.getImageData(0,0,bin.width,bin.height),bd=bf.data;
-    for(let i=0;i<bd.length;i+=4){const v=bd[i]<threshold?0:255;bd[i]=bd[i+1]=bd[i+2]=v;}bctx.putImageData(bf,0,0);
-    status.textContent='दूसरा OCR प्रयास…';const second=await window.__paragraphOcrWorker.recognize(bin);
-    const clean=r=>(r?.data?.text||'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();const t1=clean(first),t2=clean(second),c1=Number(first?.data?.confidence)||0,c2=Number(second?.data?.confidence)||0;
-    if(t2.length>Math.max(12,t1.length*0.65)&&c2>c1+2)best=second;const text=clean(best);
-    if(!text){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
-    const existing=String(textarea.value||'').trim(),separator=textarea.tagName==='TEXTAREA'?'\n':' ';
+    const makeGray=(contrast=1.0)=>{const c=document.createElement('canvas');c.width=base.width;c.height=base.height;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(base,0,0);const f=x.getImageData(0,0,c.width,c.height),a=f.data;for(let i=0;i<a.length;i+=4){const g=Math.max(0,Math.min(255,Math.round(.299*a[i]+.587*a[i+1]+.114*a[i+2])));const v=Math.max(0,Math.min(255,Math.round((g-128)*contrast+128)));a[i]=a[i+1]=a[i+2]=v;}x.putImageData(f,0,0);return c;};
+    const gray=makeGray(1.18);
+    const bin=document.createElement('canvas');bin.width=base.width;bin.height=base.height;const bctx=bin.getContext('2d',{willReadFrequently:true});bctx.drawImage(gray,0,0);const bf=bctx.getImageData(0,0,bin.width,bin.height),bd=bf.data;for(let i=0;i<bd.length;i+=4){const v=bd[i]<threshold?0:255;bd[i]=bd[i+1]=bd[i+2]=v;}bctx.putImageData(bf,0,0);
+    const original=base;
+    const variants=[['original',original],['contrast',gray],['binarized',bin]];
+    const results=[];
+    for(const [name,canvas] of variants){status.textContent=`OCR प्रयास: ${name}…`;const r=await window.__paragraphOcrWorker.recognize(canvas);results.push(r);}
+    const clean=r=>(r?.data?.text||'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+    const scored=results.map((r,i)=>({r,i,text:clean(r),confidence:Number(r?.data?.confidence)||0})).filter(x=>x.text);
+    if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
+    scored.sort((a,b)=>{const ca=a.confidence,cb=b.confidence;const la=a.text.length,lb=b.text.length;const sa=ca+Math.min(12,la/200),sb=cb+Math.min(12,lb/200);return sb-sa;});
+    const best=scored[0],text=best.text;
+    const existing=String(textarea.value||'').trim(),separator=textarea.tagName==='TEXTAREA'? (existing?'\n\n':'') : ' ';
     textarea.value=existing?existing+separator+text:text;textarea.dispatchEvent(new Event('input',{bubbles:true}));textarea.focus();
-    status.textContent=`टेक्स्ट पहचाना गया (OCR confidence लगभग ${Math.round(Number(best?.data?.confidence)||0)}%) और चुने हुए फ़ील्ड में जोड़ा गया। सेव करने से पहले मात्रा, विराम-चिह्न और सूत्र जाँचें। Gallery की इमेज ऐप में सेव नहीं की गई।`;
+    status.textContent=`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). तीन OCR passes में बेहतर परिणाम चुना गया। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
@@ -722,7 +729,14 @@ async function addPara(cid){
 }
 async function saveNewParagraph(cid){const field=document.getElementById('newParagraphText');const text=field?.value?.trim();if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await load();editChapterQA(cid)}catch(e){alert(e.message)}}
-async function boot(){const isAdminRoute=location.pathname.replace(/\/+$/,'')==='/admin';if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;isAdminRoute?adminLoginView():authView();return}try{if(isAdminRoute){if(decodeJwtRole()==='admin'){await adminDashboard()}else{adminLoginView()}return}if(decodeJwtRole()==='admin'||decodeJwtRole()==='admin_impersonate'){localStorage.removeItem('token');token=null;authView();return}await load();dashboard()}catch(e){localStorage.clear();sessionStorage.removeItem('adminTeacherToken');token=null;isAdminRoute?adminLoginView():authView()}}
+async function reportTeacherActivity(){
+  if(!token)return;
+  const mode=window.matchMedia?.('(display-mode: standalone)').matches?'standalone':(window.navigator.standalone?'standalone':'browser');
+  try{await api('/teacher/activity',{method:'POST',body:JSON.stringify({mode})});}catch{}
+  window.addEventListener('appinstalled',()=>{api('/teacher/activity',{method:'POST',body:JSON.stringify({mode:'standalone'})}).catch(()=>{});},{once:true});
+}
+
+async function boot(){const isAdminRoute=location.pathname.replace(/\/+$/,'')==='/admin';if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;isAdminRoute?adminLoginView():authView();return}try{if(isAdminRoute){if(decodeJwtRole()==='admin'){await adminDashboard()}else{adminLoginView()}return}if(decodeJwtRole()==='admin'||decodeJwtRole()==='admin_impersonate'){localStorage.removeItem('token');token=null;authView();return}await load();dashboard();reportTeacherActivity().catch(()=>{})}catch(e){localStorage.clear();sessionStorage.removeItem('adminTeacherToken');token=null;isAdminRoute?adminLoginView():authView()}}
 boot();
 
 history.replaceState({appRoot:true},'',location.href);

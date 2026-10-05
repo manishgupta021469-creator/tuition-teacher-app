@@ -1,4 +1,4 @@
-# Easyway Learn — Tuition Teacher App — V47
+# Easyway Learn — Tuition Teacher App — V56
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
 - Admin 6-digit password-reset code
@@ -108,3 +108,19 @@ The V47 ZIP does not change `index.js` or `schema.sql`. Do not reset, delete, or
 - No database reset, account deletion, score/history reset, or replacement of existing data is performed by this build.
 
 **Important:** Test the ZIP locally first. Do not deploy it over the live Render service until login, Admin `/admin`, existing teacher/student data, tests/history, camera/OCR, and WhatsApp/PDF flows have been checked.
+
+
+## V56 — Speaker Stop, Admin Activity and OCR Reliability
+- Added a clear Speaker OFF / Stop control in the paragraph pronunciation screen.
+- Added server-side teacher activity tracking for today's login date, last app open time/mode, and PWA installation detection when the app is opened in standalone/install mode.
+- Admin Teacher Activity now shows Today Login and App Install status.
+- Added multi-pass Hindi+English OCR preprocessing (original, contrast-enhanced and binarized passes) and selects the strongest result. OCR remains best-effort and cannot guarantee 100% accuracy for every image/font/formula.
+- Gallery images remain client-side only and are not uploaded or stored by this OCR flow.
+- Existing accounts, scores, test history and database are not reset or recreated. New teacher activity columns are added with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`.
+- The PWA cache version is bumped so updated files can refresh.
+
+### Installation-status limitation
+A website cannot universally prove that an app is installed on every Android launcher. This build marks a teacher as installed when the PWA is detected in standalone/fullscreen/minimal-ui mode or when the browser's `appinstalled` event is observed. If a teacher only uses the normal browser, Admin will show `NOT DETECTED`; that does not prove the teacher has never installed the app.
+
+### Important
+Test the ZIP locally first. Do not deploy over the live Render service until teacher login, Admin `/admin`, existing teacher/student data, tests/history, camera/OCR, Speaker ON/OFF, and WhatsApp/PDF flows have been checked.
