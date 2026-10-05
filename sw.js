@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyway-learn-shell-v59-google-lens-ocr';
+const CACHE_NAME = 'easyway-learn-shell-v62-gallery-ocr-mic';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/pwa-assets/icon-192.png', '/pwa-assets/icon-512.png'];
 
 self.addEventListener('install', event => {

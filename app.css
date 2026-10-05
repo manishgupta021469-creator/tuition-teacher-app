@@ -286,13 +286,3 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 .dashboard-rank-grid .rank-tile{padding:10px 8px;font-size:.88rem}
 .dashboard-rank-grid .rank-tile span{font-size:.76rem}
 @media(max-width:600px){.dashboard-rank-grid,.dashboard-subject-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.dashboard-rank-grid .rank-tile{font-size:.76rem;padding:9px 5px}.dashboard-rank-grid .rank-tile span{font-size:.67rem}.dashboard-subject-grid .compact-item{font-size:.78rem;padding:10px 5px}.brand-lockup b{font-size:1.05rem}}
-
-/* Google Lens-like photo + selectable OCR text overlay */
-.lens-viewer-help{display:flex;flex-direction:column;gap:3px;margin:8px 0 10px;font-size:.9rem}
-.lens-viewer-help span{color:#52627a}
-.lens-image-viewer{position:relative;width:100%;max-height:72vh;overflow:auto;background:#111;border:1px solid #cbd5e1;border-radius:12px;line-height:0;touch-action:pan-x pan-y;user-select:none}
-.lens-image-viewer>img{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain;user-select:none;-webkit-user-drag:none}
-.lens-text-overlay{position:absolute;inset:0;overflow:hidden;user-select:text;-webkit-user-select:text;color:transparent;line-height:1;pointer-events:auto}
-.lens-word{position:absolute;display:block;color:transparent;background:rgba(255,255,255,.01);line-height:1;user-select:text;-webkit-user-select:text;white-space:pre-wrap;overflow:hidden;cursor:text}
-.lens-word::selection{background:rgba(35,126,255,.42);color:transparent}
-.lens-text-overlay::selection{background:rgba(35,126,255,.42)}

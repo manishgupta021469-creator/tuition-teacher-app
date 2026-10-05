@@ -132,7 +132,7 @@ async function deleteSubject(id){const s=state.content.find(x=>x.id===id);if(!s)
 async function deleteChapter(id){const c=getChapter(id);if(!c)return;if(!confirm(`पहली पुष्टि: क्या Chapter "${c.name}" को delete करना चाहते हैं?`))return;if(!confirm(`दूसरी पुष्टि: इस chapter के सभी paragraphs और Q&A हट जाएंगे। पुराने saved test results/history सुरक्षित रखने का प्रयास किया जाएगा। क्या chapter स्थायी रूप से delete करें?`))return;try{await api('/chapters/'+id,{method:'DELETE'});await refresh()}catch(e){alert(e.message)}}
 async function addBookForm(subjectId){const name=prompt('Book name');if(!name)return;try{await api('/books',{method:'POST',body:JSON.stringify({subjectId,name})});await refresh()}catch(e){alert(e.message)}}
 async function editBook(id){const b=state.content.flatMap(s=>s.books).find(x=>x.id===id);if(!b)return;const name=prompt('Edit Book name',b.name);if(name===null||!name.trim())return;try{await api('/books/'+id,{method:'PUT',body:JSON.stringify({name:name.trim()})});await refresh()}catch(e){alert(e.message)}}
-function addChapterForm(bookId){closeParagraphCamera();root.innerHTML=`<header><b>+ Add Chapter</b><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card form-card"><div class="section-kicker">LEARNING MATERIAL</div><h2>नया अध्याय जोड़ें</h2><p class="muted">अध्याय का नाम लिखें। चाहें तो किताब से कॉपी किया हुआ टेक्स्ट पेस्ट करें या कैमरे से पहचानें। यहाँ दिया गया पूरा टेक्स्ट एक पैराग्राफ के रूप में सेव होगा; बाद में अध्याय खोलकर अलग-अलग पैराग्राफ जोड़ सकते हैं।</p><label for="newChapterName">Chapter name</label><input id="newChapterName" placeholder="अध्याय का नाम" required><label for="newChapterText">Chapter text (optional)</label><textarea id="newChapterText" rows="9" placeholder="यहाँ टेक्स्ट लिखें या पेस्ट करें…"></textarea><div class="button-row"><button type="button" class="btn-secondary" onclick="pasteIntoField('newChapterText')">📋 Clipboard से Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('newChapterText')">📷 कैमरा खोलें</button></div>${cameraPanelHtml()}<div class="button-row form-actions"><button type="button" onclick="saveNewChapter(${bookId})">Save Chapter</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();refresh()">Cancel</button></div></section></main>`}
+function addChapterForm(bookId){closeParagraphCamera();root.innerHTML=`<header><b>+ Add Chapter</b><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card form-card"><div class="section-kicker">LEARNING MATERIAL</div><h2>नया अध्याय जोड़ें</h2><p class="muted">अध्याय का नाम लिखें। चाहें तो किताब से कॉपी किया हुआ टेक्स्ट पेस्ट करें या कैमरे से पहचानें। यहाँ दिया गया पूरा टेक्स्ट एक पैराग्राफ के रूप में सेव होगा; बाद में अध्याय खोलकर अलग-अलग पैराग्राफ जोड़ सकते हैं।</p><label for="newChapterName">Chapter name</label><input id="newChapterName" placeholder="अध्याय का नाम" required><label for="newChapterText">Chapter text (optional)</label><textarea id="newChapterText" rows="9" placeholder="यहाँ टेक्स्ट लिखें या पेस्ट करें…"></textarea><div class="button-row"><button type="button" class="btn-secondary" onclick="pasteIntoField('newChapterText')">📋 Clipboard से Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('newChapterText')">🖼️ Gallery OCR</button></div>${cameraPanelHtml()}<div class="button-row form-actions"><button type="button" onclick="saveNewChapter(${bookId})">Save Chapter</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();refresh()">Cancel</button></div></section></main>`}
 async function saveNewChapter(bookId){const name=document.getElementById('newChapterName')?.value.trim();const text=document.getElementById('newChapterText')?.value||'';if(!name)return alert('Chapter का नाम लिखें।');try{await api('/chapters',{method:'POST',body:JSON.stringify({bookId,name,text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function studentTests(id){
   const st=state.students.find(x=>x.id===id);if(!st)return;
@@ -439,7 +439,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
 
   const scheduleRestart=()=>{
     if(stopping||finished||restartTimer||startInProgress)return;
-    const delay=Math.max(850,restartDelay);
+    const delay=Math.max(450,restartDelay);
     restartTimer=setTimeout(()=>{restartTimer=null;if(!stopping&&!finished)startRecognizer();},delay);
   };
 
@@ -456,11 +456,11 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     rec.lang=languageForNextWords();
 
     rec.onstart=()=>{
-      startInProgress=false; restartDelay=850;
+      startInProgress=false; restartDelay=450;
       statusEl.textContent='Listening… बोलते रहें।'; dot.classList.add('active'); stopBtn.disabled=false;
     };
     rec.onspeechstart=()=>{statusEl.textContent='आपकी आवाज़ सुनाई दे रही है…';dot.classList.add('active');};
-    rec.onspeechend=()=>{if(!stopping)statusEl.textContent='Listening जारी है…';};
+    rec.onspeechend=()=>{if(!stopping)statusEl.textContent='Pause/रुकावट मिली—माइक चालू है, बोलना जारी रखें…';};
 
     rec.onresult=e=>{
       let interim='';
@@ -482,7 +482,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
         // Let this recognition instance finish first. onend will restart it;
         // starting a second instance here can leave Android Chrome's mic busy.
         statusEl.textContent='आवाज़ नहीं मिली—माइक फिर से शुरू होगा। बोलते रहें…';
-        restartDelay=850;
+        restartDelay=450;
         return;
       }
       if(e.error==='network'){
@@ -510,7 +510,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
       activeRec=null; recognition=null; startInProgress=false;
       interimText=''; renderLive();
       statusEl.textContent='माइक फिर से शुरू हो रहा है…';
-      restartDelay=Math.max(850,restartDelay); scheduleRestart();
+      restartDelay=Math.max(450,restartDelay); scheduleRestart();
     };
 
     try{rec.start();}
@@ -609,8 +609,8 @@ function openWhatsAppPart(phone,parts,index){
 }
 function showAttemptResult(id){const r=(window.__attempts||[]).find(x=>x.id===id);if(!r)return;const reference=r.reference_text||r.paragraph_text||r.qa_answer||'';const label=r.test_type==='paragraph'?`Paragraph ${r.paragraph_position||''}`:r.test_type==='qa'?'Q&A':'Complete Chapter';const matched=r.matched_word_indexes||r.matched||[];const attemptDateTime=new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});root.innerHTML=`<header><b>Attempt ${r.attempt_no} — ${esc(label)}</b><button onclick="studentTests(${r.student_id})">Back</button></header><main><section class="card"><h2>Score: ${Number(r.score_percent).toFixed(2)}%</h2><p><b>Test Date & Time:</b> ${esc(attemptDateTime)}</p><p>${r.correct_words}/${r.total_words} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p>${r.question?`<div class="attempt-question"><b>Question:</b><p>${esc(r.question)}</p></div>`:''}<div class="word-result">${renderWords(reference,matched,r.manual_word_indexes||r.manualWordIndexes||[])}</div></section></main>`}
 function editChapterParagraphs(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Paragraphs</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Paragraphs (${c.paragraphs.length})</h2>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><textarea id="p${p.id}" rows="5">${esc(p.text)}</textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge next</button>`:''}</div></div>`).join('')}<button onclick="addPara(${cid})">+ Add Paragraph</button><button class="btn-secondary" onclick="editChapterName(${cid})">Edit Chapter Name</button></section></main>`}
-function editChapterQA(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Question-Answer</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Add Question & Answer</h2><label for="q">Question</label><input id="q" placeholder="प्रश्न लिखें या पेस्ट करें"><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('q')">📋 Paste Question</button><button class="btn-secondary" onclick="openParagraphCamera('q')">📷 Camera</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('a')">📋 Paste Answer</button><button class="btn-secondary" onclick="openParagraphCamera('a')">📷 Camera</button></div>${cameraPanelHtml()}<button onclick="addQA(${cid})">+ Add Q&A</button></section><section class="card"><h2>Saved Q&A (${c.qa.length})</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')||'<p class="muted">अभी Q&A नहीं है।</p>'}</section></main>`}
-function editChapter(cid){const c=getChapter(cid);closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">CHAPTER EDITOR</span><b>${esc(c.name)}</b></div><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card"><div class="section-heading"><h2>Chapter settings</h2></div><button class="btn-secondary" onclick="editChapterName(${cid})">✎ Edit Chapter Name</button></section><section class="card"><div class="section-heading"><div><div class="section-kicker">READING CONTENT</div><h2>Paragraphs</h2></div><span class="count-pill">${c.paragraphs.length} total</span></div><p class="muted">हर पैराग्राफ का टेक्स्ट बदल सकते हैं। कॉपी किया हुआ टेक्स्ट पेस्ट करने के लिए Paste बटन दबाएँ। अगले पैराग्राफ से जोड़ने का विकल्प भी उपलब्ध है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><textarea id="p${p.id}" rows="5">${esc(p.text)}</textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete Paragraph</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button type="button" onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><div class="section-kicker">QUESTION PRACTICE</div><h2>Add Question & Answer</h2><p class="muted">प्रश्न और उत्तर टाइप/पेस्ट करें या कैमरे से टेक्स्ट पहचानकर संबंधित फ़ील्ड में डालें।</p><label for="q">Question</label><input id="q" placeholder="यहाँ प्रश्न लिखें या पेस्ट करें"><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('q')">📋 Question Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('q')">📷 Question के लिए कैमरा</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="यहाँ सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('a')">📋 Answer Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('a')">📷 Answer के लिए कैमरा</button></div>${cameraPanelHtml()}<div class="form-actions"><button onclick="addQA(${cid})">+ Add Q&A</button></div></section>${c.qa.length?`<section class="card"><div class="section-kicker">SAVED ITEMS</div><h2>Existing Q&A</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
+function editChapterQA(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Question-Answer</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Add Question & Answer</h2><label for="q">Question</label><input id="q" placeholder="प्रश्न लिखें या पेस्ट करें"><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('q')">📋 Paste Question</button><button class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('a')">📋 Paste Answer</button><button class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Gallery OCR</button></div>${cameraPanelHtml()}<button onclick="addQA(${cid})">+ Add Q&A</button></section><section class="card"><h2>Saved Q&A (${c.qa.length})</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')||'<p class="muted">अभी Q&A नहीं है।</p>'}</section></main>`}
+function editChapter(cid){const c=getChapter(cid);closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">CHAPTER EDITOR</span><b>${esc(c.name)}</b></div><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card"><div class="section-heading"><h2>Chapter settings</h2></div><button class="btn-secondary" onclick="editChapterName(${cid})">✎ Edit Chapter Name</button></section><section class="card"><div class="section-heading"><div><div class="section-kicker">READING CONTENT</div><h2>Paragraphs</h2></div><span class="count-pill">${c.paragraphs.length} total</span></div><p class="muted">हर पैराग्राफ का टेक्स्ट बदल सकते हैं। कॉपी किया हुआ टेक्स्ट पेस्ट करने के लिए Paste बटन दबाएँ। अगले पैराग्राफ से जोड़ने का विकल्प भी उपलब्ध है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><textarea id="p${p.id}" rows="5">${esc(p.text)}</textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete Paragraph</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button type="button" onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><div class="section-kicker">QUESTION PRACTICE</div><h2>Add Question & Answer</h2><p class="muted">प्रश्न और उत्तर टाइप/पेस्ट करें या Gallery की फोटो से टेक्स्ट पहचानकर संबंधित फ़ील्ड में डालें।</p><label for="q">Question</label><input id="q" placeholder="यहाँ प्रश्न लिखें या पेस्ट करें"><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('q')">📋 Question Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Question Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="यहाँ सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('a')">📋 Answer Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Answer Gallery OCR</button></div>${cameraPanelHtml()}<div class="form-actions"><button onclick="addQA(${cid})">+ Add Q&A</button></div></section>${c.qa.length?`<section class="card"><div class="section-kicker">SAVED ITEMS</div><h2>Existing Q&A</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
 async function savePara(id){try{await api('/paragraphs/'+id,{method:'PUT',body:JSON.stringify({text:document.getElementById('p'+id).value})});await refresh()}catch(e){alert(e.message)}}
 async function deleteParagraph(id,cid,number){if(!confirm(`पहली पुष्टि: क्या Paragraph ${number} delete करना चाहते हैं?`))return;if(!confirm('दूसरी पुष्टि: यह paragraph स्थायी रूप से हट जाएगा। पुराने saved test results/history को सुरक्षित रखने का प्रयास किया जाएगा। क्या delete करें?'))return;try{await api('/paragraphs/'+id,{method:'DELETE'});await editChapter(cid)}catch(e){alert(e.message)}}
 async function mergePara(firstId,secondId){if(!confirm('इन दोनों paragraphs को एक में merge करें?'))return;try{await api('/paragraphs/merge',{method:'POST',body:JSON.stringify({firstId,secondId})});await refresh()}catch(e){alert(e.message)}}
@@ -621,143 +621,28 @@ let paragraphCameraTrack=null;
 let paragraphCameraZoom=1;
 let paragraphCameraTorch=false;
 let paragraphLensMode=false;
-function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Document Camera / Gallery</b><p class="muted">कैमरे से पेज स्कैन करें या Gallery से कोई इमेज चुनकर सीधे टेक्स्ट पहचानें। चुनी हुई इमेज ऐप में सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><video id="paragraphCameraVideo" playsinline autoplay muted hidden></video><div class="button-row camera-actions"><button type="button" id="cameraFlashToggle" class="btn-secondary" onclick="toggleParagraphCameraFlash()" disabled>🔦 Flash OFF</button><button type="button" id="cameraZoomOut" class="btn-secondary" onclick="adjustParagraphCameraZoom(-1)" disabled>− Zoom</button><button type="button" id="cameraZoomIn" class="btn-secondary" onclick="adjustParagraphCameraZoom(1)" disabled>+ Zoom</button></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से Image Scan</button><button type="button" class="btn-secondary" onclick="openGoogleLensOCR()">🔍 Google Lens जैसा OCR</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><div id="lensOcrResultBox" hidden><div class="lens-viewer-help"><b>Google Lens जैसा Text Selection</b><span>फोटो खुली रहेगी। फोटो के ऊपर दिख रहे पहचाने गए शब्दों को उंगली से select करें, फिर Copy Selected या Paragraph में Paste दबाएँ।</span></div><div id="lensImageViewer" class="lens-image-viewer"><img id="lensSourceImage" alt="Selected page" hidden><div id="lensTextOverlay" class="lens-text-overlay" aria-label="OCR text selection"></div></div><textarea id="lensOcrResult" rows="5" hidden></textarea><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="copyLensSelectedText()">📋 Copy Selected</button><button type="button" class="btn-secondary" onclick="copyLensAllText()">📋 Copy All</button><button type="button" onclick="pasteLensTextToParagraph()">⬇️ Paragraph में Paste</button></div></div><canvas id="paragraphCameraPreview" hidden></canvas><div class="button-row camera-actions"><button type="button" id="captureParagraphCamera" onclick="captureParagraphFrame()" disabled>📸 फोटो लें</button><button type="button" id="scanParagraphCamera" onclick="scanParagraphCamera()" disabled>✨ टेक्स्ट पहचानें</button></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">कैमरा शुरू करने के लिए ऊपर का कैमरा बटन दबाएँ, या Gallery से इमेज चुनें।</p></div>`}
-function closeParagraphCamera(){if(paragraphCameraStream){paragraphCameraStream.getTracks().forEach(t=>{try{t.stop()}catch{}});paragraphCameraStream=null;}paragraphCameraTrack=null;paragraphCameraZoom=1;paragraphCameraTorch=false;const v=document.getElementById('paragraphCameraVideo');if(v){v.pause();v.srcObject=null;v.hidden=true;}const panel=document.getElementById('paragraphCameraPanel');if(panel)panel.hidden=true;const preview=document.getElementById('paragraphCameraPreview');if(preview){preview.hidden=true;const ctx=preview.getContext('2d');if(ctx)ctx.clearRect(0,0,preview.width,preview.height);}paragraphCameraCapturedCanvas=null;}
-async function toggleParagraphCameraFlash(){const track=paragraphCameraTrack;if(!track)return;const caps=track.getCapabilities?.()||{};if(!caps.torch){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='इस डिवाइस/ब्राउज़र में कैमरा Flash/Torch सपोर्ट नहीं है।';return;}try{paragraphCameraTorch=!paragraphCameraTorch;await track.applyConstraints({advanced:[{torch:paragraphCameraTorch}]});const b=document.getElementById('cameraFlashToggle');if(b)b.textContent=paragraphCameraTorch?'🔦 Flash ON':'🔦 Flash OFF';}catch(e){paragraphCameraTorch=!paragraphCameraTorch;const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='Flash नियंत्रित नहीं हो सकी; कैमरा सामान्य रूप से चालू है।';}}
-async function adjustParagraphCameraZoom(delta){const track=paragraphCameraTrack;if(!track)return;const caps=track.getCapabilities?.()||{};if(!caps.zoom){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='इस डिवाइस/ब्राउज़र में वास्तविक कैमरा Zoom सपोर्ट नहीं है।';return;}const step=Number(caps.zoom.step)||0.1;paragraphCameraZoom=Math.max(caps.zoom.min,Math.min(caps.zoom.max,paragraphCameraZoom+delta*step*5));try{await track.applyConstraints({advanced:[{zoom:paragraphCameraZoom}]});}catch(e){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='कैमरा Zoom बदल नहीं सका; कैमरा सामान्य रूप से चालू है।';}}
-async function pasteIntoField(id){const field=document.getElementById(id);if(!field)return;try{if(!navigator.clipboard?.readText)throw new Error('Clipboard API उपलब्ध नहीं है');const text=await navigator.clipboard.readText();if(!text){alert('Clipboard खाली है। पहले टेक्स्ट कॉपी करें।');field.focus();return;}if(typeof field.setRangeText==='function'){const start=field.selectionStart??field.value.length;const end=field.selectionEnd??start;field.setRangeText(text,start,end,'end');}else field.value=(field.value||'')+text;field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();}catch(e){field.focus();alert('Clipboard की अनुमति नहीं मिली। फ़ील्ड पर देर तक दबाएँ और मोबाइल का Paste विकल्प चुनें।');}}
+function closeParagraphCamera(){
+  const panel=document.getElementById('paragraphCameraPanel');
+  if(panel)panel.hidden=true;
+  const input=document.getElementById('paragraphGalleryInput');
+  if(input)input.value='';
+  paragraphCameraCapturedCanvas=null;
+  paragraphLensMode=false;
+}
+function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Gallery Image OCR</b><p class="muted">फोन की Gallery से अपनी फोटो चुनें। फोटो कैमरे से अपने-आप नहीं ली जाएगी और चुनी हुई इमेज ऐप/server पर सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><div class="button-row camera-actions"><button type="button" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से फोटो चुनें</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><div id="galleryOcrResultBox" hidden><label for="galleryOcrResult"><b>OCR से पहचाना गया टेक्स्ट</b></label><textarea id="galleryOcrResult" rows="10" placeholder="फोटो से पहचाना गया टेक्स्ट यहाँ आएगा। जरूरत हो तो टेक्स्ट को उंगली से select करके Copy/Share करें।"></textarea><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="copyGallerySelectedText()">📋 Copy Selected</button><button type="button" class="btn-secondary" onclick="copyGalleryAllText()">📋 Copy All</button><button type="button" class="btn-secondary" onclick="shareGalleryText()">↗️ Share Text</button><button type="button" onclick="pasteGalleryTextToParagraph()">⬇️ Paragraph में Paste</button></div></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">Gallery से फोटो चुनकर OCR करें।</p></div>`}
 async function loadTesseract(){if(window.Tesseract)return window.Tesseract;await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('OCR library लोड नहीं हुई। इंटरनेट कनेक्शन जाँचें।'));document.head.appendChild(script)});return window.Tesseract;}
-async function openParagraphCamera(targetId='newParagraphText'){
-  paragraphCameraTargetId=targetId;
-  closeParagraphCamera();
-  const panel=document.getElementById('paragraphCameraPanel'),video=document.getElementById('paragraphCameraVideo'),status=document.getElementById('paragraphCameraStatus');
-  if(!panel||!video||!status){alert('कैमरा पैनल नहीं मिला। फ़ॉर्म को दोबारा खोलकर कोशिश करें।');return;}
-  panel.hidden=false;status.textContent='कैमरा खोला जा रहा है…';
-  const captureButton=document.getElementById('captureParagraphCamera'),scanButton=document.getElementById('scanParagraphCamera'),preview=document.getElementById('paragraphCameraPreview');
-  if(captureButton){captureButton.disabled=true;captureButton.textContent='📸 फोटो लें';}if(scanButton)scanButton.disabled=true;if(preview)preview.hidden=true;
-  if(!navigator.mediaDevices?.getUserMedia){status.textContent='इस ब्राउज़र में कैमरा उपलब्ध नहीं है। ऐप को HTTPS पर खोलें और Chrome इस्तेमाल करें।';return;}
-  try{
-    // Use a conservative 4:3 request first; some Android browsers/phones can open a
-    // stream but fail to render a high-resolution constrained stream. If that fails,
-    // fall back to a simple environment camera request.
-    const constraints=[
-      {video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960},aspectRatio:{ideal:4/3}},audio:false},
-      {video:{facingMode:'environment',width:{ideal:1280},height:{ideal:960}},audio:false},
-      {video:{facingMode:'environment'},audio:false},
-      {video:true,audio:false}
-    ];
-    let lastError=null;
-    for(const c of constraints){
-      try{ paragraphCameraStream=await navigator.mediaDevices.getUserMedia(c); break; }
-      catch(e){ lastError=e; paragraphCameraStream=null; }
-    }
-    if(!paragraphCameraStream) throw lastError||new Error('Camera stream unavailable');
-    video.srcObject=paragraphCameraStream;video.hidden=false;video.setAttribute('playsinline','');video.autoplay=true;video.muted=true;
-    await new Promise((resolve,reject)=>{
-      if(video.readyState>=2 && video.videoWidth>0){resolve();return;}
-      const timer=setTimeout(()=>reject(new Error('Camera preview did not start')),5000);
-      video.onloadedmetadata=()=>{clearTimeout(timer);resolve();};
-    });
-    try{await video.play();}catch{}
-    if(!video.videoWidth){throw new Error('Camera preview has no video frame');}
-    const track=paragraphCameraStream.getVideoTracks()[0];paragraphCameraTrack=track;paragraphCameraZoom=Number(track.getSettings?.().zoom)||1;
-    const caps=track.getCapabilities?.()||{};const flashBtn=document.getElementById('cameraFlashToggle'),zoomIn=document.getElementById('cameraZoomIn'),zoomOut=document.getElementById('cameraZoomOut');if(flashBtn){flashBtn.disabled=!caps.torch;flashBtn.textContent=caps.torch?'🔦 Flash OFF':'🔦 Flash Not Supported';}if(zoomIn)zoomIn.disabled=!(caps.zoom&&caps.zoom.max>caps.zoom.min);if(zoomOut)zoomOut.disabled=!(caps.zoom&&caps.zoom.max>caps.zoom.min);
-    // Ask capable phone cameras for continuous focus/exposure without failing on unsupported devices.
-    try{const advanced={};if(caps.focusMode?.includes('continuous'))advanced.focusMode='continuous';if(caps.exposureMode?.includes('continuous'))advanced.exposureMode='continuous';if(caps.whiteBalanceMode?.includes('continuous'))advanced.whiteBalanceMode='continuous';if(Object.keys(advanced).length)await track.applyConstraints({advanced:[advanced]});}catch{}
-    if(captureButton)captureButton.disabled=false;
-    paragraphLensMode=false;
-    status.textContent='किताब का टेक्स्ट साफ दिखने पर “फोटो लें” दबाएँ। उसके बाद “टेक्स्ट पहचानें” दबाएँ।';
-  }catch(e){paragraphLensMode=false;status.textContent='कैमरा नहीं खुला। ब्राउज़र की Camera permission Allow करें और सुनिश्चित करें कि दूसरा ऐप कैमरा इस्तेमाल नहीं कर रहा।';if(captureButton)captureButton.disabled=true;}
-}
-function captureParagraphFrame(){
-  const video=document.getElementById('paragraphCameraVideo'),preview=document.getElementById('paragraphCameraPreview'),status=document.getElementById('paragraphCameraStatus'),scan=document.getElementById('scanParagraphCamera');
-  if(!video||!video.videoWidth||!paragraphCameraStream)return alert('पहले कैमरा खोलें और किताब का पेज दिखाएँ।');
-  if(!preview)return;
-  const vw=video.videoWidth,vh=video.videoHeight,targetRatio=4/3;let sx=0,sy=0,sw=vw,sh=vh;if(vw/vh>targetRatio){sw=Math.round(vh*targetRatio);sx=Math.round((vw-sw)/2)}else if(vw/vh<targetRatio){sh=Math.round(vw/targetRatio);sy=Math.round((vh-sh)/2)}preview.width=sw;preview.height=sh;const ctx=preview.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(video,sx,sy,sw,sh,0,0,sw,sh);
-  preview.hidden=false;paragraphCameraCapturedCanvas=preview;if(scan)scan.disabled=false;
-  const capture=document.getElementById('captureParagraphCamera');if(capture)capture.textContent='📸 फिर से फोटो लें';
-  if(status)status.textContent=`फोटो तैयार है (${preview.width} × ${preview.height})। टेक्स्ट पहचानने से पहले पेज सीधा और अक्षर साफ होने की जाँच करें।`;
-}
-async function openGoogleLensOCR(){
-  // Lens-like flow: upload/select an existing photo, recognize its text,
-  // then let the teacher select/copy only the required text before pasting it.
-  paragraphLensMode=true;
-  const status=document.getElementById('paragraphCameraStatus');
-  if(status)status.textContent='Google Lens जैसा OCR: Gallery से फोटो चुनें। फोटो अपने-आप कैमरे से क्लिक नहीं होगी। फोटो के ऊपर पहचाना गया टेक्स्ट select किया जा सकेगा।';
-  chooseParagraphGalleryImage();
-}
-async function copyLensSelectedText(){
-  const selection=window.getSelection?.();
-  const selected=(selection?.toString?.()||'').trim();
-  if(!selected){alert('पहले फोटो के ऊपर पहचाने गए टेक्स्ट में जरूरी हिस्सा उंगली से select करें।');return;}
-  try{await navigator.clipboard.writeText(selected);alert('Selected text clipboard में copy हो गया। अब Paragraph में Paste करें।');}
-  catch{const box=document.getElementById('lensOcrResult');if(box){box.hidden=false;box.value=selected;box.focus();box.select();document.execCommand('copy');box.hidden=true;}alert('Selected text copy करने की कोशिश की गई।');}
-}
-async function copyLensAllText(){
-  const box=document.getElementById('lensOcrResult');
-  if(!box||!box.value.trim()){alert('पहले फोटो का टेक्स्ट पहचानें।');return;}
-  try{await navigator.clipboard.writeText(box.value);alert('पूरा पहचाना गया टेक्स्ट clipboard में copy हो गया।');}
-  catch{box.focus();box.select();document.execCommand('copy');alert('पूरा टेक्स्ट copy करने की कोशिश की गई।');}
-}
-async function pasteLensTextToParagraph(){
-  const box=document.getElementById('lensOcrResult');
-  const target=document.getElementById(paragraphCameraTargetId);
-  if(!box||!target)return;
-  const selected=box.value.slice(box.selectionStart||0,box.selectionEnd||0);
-  const text=selected||box.value;
-  if(!text.trim()){alert('पहले टेक्स्ट पहचानें।');return;}
-  const existing=String(target.value||'').trim();
-  target.value=existing?existing+'\n\n'+text.trim():text.trim();
-  target.dispatchEvent(new Event('input',{bubbles:true}));
-  target.focus();
-  const status=document.getElementById('paragraphCameraStatus');
-  if(status)status.textContent=selected?'चुना हुआ Lens-जैसा टेक्स्ट Paragraph में paste हो गया।':'पूरा Lens-जैसा टेक्स्ट Paragraph में paste हो गया।';
-}
+async function openParagraphCamera(targetId='newParagraphText'){paragraphCameraTargetId=targetId;paragraphLensMode=false;const panel=document.getElementById('paragraphCameraPanel');const status=document.getElementById('paragraphCameraStatus');if(panel)panel.hidden=false;if(status)status.textContent='Gallery से अपनी फोटो चुनें। फोटो कैमरे से नहीं ली जाएगी।';chooseParagraphGalleryImage();}
+async function copyGallerySelectedText(){const box=document.getElementById('galleryOcrResult');if(!box)return;const text=box.value.slice(box.selectionStart||0,box.selectionEnd||0).trim();if(!text){alert('पहले OCR टेक्स्ट में जरूरी हिस्सा select करें।');return;}try{await navigator.clipboard.writeText(text);alert('Selected text clipboard में copy हो गया।');}catch{box.focus();document.execCommand('copy');alert('Selected text copy करने की कोशिश की गई।');}}
+async function copyGalleryAllText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.value.trim()){alert('पहले फोटो का OCR करें।');return;}try{await navigator.clipboard.writeText(box.value);alert('पूरा OCR text clipboard में copy हो गया।');}catch{box.focus();box.select();document.execCommand('copy');alert('पूरा टेक्स्ट copy करने की कोशिश की गई।');}}
+async function shareGalleryText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.value.trim()){alert('पहले फोटो का OCR करें।');return;}const selected=box.value.slice(box.selectionStart||0,box.selectionEnd||0).trim();const text=selected||box.value.trim();try{if(navigator.share){await navigator.share({title:'Easyway Learn OCR Text',text});}else{await navigator.clipboard.writeText(text);alert('Share इस device/browser में उपलब्ध नहीं है। Text clipboard में copy कर दिया गया है।');}}catch(e){if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(text);alert('Share नहीं खुल सका। Text clipboard में copy कर दिया गया है।');}catch{}}}}
+async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=box.value.slice(box.selectionStart||0,box.selectionEnd||0).trim();const text=selected||box.value.trim();if(!text){alert('पहले फोटो का OCR करें।');return;}const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+text:text;target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया।';}
 async function chooseParagraphGalleryImage(){
   const input=document.getElementById('paragraphGalleryInput');
   if(!input){alert('Gallery विकल्प नहीं मिला। फ़ॉर्म को दोबारा खोलकर कोशिश करें।');return;}
   input.value='';input.click();
 }
-async function scanParagraphGalleryImage(input){
-  const status=document.getElementById('paragraphCameraStatus');
-  const file=input?.files?.[0];
-  if(!file)return;
-  if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}
-  const textarea=document.getElementById(paragraphCameraTargetId);
-  const lensBox=document.getElementById('lensOcrResult');
-  const targetTextarea=paragraphLensMode?null:textarea;
-  if(!targetTextarea && !lensBox){if(status)status.textContent='टेक्स्ट फ़ील्ड नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}
-  try{
-    if(status)status.textContent='Gallery की इमेज तैयार की जा रही है…';
-    const url=URL.createObjectURL(file);
-    try{
-      const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('इमेज पढ़ी नहीं जा सकी।'));i.src=url;});
-      const maxSide=3200,scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
-      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
-      const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      const preview=document.getElementById('paragraphCameraPreview');
-      if(preview){preview.width=canvas.width;preview.height=canvas.height;const pctx=preview.getContext('2d',{willReadFrequently:true});pctx.drawImage(canvas,0,0);preview.hidden=false;paragraphCameraCapturedCanvas=preview;}
-      const resultTarget=paragraphLensMode?lensBox:targetTextarea;
-      if(paragraphLensMode){
-        const box=document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
-        const viewer=document.getElementById('lensImageViewer'),imgEl=document.getElementById('lensSourceImage');
-        if(imgEl){imgEl.src=canvas.toDataURL('image/jpeg',0.94);imgEl.hidden=false;}
-        if(viewer)viewer.style.aspectRatio=`${canvas.width}/${canvas.height}`;
-      }
-      await scanParagraphSource(canvas,resultTarget,status,{appendToTarget:!paragraphLensMode,lensOverlay:paragraphLensMode});
-    }finally{URL.revokeObjectURL(url);}
-  }catch(e){if(status)status.textContent='Gallery image scan नहीं हो पाया: '+(e.message||'कृपया दूसरी image चुनें।');}
-  finally{input.value='';}
-}
-async function scanParagraphCamera(){
-  const status=document.getElementById('paragraphCameraStatus'),btn=document.getElementById('scanParagraphCamera');
-  const source=paragraphCameraCapturedCanvas;
-  if(!source||source.hidden)return alert('पहले कैमरा खोलें और “फोटो लें” दबाएँ।');
-  const textarea=document.getElementById(paragraphCameraTargetId);
-  if(!textarea){status.textContent='जिस फ़ील्ड में टेक्स्ट डालना है, वह नहीं मिला। दोबारा कोशिश करें।';return;}
-  btn.disabled=true;
-  try{await scanParagraphSource(source,textarea,status);}finally{btn.disabled=false;}
-}
+async function scanParagraphGalleryImage(input){const status=document.getElementById('paragraphCameraStatus');const file=input?.files?.[0];if(!file)return;if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}const textarea=document.getElementById(paragraphCameraTargetId),resultBox=document.getElementById('galleryOcrResult');if(!textarea||!resultBox){if(status)status.textContent='Text field नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}try{if(status)status.textContent='Gallery photo तैयार की जा रही है…';const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('इमेज पढ़ी नहीं जा सकी।'));i.src=url;});const maxSide=4200,scale=Math.min(1.6,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);const box=document.getElementById('galleryOcrResultBox');if(box)box.hidden=false;resultBox.value='';await scanParagraphSource(canvas,resultBox,status,{appendToTarget:false});}finally{URL.revokeObjectURL(url);}}catch(e){if(status)status.textContent='Gallery OCR नहीं हो पाया: '+(e.message||'कृपया साफ फोटो चुनें।');}finally{input.value='';}}
+async function scanParagraphCamera(){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='अब Live Camera OCR उपलब्ध नहीं है। Gallery से फोटो चुनकर OCR करें।';chooseParagraphGalleryImage();}
 async function scanParagraphSource(source,textarea,status,options={}){
   status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
   try{
@@ -784,25 +669,8 @@ async function scanParagraphSource(source,textarea,status,options={}){
     const clean=r=>(r?.data?.text||'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
     const scored=results.map((r,i)=>({r,i,text:clean(r),confidence:Number(r?.data?.confidence)||0})).filter(x=>x.text);
     if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
-    scored.sort((a,b)=>{const ca=a.confidence,cb=b.confidence;const la=a.text.length,lb=b.text.length;const sa=ca+Math.min(12,la/200),sb=cb+Math.min(12,lb/200);return sb-sa;});
+    scored.sort((a,b)=>{const score=x=>x.confidence+Math.min(18,x.text.length/180)+Math.min(8,x.text.split(/\s+/).filter(Boolean).length/40)+Math.min(3,(x.text.match(/\n/g)||[]).length/8);return score(b)-score(a);});
     const best=scored[0],text=best.text;
-    if(options.lensOverlay){
-      const overlay=document.getElementById('lensTextOverlay');
-      const imgEl=document.getElementById('lensSourceImage');
-      if(overlay){
-        overlay.innerHTML='';
-        const words=(best.r?.data?.words||[]).filter(w=>String(w.text||'').trim()&&w.bbox);
-        const sw=source.width||1, sh=source.height||1;
-        for(const w of words){
-          const span=document.createElement('span'); span.className='lens-word'; span.textContent=w.text+' ';
-          const x0=Math.max(0,Math.min(sw,w.bbox.x0||0)), y0=Math.max(0,Math.min(sh,w.bbox.y0||0));
-          const x1=Math.max(x0,Math.min(sw,w.bbox.x1||x0)), y1=Math.max(y0,Math.min(sh,w.bbox.y1||y0));
-          span.style.left=(x0/sw*100)+'%'; span.style.top=(y0/sh*100)+'%'; span.style.width=((x1-x0)/sw*100)+'%'; span.style.height=Math.max(1,(y1-y0)/sh*100)+'%';
-          span.style.fontSize=Math.max(10,((y1-y0)/sh)*100*0.82)+'%'; overlay.appendChild(span);
-        }
-        if(imgEl)imgEl.hidden=false;
-      }
-    }
     if(options.appendToTarget!==false){
       const existing=String(textarea.value||'').trim(),separator=textarea.tagName==='TEXTAREA'?(existing?'\n\n':''):' ';
       textarea.value=existing?existing+separator+text:text;textarea.dispatchEvent(new Event('input',{bubbles:true}));textarea.focus();
@@ -810,11 +678,11 @@ async function scanParagraphSource(source,textarea,status,options={}){
       textarea.value=text;
       const box=document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
     }
-    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। अब ऊपर पहचाने गए टेक्स्ट में जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). तीन OCR passes में बेहतर परिणाम चुना गया। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
+    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। अब ऊपर पहचाने गए टेक्स्ट में जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). चार OCR passes में बेहतर परिणाम चुना गया। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
-  closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">READING CONTENT</span><b>+ Add Paragraph</b></div><button class="btn-secondary" type="button" onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card form-card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">कैमरे से किताब का टेक्स्ट पहचानें या सीधे लिखें/पेस्ट करें। पहचाना गया टेक्स्ट एक पैराग्राफ के रूप में सेव होगा। हिंदी और English OCR उपलब्ध हैं; सेव करने से पहले टेक्स्ट जाँच लें।</p><div class="button-row"><button type="button" onclick="openParagraphCamera('newParagraphText')">📷 कैमरा खोलें</button><button type="button" class="btn-secondary" onclick="pasteIntoField('newParagraphText')">📋 Clipboard से Paste</button></div>${cameraPanelHtml()}<label for="newParagraphText">Paragraph text</label><textarea id="newParagraphText" rows="10" placeholder="कैमरे से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></textarea><div class="button-row form-actions"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
+  closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">READING CONTENT</span><b>+ Add Paragraph</b></div><button class="btn-secondary" type="button" onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card form-card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">Gallery की फोटो से किताब का टेक्स्ट पहचानें या सीधे लिखें/पेस्ट करें। पहचाना गया टेक्स्ट एक पैराग्राफ के रूप में सेव होगा। हिंदी और English OCR उपलब्ध हैं; सेव करने से पहले टेक्स्ट जाँच लें।</p><div class="button-row"><button type="button" onclick="openParagraphCamera('newParagraphText')">🖼️ Gallery से फोटो OCR</button><button type="button" class="btn-secondary" onclick="pasteIntoField('newParagraphText')">📋 Clipboard से Paste</button></div>${cameraPanelHtml()}<label for="newParagraphText">Paragraph text</label><textarea id="newParagraphText" rows="10" placeholder="Gallery OCR से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></textarea><div class="button-row form-actions"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
 }
 async function saveNewParagraph(cid){const field=document.getElementById('newParagraphText');const text=field?.value?.trim();if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await load();editChapterQA(cid)}catch(e){alert(e.message)}}

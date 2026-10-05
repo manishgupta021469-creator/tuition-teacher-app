@@ -136,3 +136,15 @@ This release is rebuilt directly from V56 Final Combined Updates. Existing featu
 - On Android, it attempts to open the Google Lens app; if that is unavailable, it falls back to the Google Lens web page.
 - Existing Camera OCR, Gallery Image Scan, Flash, Zoom, test logic, accounts, histories and database behavior are unchanged.
 - Lens is an external option: text recognized by Lens must be copied and pasted back into the Easyway Learn text field; Google Lens OCR is not embedded inside the PWA.
+
+## V62 — Gallery OCR + Mic Reliability Update (V61 base)
+- Built from the latest actual V61 ZIP available in the project library.
+- Removed the Live Camera OCR workflow from the visible teacher content-entry UI. The existing Gallery-photo OCR workflow remains.
+- Removed the separate Google Lens-style/external Lens option. No Google Lens app or Play Store is opened.
+- Gallery OCR now gives a dedicated editable OCR result box with Copy Selected, Copy All, Share Text and Paragraph Paste controls. Selected text can be shared or copied before inserting it into the target field.
+- Gallery OCR keeps the image client-side and does not upload/store the selected image in the app database/server through this flow.
+- Gallery OCR preprocessing was strengthened: higher-resolution scaling where practical and four OCR passes (original, contrast, binarized and alternate page-layout recognition) with a best-result selection. Hindi + English Tesseract recognition remains best-effort; formulas, unusual fonts and poor photos still need review.
+- Speech recognition restart handling was made more responsive around normal pauses/no-speech events, and the UI now explicitly indicates that a pause/hesitation does not mean the microphone test has ended. Existing scoring/history APIs and test logic were not changed.
+- Existing accounts, students, content, scores, attempt history, database and unrelated features are preserved. No database reset/recreation is performed.
+
+**Validation performed:** JavaScript syntax check passed and the ZIP archive was tested after packaging. Live Android microphone/Gallery OCR behavior still needs to be checked on the actual phone because Web Speech/Tesseract behavior depends on browser, network, permissions and device.
