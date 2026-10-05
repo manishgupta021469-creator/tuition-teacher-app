@@ -1,3 +1,13 @@
+# V57 — Icon Download Fix
+
+Based directly on **V56 Final Combined Updates**. This release only fixes the PWA/app-icon asset handling so the icon is not treated as a downloadable SVG file on Android/Chrome. Existing application features, authentication, student data, test logic, scores, histories, OCR, speaker controls, admin activity and database behavior are preserved. No database reset or recreation is included.
+
+## Icon fix
+- PWA manifest now uses PNG icons (`icon-192.png`, `icon-512.png`).
+- Browser favicon and Apple touch icon use PNG.
+- Service-worker shell/cache uses PNG icons and a new cache version.
+- SVG icon assets are removed from the release to prevent repeated `icon-512.svg` downloads.
+
 # Easyway Learn — Tuition Teacher App — V56
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:
