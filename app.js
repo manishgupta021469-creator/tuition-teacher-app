@@ -142,14 +142,35 @@ function repairOcrFormulaLine(line){
 }
 function formulaTextToTeX(s){
   let x=String(s??'').trim();
-  x=repairGenericFormulaLine(x).replace(/\b([A-Za-z])\s*\^\s*\{([^{}]+)\}/g,'$1^{$2}').replace(/\b([A-Za-z])\s*_\s*\{([^{}]+)\}/g,'$1_{$2}');
-  // Textbook chemistry/science notation: A0, H2, SO4 etc. become proper subscripts.
-  x=x.replace(/([A-Za-z])([0-9]+)/g,'$1_{$2}');
-  if(/\\frac\s*\{/.test(x)||/\\(?:Delta|pi|sum|log|sqrt)\b/.test(x))return x;
-  x=x.replace(/\^\s*([A-Za-z0-9]+)/g,'^{$1').replace(/(\^\{[^{}]+)\s+/g,'$1} ')
-    .replace(/_\s*([A-Za-z0-9]+)/g,'_{$1}').replace(/×/g,'\\times ').replace(/÷/g,'\\div ')
+  x=repairGenericFormulaLine(x);
+  // Keep already structured LaTeX groups intact, but normalize common OCR spellings.
+  x=x.replace(/\bDelta\b/g,'\\Delta').replace(/\b(?:Sigma|sum)\b/g,'\\Sigma')
+    .replace(/\bpi\b/g,'\\pi').replace(/\bchi\b/g,'\\chi')
+    .replace(/\bmu\b/g,'\\mu').replace(/\blambda\b/g,'\\lambda')
+    .replace(/\bOmega\b/g,'\\Omega');
+  // Common OCR spelling of square-root notation.
+  x=x.replace(/\bsqrt\s*\(([^()]*)\)/gi,'\\sqrt{$1}').replace(/√\s*\(?([^()\s]+)\)?/g,'\\sqrt{$1}');
+  // Normalize simple superscript/subscript tokens into complete groups.
+  x=x.replace(/\^\s*\{([^{}]+)\}/g,'^{$1}').replace(/_\s*\{([^{}]+)\}/g,'_{$1}')
+    .replace(/\^\s*([A-Za-z0-9+\-]+)/g,'^{$1}')
+    .replace(/_\s*([A-Za-z0-9]+)/g,'_{$1}');
+  // Textbook chemistry/science notation: H2, SO4, Ksp, etc.
+  x=x.replace(/([A-Za-z])([0-9]+)/g,'$1_{$2}')
+    .replace(/\bK\s*([a-z]{1,3})\b/g,(_,sub)=>`K_{${sub}}`);
+  // Common ionic charges are genuine superscripts; restrict this to chemistry tokens
+  // so ordinary A+B expressions are not changed.
+  x=x.replace(/\b(OH|NH|H|Na|K|Ca|Mg|Cl|Br|F|Ag|Cu|Fe|Al|Zn|e)\s*([+-])\b/g,'$1^{$2}');
+  x=x.replace(/×/g,'\\times ').replace(/÷/g,'\\div ')
     .replace(/→/g,'\\rightarrow ').replace(/←/g,'\\leftarrow ').replace(/≈/g,'\\approx ');
-  const slash=x.match(/^(.*?=\s*)(.+?)\s*\/\s*(.+)$/);if(slash)return `${slash[1]}\\frac{${slash[2].trim()}}{${slash[3].trim()}}`;
+
+  // Turn a simple textbook fraction into a real fraction. This covers both
+  // "x = a / b" and a standalone "a / b" while leaving multi-slash prose alone.
+  if(!/\\frac\s*\{/.test(x)){
+    const eqSlash=x.match(/^(.*?=\s*)([^/]+?)\s*\/\s*([^/]+?)\s*$/);
+    if(eqSlash) return `${eqSlash[1]}\\frac{${eqSlash[2].trim()}}{${eqSlash[3].trim()}}`;
+    const standalone=x.match(/^([^/\s]+(?:\s*[×*]\s*[^/\s]+)?)\s*\/\s*([^/\s]+(?:\s*[×*]\s*[^/\s]+)?)$/);
+    if(standalone) return `\\frac{${standalone[1].trim()}}{${standalone[2].trim()}}`;
+  }
   return x;
 }
 function takeBracedGroup(src,start){
@@ -196,7 +217,7 @@ function formulaTextToMathML(text){
   const tex=formulaTextToTeX(text);if(!tex||!/[A-Za-z0-9ΔδπΣχμλΩ]/.test(tex))return '';
   return `<span class="formula-math" aria-label="${esc(formulaBodyPlain(tex))}">${renderFormulaFragment(tex)}</span>`;
 }
-function looksLikeFormulaLine(line){const x=String(line??'').trim();if(canonicalFormulaForLine(x))return true;const words=x.split(/\s+/).filter(Boolean).length;const symbols=/(?:=|×|÷|->|→|←|\b(?:log|ln|sin|cos|tan|sqrt|lim|sum|frac)\b|[ΔδπΣ∑∞χμλΩαβγ]|[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]|\\frac|\\sum|\\Delta|\\pi)/i.test(x);const slash=/[A-Za-z0-9\)\]]\s*\/\s*[A-Za-z0-9\(\[]/.test(x);return words<=45&&(symbols||slash);}
+function looksLikeFormulaLine(line){const x=String(line??'').trim();if(canonicalFormulaForLine(x))return true;const words=x.split(/\s+/).filter(Boolean).length;const symbols=/(?:=|×|÷|->|→|←|\b(?:log|ln|sin|cos|tan|sqrt|lim|sum|frac|Delta|Sigma|pi|chi|mu|lambda|Omega)\b|[ΔδπΣ∑∞χμλΩαβγ]|[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]|\\frac|\\sum|\\Delta|\\pi|\^|_)/i.test(x);const slash=/[A-Za-z0-9\)\]]\s*\/\s*[A-Za-z0-9\(\[]/.test(x);return words<=45&&(symbols||slash);}
 function ocrLineToRichHtml(line){
   const raw=String(line??'');if(!raw.trim())return '<br>';
   const repaired=repairOcrFormulaLine(raw);
@@ -1117,14 +1138,22 @@ function ocrLinesToBookLikeHtml(result,base){
       out.push('<br>');continue;
     }
     const text=repairOcrFormulaLine(original),b=line?.bbox;
-    if(looksLikeFormulaLine(text)&&b&&Number.isFinite(b.x0)&&Number.isFinite(b.x1)&&Number.isFinite(b.y0)&&Number.isFinite(b.y1)){
-      try{
-        const c=cropOcrLine(base,b,.95);if(!c)throw new Error('crop');
-        const src=c.toDataURL('image/webp',.96);
-        // Keep the original crop for exact visual fidelity, but ALWAYS store the repaired
-        // text fallback. Scoring/copying must never use the raw OCR string.
-        out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text" data-ewl-text="${esc(canonicalizeKnownFormulaText(text))}">${esc(canonicalizeKnownFormulaText(text))}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
-      }catch{out.push(ocrLineToRichHtml(text));}
+    if(looksLikeFormulaLine(text)){
+      const structured=ocrLineToRichHtml(text);
+      // If a usable structured formula was produced, show it directly. This avoids the V74
+      // failure mode where the fallback crop/text path made formulas appear as one linear line.
+      // Keep an original line crop as a secondary visual reference only when the parser cannot
+      // produce a meaningful mathematical fragment. The hidden data-ewl-text remains the
+      // normalized representation used by speech/testing.
+      if(structured && /formula-(?:known|math)|math-frac|math-sqrt|<sup>|<sub>/.test(structured)){
+        out.push(structured);
+      }else if(b&&Number.isFinite(b.x0)&&Number.isFinite(b.x1)&&Number.isFinite(b.y0)&&Number.isFinite(b.y1)){
+        try{
+          const c=cropOcrLine(base,b,.95);if(!c)throw new Error('crop');
+          const src=c.toDataURL('image/webp',.92);
+          out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text" data-ewl-text="${esc(canonicalizeKnownFormulaText(text))}">${esc(canonicalizeKnownFormulaText(text))}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
+        }catch{out.push(esc(canonicalizeKnownFormulaText(text)));}
+      }else out.push(esc(canonicalizeKnownFormulaText(text)));
     }else out.push(esc(text));
     out.push('<br>');
   }

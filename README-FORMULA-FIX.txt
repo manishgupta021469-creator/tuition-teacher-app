@@ -1,3 +1,5 @@
-V74 - Formula OCR Paragraph / Fraction Fix
-Base: V73
-Focused fix: preserve formula line/block separation in Paragraph and OCR result, render fractions vertically, and intercept rich-editor copy so formulas are copied with a structured plain-text fallback instead of collapsing numerator/denominator into one visual line. No database/schema changes.
+Easyway Learn — V76 Formula/OCR structured-display fix
+
+Base: V74 (74 Easyway-Learn-Tuition-Teacher-V74-Formula-OCR-Copy-Fraction-Fix-V73-Base.zip)
+
+Only formula/OCR display and normalization code was changed. Existing teacher/student accounts, tests, scores, histories, database schema, and other app features are preserved.
