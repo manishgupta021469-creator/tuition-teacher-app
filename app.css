@@ -303,5 +303,21 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 @media(max-width:600px){.teacher-dashboard{padding:10px 12px 28px}.dash-header{padding:8px 10px;gap:8px}.dash-brand .brand-lockup img{width:39px;height:39px}.dash-brand .brand-lockup b{font-size:1rem}.dash-brand .brand-lockup small{font-size:.66rem}.dash-logout{display:none}.dash-welcome{padding:17px;border-radius:21px}.dash-big-avatar{width:64px;height:64px;font-size:1.2rem}.dash-welcome h1{font-size:1.45rem}.dash-section-head h2{font-size:1.1rem}.dash-student-grid,.dash-subject-grid{grid-template-columns:1fr 1fr;gap:9px}.dash-student-card,.dash-more-card{min-height:76px;padding:10px!important}.dash-student-avatar{width:38px;height:38px;flex-basis:38px}.dash-student-info b{font-size:.9rem}.dash-subject-card{min-height:98px;padding:11px!important}.dash-subject-icon{width:40px;height:40px;flex-basis:40px;font-size:1.2rem}.dash-manage{display:none}.dash-quick-grid{gap:8px}.dash-quick-grid button{padding:11px!important;display:grid;grid-template-columns:auto 1fr}.dash-quick-grid button small{grid-column:2;margin:0}.dash-keep-going{align-items:flex-start;flex-wrap:wrap}.dash-keep-going button{margin-left:61px!important}.dash-result-row{padding:12px!important}.dash-result-icon{width:38px;height:38px;flex-basis:38px}.dash-result-row strong{padding:7px 11px;font-size:.9rem}}
 /* V64 dashboard avatar refinement */
 .dash-avatar,.dash-big-avatar,.dash-student-avatar{overflow:hidden;position:relative}.dash-avatar img,.dash-big-avatar img,.dash-student-avatar img{width:100%;height:100%;display:block;object-fit:cover}.dash-big-avatar{padding:0!important}.dash-student-avatar{padding:0!important;background:#eef5ff!important}.dash-avatar{padding:0!important;background:#eef5ff!important}
-
-.formatted-reference{white-space:pre-wrap;line-height:1.9;margin-top:8px;padding-top:8px}.formatted-reference mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden}.math-paragraph{white-space:pre-wrap}.math-paragraph mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden}
+/* Preserve textbook paragraph line breaks/spacing in the display layer. The stored
+   paragraph text remains unchanged; this only affects how the reader sees it. */
+.math-paragraph.original-test-text,
+.paragraph-preview.math-paragraph,
+.math-paragraph.pdf-original { white-space: pre-wrap; }
+.original-test-text { padding: 10px 0; overflow-x: auto; }
+.paragraph-preview.math-paragraph > div { white-space: pre-wrap; }
+.math-paragraph mjx-container { max-width: 100%; overflow-x: auto; }
+.rich-paragraph-editor{min-height:150px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;line-height:1.7;white-space:pre-wrap;overflow:auto;font-size:16px}
+.rich-paragraph-editor:focus{outline:2px solid rgba(37,99,235,.22);border-color:#2563eb}
+.rich-paragraph-editor:empty:before{content:attr(data-placeholder);color:#94a3b8;pointer-events:none}
+.rich-paragraph-editor math{font-size:1.05em}
+.rich-paragraph-editor sup,.rich-paragraph-editor sub{line-height:0}
+.rich-paragraph-editor mfrac{display:inline-block;vertical-align:middle}
+.rich-ocr-result{min-height:180px;max-height:55vh;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;background:#fff;padding:14px;line-height:1.75;white-space:pre-wrap;outline:none}
+.rich-ocr-result:empty:before{content:attr(data-placeholder);color:#94a3b8}
+.rich-ocr-result .formula-source{display:inline-block;margin:.08em .12em;font-size:1.05em;white-space:nowrap}
+.rich-paragraph-editor .formula-source,.math-paragraph .formula-source{white-space:nowrap}

@@ -4,21 +4,158 @@ let state={teacher:null,students:[],content:[],results:[]};
 let recognition=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 // Display pasted LaTeX formulas as mathematics without changing the stored source text.
-function renderMathParagraph(value){
-  let text=String(value??'').replace(/\r\n?/g,'\n');
-  // Preserve the stored paragraph exactly; only the display layer is transformed.
-  const sup={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
-  const sub={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
-  const chemical=/\b(?:H|C|N|O|F|P|S|K|V|Y|I|W|B|U|Na|Mg|Al|Si|Cl|Ca|Fe|Cu|Zn|Ag|Au|Hg|Pb|Br|Mn|Co|Ni|Cr|Sn|Ba|Li|Be|Ne|Ar|He|Xe|Rn)(?:[0-9]+)?(?:\s*(?:H|C|N|O|F|P|S|K|V|Y|I|W|B|U|Na|Mg|Al|Si|Cl|Ca|Fe|Cu|Zn|Ag|Au|Hg|Pb|Br|Mn|Co|Ni|Cr|Sn|Ba|Li|Be|Ne|Ar|He|Xe|Rn)(?:[0-9]+)?)+\b/g;
-  text=text.replace(chemical,m=>m.replace(/([A-Za-z]{1,2})(\d+)/g,(_,el,n)=>el+[...n].map(x=>sub[x]||x).join('')));
-  text=text.replace(/\^([0-9]+)/g,(_,n)=>[...n].map(x=>sup[x]||x).join(''));
-  text=text.replace(/_([0-9]+)/g,(_,n)=>[...n].map(x=>sub[x]||x).join(''));
-  text=text.replace(/\\\((.*?)\\\)/gs,'\\($1\\)');
-  text=text.replace(/\\\[(.*?)\\\]/gs,'\\[$1\\]');
-  text=text.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g,'\\(\\frac{$1}{$2}\\)');
-  text=text.replace(/(^|[\s:])((?:[A-Za-z0-9]+\s*)?[=+−×÷*/]\s*[A-Za-z0-9]+(?:\s*[=+−×÷*/]\s*[A-Za-z0-9]+)+)(?=$|[\s.,;:])/gm,'$1\\($2\\)');
-  return esc(text).replace(/\\\\\(/g,'\\(').replace(/\\\\\)/g,'\\)').replace(/\\\\\[/g,'\\[').replace(/\\\\\]/g,'\\]');
+function formulaTextToTeX(s){
+  let x=String(s??'').trim();
+  x=x.replace(/[−–—]/g,'-').replace(/×/g,'\\times ').replace(/÷/g,'\\div ').replace(/→/g,'\\rightarrow ').replace(/←/g,'\\leftarrow ').replace(/≈/g,'\\approx ').replace(/≤/g,'\\le ').replace(/≥/g,'\\ge ');
+  x=x.replace(/\[([^\]]+)\]/g,'\\left[$1\\right]');
+  x=x.replace(/\(([^()]*)\)/g,'\\left($1\\right)');
+  x=x.replace(/([A-Za-zΑ-Ωα-ω])([₀-₉]+)/g,(m,a,b)=>a+'_'+[...b].map(c=>'₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join(''));
+  x=x.replace(/([A-Za-zΑ-Ωα-ω])([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g,(m,a,b)=>a+'^'+[...b].map(c=>'⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c)).join(''));
+  const slash=x.indexOf('/');
+  if(slash>0){
+    const left=x.slice(0,slash).trim(), right=x.slice(slash+1).trim();
+    const eq=left.match(/^(.*?=\s*)(.+)$/);
+    if(eq && right){x=eq[1]+'\\frac{'+eq[2].trim()+'}{'+right+'}';}
+    else if(right && /[A-Za-z0-9\]\)]$/.test(left)){const m=left.match(/^(.*?)([A-Za-z0-9\]\)]+(?:\s*[A-Za-z0-9\]\)]+)*)$/);if(m)x=m[1]+'\\frac{'+m[2].trim()+'}{'+right+'}';}
+  }
+  return x;
 }
+function looksLikeFormulaLine(line){return /(?:=|×|÷|\b(?:log|ln|sin|cos|tan)\b|[ΔδπΣ∑∞]|[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]|\/[A-Za-z0-9\[])/.test(line);}
+function mathTokenHtml(token){
+  const t=String(token??'').trim(); if(!t)return '';
+  const parts=[]; let i=0;
+  const sup='⁰¹²³⁴⁵⁶⁷⁸⁹', sub='₀₁₂₃₄₅₆₇₈₉';
+  const digits=(str,map)=>[...str].map(c=>map.indexOf(c)).join('');
+  while(i<t.length){
+    const ch=t[i];
+    if(/[A-Za-zα-ωΑ-Ω]/.test(ch)){
+      let j=i+1;while(j<t.length&&/[A-Za-zα-ωΑ-Ω]/.test(t[j]))j++;
+      const w=t.slice(i,j);let k=j;
+      if(k<t.length&&/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(t[k])){let q='';while(k<t.length&&/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(t[k]))q+=t[k++];parts.push(`<msup><mi>${esc(w)}</mi><mn>${digits(q,sup)}</mn></msup>`);i=k;continue;}
+      if(k<t.length&&/[₀₁₂₃₄₅₆₇₈₉]/.test(t[k])){let q='';while(k<t.length&&/[₀₁₂₃₄₅₆₇₈₉]/.test(t[k]))q+=t[k++];parts.push(`<msub><mi>${esc(w)}</mi><mn>${digits(q,sub)}</mn></msub>`);i=k;continue;}
+      parts.push(`<mi>${esc(w)}</mi>`);i=j;continue;
+    }
+    if(/[0-9.]/.test(ch)){let j=i+1;while(j<t.length&&/[0-9.]/.test(t[j]))j++;parts.push(`<mn>${esc(t.slice(i,j))}</mn>`);i=j;continue;}
+    if(ch==='^'||ch==='_'){
+      const isSup=ch==='^';let j=i+1,content='';
+      if(t[j]==='{'){j++;while(j<t.length&&t[j]!=='}')content+=t[j++];if(t[j]==='}')j++;}else{while(j<t.length&&/[A-Za-z0-9]/.test(t[j]))content+=t[j++];}
+      const tag=isSup?'msup':'msub';parts.push(`<${tag}><mi></mi><mn>${esc(content)}</mn></${tag}>`);i=j;continue;
+    }
+    if(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(ch)){let j=i,q='';while(j<t.length&&/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(t[j]))q+=t[j++];parts.push(`<msup><mi></mi><mn>${digits(q,sup)}</mn></msup>`);i=j;continue;}
+    if(/[₀₁₂₃₄₅₆₇₈₉]/.test(ch)){let j=i,q='';while(j<t.length&&/[₀₁₂₃₄₅₆₇₈₉]/.test(t[j]))q+=t[j++];parts.push(`<msub><mi></mi><mn>${digits(q,sub)}</mn></msub>`);i=j;continue;}
+    const ops={'+':'＋','-':'−','−':'−','×':'×','÷':'÷','=':'=','→':'→','←':'←','(':'(',')':')','[':'[',']':']','Σ':'Σ','∑':'∑','Δ':'Δ','π':'π','∞':'∞'};
+    parts.push(`<mo>${esc(ops[ch]||ch)}</mo>`);i++;
+  }
+  return parts.join('');
+}
+function formulaTextToMathML(text){
+  let x=String(text??'').trim().replace(/[−–—]/g,'−');
+  const slash=x.indexOf('/');
+  if(slash>0){
+    const left=x.slice(0,slash).trim(),right=x.slice(slash+1).trim();
+    const eq=left.match(/^(.*?=\s*)(.+)$/);
+    if(eq&&right){return `<math class="formula-math" display="inline"><mrow>${mathTokenHtml(eq[1])}<mfrac><mrow>${mathTokenHtml(eq[2])}</mrow><mrow>${mathTokenHtml(right)}</mrow></mfrac></mrow></math>`;}
+    return `<math class="formula-math" display="inline"><mfrac><mrow>${mathTokenHtml(left)}</mrow><mrow>${mathTokenHtml(right)}</mrow></mfrac></math>`;
+  }
+  return `<math class="formula-math" display="inline"><mrow>${mathTokenHtml(x)}</mrow></math>`;
+}
+function ocrLineToRichHtml(line){
+  const raw=String(line??''); if(!raw.trim()) return '<br>';
+  if(!looksLikeFormulaLine(raw)) return esc(raw);
+  const colon=raw.indexOf(':');
+  let prefix='',body=raw,tail='';
+  if(colon>0 && colon<80){prefix=raw.slice(0,colon+1);body=raw.slice(colon+1);}
+  const pipe=body.indexOf('|');
+  if(pipe>=0){tail=body.slice(pipe);body=body.slice(0,pipe);}
+  const tex=formulaTextToTeX(body.trim());
+  if(!tex || !/[A-Za-z0-9ΔδπΣ∑]/.test(tex)) return esc(raw);
+  return `${esc(prefix)} <span class="formula-source">${formulaTextToMathML(body.trim())}</span>${esc(tail)}`;
+}
+function ocrTextToRichHtml(text){
+  return String(text??'').replace(/\r/g,'').split('\n').map(ocrLineToRichHtml).join('\n');
+}
+// Display-only transformation for stored plain text. Rich paragraphs are rendered separately.
+function renderMathParagraph(value){
+  const text=String(value??'');
+  return text.split(/(\r?\n)/).map(line=>{
+    if(/^\r?\n$/.test(line)) return line;
+    const h=ocrLineToRichHtml(line);
+    return h.replace(/\\\\\(/g,'\\(').replace(/\\\\\)/g,'\\)');
+  }).join('').replace(/\n/g,'<br>');
+}
+const RICH_PREFIX='[[EWL_RICH_HTML]]\n';
+
+function isRichParagraph(value){return String(value??'').startsWith(RICH_PREFIX)}
+function richPayload(value){return isRichParagraph(value)?String(value).slice(RICH_PREFIX.length):''}
+function sanitizeRichHtml(input){
+  const raw=String(input??'');
+  const doc=new DOMParser().parseFromString(raw,'text/html');
+  const allowed=new Set(['DIV','P','BR','SPAN','B','STRONG','I','EM','U','SUB','SUP','S','MARK','UL','OL','LI','TABLE','TBODY','THEAD','TR','TD','TH','MATH','MROW','MI','MN','MO','MS','MSUP','MSUB','MSUBSUP','MFRAC','MSQRT','MROOT','MTEXT','MSTYLE','MFENCED','MPADDED','MENCLOSE','MUNDER','MOVER','MUNDEROVER','ANNOTATION','SEMANTICS','SVG','PATH']);
+  const walk=node=>{
+    for(const child of [...node.children]){
+      if(!allowed.has(child.tagName)){
+        const frag=doc.createDocumentFragment(); while(child.firstChild) frag.appendChild(child.firstChild); child.replaceWith(frag); continue;
+      }
+      [...child.attributes].forEach(a=>{
+        const n=a.name.toLowerCase(), v=a.value;
+        if(n==='style'){
+          const safe=v.split(';').map(x=>x.trim()).filter(x=>/^(vertical-align|font-(size|style|weight|family)|text-(align|decoration)|display|white-space)\s*:/i.test(x)).join(';');
+          if(safe) child.setAttribute('style',safe); else child.removeAttribute('style');
+        } else if(n==='class' && /^(math|math-inline|math-display|formula)/i.test(v)){} 
+        else if((child.namespaceURI||'').includes('MathML') && ['display','displaystyle','scriptlevel','mathvariant','columnalign','rowalign','stretchy','form'].includes(n)){} 
+        else if((child.tagName==='PATH' && n==='d')){} 
+        else if(n==='href' || n==='src' || n.startsWith('on') || n==='id' || n==='data') child.removeAttribute(a.name);
+        else if(!['class','style','display','displaystyle','scriptlevel','mathvariant','columnalign','rowalign','stretchy','form','d'].includes(n)) child.removeAttribute(a.name);
+      });
+      walk(child);
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML.trim();
+}
+function paragraphPlainText(value){
+  const raw=String(value??'');
+  if(!isRichParagraph(raw)) return raw;
+  const doc=new DOMParser().parseFromString(richPayload(raw),'text/html');
+  return (doc.body.innerText||doc.body.textContent||'').replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+}
+function renderStoredParagraph(value){
+  const raw=String(value??'');
+  if(!isRichParagraph(raw)) return renderMathParagraph(raw);
+  return sanitizeRichHtml(richPayload(raw));
+}
+function richEditorHtml(value){
+  const raw=String(value??'');
+  return isRichParagraph(raw)?sanitizeRichHtml(richPayload(raw)):esc(raw).replace(/\r?\n/g,'<br>');
+}
+async function pasteIntoField(id){
+  const el=document.getElementById(id); if(!el)return;
+  try{
+    const clip=await navigator.clipboard.read();
+    for(const item of clip){
+      if(item.types.includes('text/html')){
+        const html=await (await item.getType('text/html')).text();
+        const safe=sanitizeRichHtml(html);
+        if(el.isContentEditable){document.execCommand('insertHTML',false,safe);}
+        else if(el.tagName==='TEXTAREA' || el.tagName==='INPUT'){
+          const text=new DOMParser().parseFromString(safe,'text/html').body.innerText||'';
+          const start=el.selectionStart??el.value.length,end=el.selectionEnd??start;el.setRangeText(text,start,end,'end');
+        }
+        el.dispatchEvent(new Event('input',{bubbles:true})); el.focus(); return;
+      }
+    }
+  }catch{}
+  try{
+    const text=await navigator.clipboard.readText();
+    if(el.isContentEditable){document.execCommand('insertText',false,text);}
+    else if(el.tagName==='TEXTAREA' || el.tagName==='INPUT'){
+      const start=el.selectionStart??el.value.length,end=el.selectionEnd??start;el.setRangeText(text,start,end,'end');
+    }
+    el.dispatchEvent(new Event('input',{bubbles:true})); el.focus();
+  }catch(e){alert('Clipboard से Paste नहीं हो पाया। कृपया field पर long-press करके Paste करें।');}
+}
+function richParagraphPayload(id){const el=document.getElementById(id);if(!el)return '';const html=sanitizeRichHtml(el.isContentEditable?el.innerHTML:esc(el.value||'').replace(/\r?\n/g,'<br>'));return html?RICH_PREFIX+html:'';}
+
 function typesetMath(container=root){
   if(window.MathJax?.typesetPromise) window.MathJax.typesetPromise([container]).catch(()=>{});
 }
@@ -208,7 +345,7 @@ function startSingleQaTest(sid,cid,qid){const c=getChapter(cid),q=c?.qa.find(x=>
 function showSubjectHistory(sid,subjectId){const sub=state.content.find(x=>x.id===subjectId);if(!sub)return;const ids=new Set(sub.books.flatMap(b=>b.chapters.map(c=>c.id)));const arr=(window.__attempts||[]).filter(r=>ids.has(r.chapter_id));root.innerHTML=`<header><b>${esc(sub.name)} — Result History</b><button class="btn-secondary" onclick="studentTests(${sid})">Back</button></header><main><section class="card"><h2>Subject Results</h2>${arr.length?arr.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(r=>`<div class="attempt-row"><span>${esc(r.chapter_name||'Chapter')} · ${esc(r.test_type)} · ${new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</span><button class="result-link" onclick="showAttemptResult(${r.id})">${Number(r.score_percent).toFixed(2)}%</button></div>`).join(''):'<p class="muted">अभी कोई saved result नहीं है।</p>'}</section></main>`}
 
 function selectParagraph(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');const attempts=(window.__attempts||[]);root.innerHTML=`<header><b>${esc(c.name)} — Paragraph Test</b><button onclick="studentChapterFlow(${sid},${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id})">Back</button></header><main><section class="card"><h2>किस paragraph का test देना है?</h2><p class="muted">कोई भी paragraph चुनें। किसी क्रम की बाध्यता नहीं है।</p>${c.paragraphs.map((p,i)=>{const rows=attempts.filter(r=>r.test_type==='paragraph'&&r.chapter_id===cid&&r.item_id===p.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));const latest=rows[0];return `<div class="testrow"><b>Paragraph ${i+1}</b><span>${tokenize(p.text).length} words</span><button class="result-link" onclick="showItemHistory(${sid},${cid},${p.id},'paragraph',${i+1})">${latest?Number(latest.score_percent).toFixed(2)+'%':'History'}</button><button onclick="showPronunciationHelp(${sid},${cid},${p.id},${i})">📖 Pronunciation Help</button><button onclick="startSelectedParagraphTest(${sid},${cid},${p.id},${i})">Start Test</button></div>`}).join('')}</section></main>`}
-function startSelectedParagraphTest(sid,cid,pid,index){const c=getChapter(cid);const p=c?.paragraphs.find(x=>x.id===pid);if(!p)return alert('Paragraph not found');const open=()=>speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:p.text,title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>studentTests(sid),onCancel:()=>open()});open()}
+function startSelectedParagraphTest(sid,cid,pid,index){const c=getChapter(cid);const p=c?.paragraphs.find(x=>x.id===pid);if(!p)return alert('Paragraph not found');const open=()=>speakTest({studentId:sid,chapterId:cid,type:'paragraph',itemId:p.id,reference:paragraphPlainText(p.text),title:`${c.name} — Paragraph ${index+1} of ${c.paragraphs.length}`,onDone:()=>studentTests(sid),onCancel:()=>open()});open()}
 
 
 function latexToFormulaWords(raw, language='hi'){
@@ -236,7 +373,7 @@ function latexToFormulaWords(raw, language='hi'){
   const enLetters={A:'A',B:'B',C:'C',D:'D',E:'E',F:'F',G:'G',H:'H',I:'I',J:'J',K:'K',L:'L',M:'M',N:'N',O:'O',P:'P',Q:'Q',R:'R',S:'S',T:'T',U:'U',V:'V',W:'W',X:'X',Y:'Y',Z:'Z'};
   const hiNums={'0':'ज़ीरो','1':'वन','2':'टू','3':'थ्री','4':'फोर','5':'फाइव','6':'सिक्स','7':'सेवन','8':'एट','9':'नाइन'};
   const enNums={'0':'zero','1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'};
-  s=s.replace(/([A-Za-z])|([0-9])|([₀-₉⁰-⁹])|([()+\-=×→←/%])/g,(m,letter,digit,sub,op)=>{
+  s=s.replace(/([A-Za-z])|([0-9])|([₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹])|([()+\-=×→←/%])/g,(m,letter,digit,sub,op)=>{
     if(letter)return (language==='hi'?hiLetters:enLetters)[letter.toUpperCase()]||letter;
     if(digit)return (language==='hi'?hiNums:enNums)[digit]||digit;
     if(sub){const n={'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9','⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'}[sub];return (language==='hi'?hiNums:enNums)[n]||n;}
@@ -257,16 +394,17 @@ function speakHelpText(text,lang='hi-IN'){
 function stopSpeaker(){if('speechSynthesis' in window)window.speechSynthesis.cancel();}
 function showPronunciationHelp(sid,cid,pid,index){
   const c=getChapter(cid),p=c?.paragraphs.find(x=>x.id===pid);if(!p)return;
-  const rawTokens=(p.text.match(/[^\s,;:]+/g)||[]).map(t=>t.replace(/^[“”‘’"'`]+|[.,;:!?।॥”’"'`]+$/g,''));
-  const formulas=[...new Set(rawTokens.filter(t=>/[A-Za-z]/.test(t)&&/[0-9₀-₉⁰-⁹()[\]{}^]/.test(t)))];
+  const plainParagraph=paragraphPlainText(p.text);
+  const rawTokens=(plainParagraph.match(/[^\s,;:]+/g)||[]).map(t=>t.replace(/^[“”‘’"'`]+|[.,;:!?।॥”’"'`]+$/g,''));
+  const formulas=[...new Set(rawTokens.filter(t=>/[A-Za-z]/.test(t)&&/[0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹()[\]{}^]/.test(t)))];
   // Also detect equations with spaces around operators, e.g. F = ma or 2H₂ + O₂ → 2H₂O.
-  const equations=p.text.match(/(?:[A-Za-z0-9₀-₉⁰-⁹()[\]{}]+\s*)?(?:[=+\-→←]\s*[A-Za-z0-9₀-₉⁰-⁹()[\]{}]+\s*)+/g)||[];
+  const equations=plainParagraph.match(/(?:[A-Za-z0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹()[\]{}]+\s*)?(?:[=+\-→←]\s*[A-Za-z0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹()[\]{}]+\s*)+/g)||[];
   for(const eq of equations){const clean=eq.trim();if(/[A-Za-z]/.test(clean)&&/[=+\-→←]/.test(clean)&&!formulas.includes(clean))formulas.push(clean);}
-  const speechLanguage=paragraphSpeechLanguage(p.text);
+  const speechLanguage=paragraphSpeechLanguage(plainParagraph);
   const speechLocale=speechLanguage==='hi'?'hi-IN':'en-IN';
-  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderMathParagraph(p.text)}</div><div class="button-row"><button id="speakWholeParagraph" type="button">🔊 Speaker ON — पूरा पैराग्राफ सुनें</button><button id="stopWholeParagraph" type="button" class="btn-secondary">⏹ Speaker OFF / Stop</button></div></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>${speechLanguage==='hi'?'ऐसे बोलें:':'Pronunciation:'}</b> ${esc(formulaPronunciation(f,speechLanguage))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
+  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderStoredParagraph(p.text)}</div><div class="button-row"><button id="speakWholeParagraph" type="button">🔊 Speaker ON — पूरा पैराग्राफ सुनें</button><button id="stopWholeParagraph" type="button" class="btn-secondary">⏹ Speaker OFF / Stop</button></div></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>${speechLanguage==='hi'?'ऐसे बोलें:':'Pronunciation:'}</b> ${esc(formulaPronunciation(f,speechLanguage))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
   typesetMath(root);
-  let spokenParagraph=p.text;
+  let spokenParagraph=plainParagraph;
   for(const formula of formulas.slice().sort((a,b)=>b.length-a.length)){
     const escaped=formula.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     spokenParagraph=spokenParagraph.replace(new RegExp(escaped,'g'),formulaPronunciation(formula,speechLanguage));
@@ -276,17 +414,9 @@ function showPronunciationHelp(sid,cid,pid,index){
 }
 
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
-function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}function scoringTokens(s){
-  let text=String(s||'').normalize('NFKC');
-  const sup={'⁰':' 0 ','¹':' 1 ','²':' 2 ','³':' 3 ','⁴':' 4 ','⁵':' 5 ','⁶':' 6 ','⁷':' 7 ','⁸':' 8 ','⁹':' 9 '};
-  const sub={'₀':' 0 ','₁':' 1 ','₂':' 2 ','₃':' 3 ','₄':' 4 ','₅':' 5 ','₆':' 6 ','₇':' 7 ','₈':' 8 ','₉':' 9 '};
-  for(const [a,b] of Object.entries(sup))text=text.split(a).join(b);for(const [a,b] of Object.entries(sub))text=text.split(a).join(b);
-  text=text.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g,' fraction $1 divided by $2 ').replace(/×|\\times|·|\*/g,' times ').replace(/÷|\\div/g,' divided by ').replace(/→|⇒|⟶|->|=>/g,' arrow ').replace(/±/g,' plus minus ').replace(/=/g,' equals ').replace(/\+/g,' plus ').replace(/−|–|—|-/g,' minus ').replace(/[()]/g,m=>m==='('? ' bracket open ':' bracket close ').replace(/[\[\]]/g,m=>m==='['?' square bracket open ':' square bracket close ').replace(/[{}]/g,m=>m==='{'?' curly bracket open ':' curly bracket close ').replace(/%/g,' percent ');
-  return tokenize(text).map(w=>{const x=w.toLowerCase();const a={'plus':'plus','प्लस':'plus','minus':'minus','माइनस':'minus','equals':'equals','equal':'equals','बराबर':'equals','times':'times','गुणा':'times','divided':'divided','divide':'divided','बटा':'divided','bracket':'bracket','ब्रैकेट':'bracket','open':'open','ओपन':'open','close':'close','क्लोज':'close','square':'square','स्क्वायर':'square','fraction':'fraction','भिन्न':'fraction','arrow':'arrow','एरो':'arrow','two':'2','टू':'2','दो':'2','three':'3','थ्री':'3','तीन':'3','one':'1','एक':'1','four':'4','फोर':'4','चार':'4','five':'5','फाइव':'5','पांच':'5','six':'6','सिक्स':'6','छह':'6','seven':'7','सेवन':'7','सात':'7','eight':'8','एट':'8','आठ':'8','nine':'9','नाइन':'9','नौ':'9'};return a[x]||x});
-}
-
+function tokenize(s){return paragraphPlainText(s).normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
 function renderWords(reference,matched,manualMatched=[]){const set=new Set(matched||[]),manualSet=new Set(manualMatched||[]);let i=0;return tokenize(reference).map(w=>{const cls=['word',set.has(i)?'correct':'',manualSet.has(i)?'manual-added':''].filter(Boolean).join(' ');const html=`<span class="${cls}"${manualSet.has(i)?' title="मैनुअल अंडरलाइन"':''}>${esc(w)}</span>`;i++;return html}).join(' ')}
-function renderEditableWords(reference,matched){const set=new Set(matched||[]);return scoringTokens(reference).map((w,i)=>`<span class="word manual-word ${set.has(i)?'correct speech-detected':''}" data-word-index="${i}" role="button" tabindex="0" aria-pressed="${set.has(i)}" title="Tap to toggle underline">${esc(w)}</span>`).join(' ')}
+function renderEditableWords(reference,matched){const set=new Set(matched||[]);return tokenize(reference).map((w,i)=>`<span class="word manual-word ${set.has(i)?'correct speech-detected':''}" data-word-index="${i}" role="button" tabindex="0" aria-pressed="${set.has(i)}" title="Tap to toggle underline">${esc(w)}</span>`).join(' ')}
 function bindManualScoreEditor(container,{resultId,reference,matched,studentId,onSaved}){
   const speechDetected=new Set(matched||[]);
   const selected=new Set(matched||[]);
@@ -295,7 +425,7 @@ function bindManualScoreEditor(container,{resultId,reference,matched,studentId,o
   const countEl=container.querySelector('[data-manual-count]');
   const saveBtn=container.querySelector('[data-manual-save]');
   const status=container.querySelector('[data-manual-status]');
-  const total=scoringTokens(reference).length;
+  const total=tokenize(reference).length;
   const paint=()=>{
     wordsBox.querySelectorAll('[data-word-index]').forEach(el=>{
       const i=Number(el.dataset.wordIndex),yes=selected.has(i),manual=yes&&manualAdded.has(i),speech=yes&&speechDetected.has(i);
@@ -320,8 +450,8 @@ function bindManualScoreEditor(container,{resultId,reference,matched,studentId,o
   paint();
 }
 
-function speakTest({studentId,chapterId,type,itemId,reference,title,onDone,onCancel}){if(recognition){try{recognition.stop()}catch{}};const total=tokenize(reference).length;const preview=(type==='paragraph'||type==='chapter')?tokenize(reference).slice(0,6).join(' '):'';root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div>${preview?`<div class="paragraph-preview"><span>Paragraph की शुरुआत</span><p>${esc(preview)}${total>6?'…':''}</p></div>`:''}<p>Start Test दबाने के बाद original text छिप जाएगा। उसके बाद microphone में paragraph/answer बोलें।</p><button id="start">Start Test</button><div id="live"></div><div id="score"></div></section></main>`;exit.onclick=()=>{if(recognition){try{recognition.stop()}catch{}};refresh()};start.onclick=()=>{start.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone})}}
-function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDone}){
+function speakTest({studentId,chapterId,type,itemId,reference,title,onDone,onCancel}){const displayReference=String(reference??'');const plainReference=paragraphPlainText(displayReference);if(recognition){try{recognition.stop()}catch{}};const total=tokenize(plainReference).length;const preview=(type==='paragraph'||type==='chapter')?plainReference.slice(0,700):'';root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div>${displayReference&&((type==='paragraph'||type==='chapter'))?`<div class="paragraph-preview math-paragraph"><span>Paragraph की शुरुआत</span><div>${renderStoredParagraph(displayReference)}${plainReference.length>700?'…':''}</div></div>`:''}<p>Start Test दबाने के बाद original text छिप जाएगा। उसके बाद microphone में paragraph/answer बोलें। Mixed Hindi-English और formula speech को pronunciation/structure के अनुसार मिलाने की कोशिश की जाएगी।</p><button id="start">Start Test</button><div id="live"></div><div id="score"></div></section></main>`;typesetMath(root);exit.onclick=()=>{if(recognition){try{recognition.stop()}catch{}};refresh()};start.onclick=()=>{start.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference:plainReference,displayReference,title,onDone})}}
+function beginRecognition({studentId,chapterId,type,itemId,reference,displayReference,title,onDone}){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){
     live.innerHTML='<p>इस browser में Speech Recognition उपलब्ध नहीं है। Chrome Android इस्तेमाल करें।</p>';
@@ -363,8 +493,8 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
   const devMap={'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au','क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'ny','ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n','प':'p','फ':'f','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h','ड़':'r','ढ़':'rh','़':'','ँ':'n','ं':'n','ः':'h','्':''};
   const devV={'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o'};
   const romanize=w=>{let out='';for(const ch of String(w||'').normalize('NFKC'))out+=devV[ch]||devMap[ch]||ch;return out.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g,'')};
-  const phonetic=w=>romanize(w).replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o').replace(/([a-z])\1+/g,'$1');
-  const sim=(x,y)=>{x=romanize(x);y=romanize(y);if(x===y)return 1;const px=phonetic(x),py=phonetic(y);if(px&&px===py)return .94;const A=[...x],B=[...y];if(!A.length||!B.length)return 0;let prev=Array(B.length+1).fill(0).map((_,j)=>j);for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}const score=1-prev[B.length]/Math.max(A.length,B.length);return score>=.82&&Math.min(A.length,B.length)>=4?score:0};
+  const phonetic=w=>romanize(w).replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o').replace(/tion/g,'shan').replace(/sion/g,'zhan').replace(/c/g,'k').replace(/q/g,'k').replace(/x/g,'ks').replace(/v/g,'w').replace(/j/g,'y').replace(/[aeiou]+/g,'a').replace(/([a-z])\1+/g,'$1').replace(/a$/,'');
+  const edit=(x,y)=>{const A=[...x],B=[...y];if(!A.length||!B.length)return 0;let prev=Array(B.length+1).fill(0).map((_,j)=>j);for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}return 1-prev[B.length]/Math.max(A.length,B.length)};const crossAliasPairs=[['speculation','स्पेकुलेशन'],['chemistry','केमिस्ट्री'],['physics','फिजिक्स'],['biology','बायोलॉजी'],['computer','कंप्यूटर'],['equation','इक्वेशन'],['molecule','मॉलिक्यूल'],['formula','फॉर्मूला'],['chapter','चैप्टर'],['paragraph','पैराग्राफ'],['question','क्वेश्चन'],['answer','आंसर'],['percentage','परसेंटेज'],['solution','सॉल्यूशन'],['reaction','रिएक्शन'],['velocity','वेलोसिटी'],['acceleration','एक्सेलेरेशन'],['force','फोर्स'],['mass','मास'],['volume','वॉल्यूम'],['atom','एटम'],['electron','इलेक्ट्रॉन'],['proton','प्रोटॉन'],['neutron','न्यूट्रॉन'],['oxygen','ऑक्सीजन'],['hydrogen','हाइड्रोजन'],['carbon','कार्बन'],['nitrogen','नाइट्रोजन'],['glucose','ग्लूकोज'],['photosynthesis','फोटोसिंथेसिस']];const crossAlias=(x,y)=>crossAliasPairs.some(g=>g.includes(String(x||'').toLowerCase())&&g.includes(String(y||'').toLowerCase()));const sim=(x,y)=>{if(crossAlias(x,y))return .94;x=romanize(x);y=romanize(y);if(x===y)return 1;const px=phonetic(x),py=phonetic(y);if(px&&px===py)return .94;if(px&&py&&Math.min(px.length,py.length)>=4){const ps=edit(px,py);if(ps>=.64&&Math.abs(px.length-py.length)<=3)return Math.min(.94,.82+(ps-.64)*.34)}const score=edit(x,y);return score>=.82&&Math.min(x.length,y.length)>=4?score:0};
   const overlapScore=(a,b)=>{
     const A=words(a),B=words(b); if(!A.length||!B.length)return 0;
     let best=0; const max=Math.min(8,A.length,B.length);
@@ -487,7 +617,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     }
     try{
       const r=await api('/tests/score',{method:'POST',body:JSON.stringify({studentId,chapterId,testType:type,itemId,spokenText})});
-      const sameAttempts=await api('/results/'+studentId).catch(()=>[]); const key=`${type}:${chapterId}:${itemId||0}`; const attemptNo=sameAttempts.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).length; score.innerHTML=`<h3>Score: <span id="manualScorePercent">${r.percent}%</span></h3><p id="manualScoreSummary">${r.correct}/${r.total} speech units correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><div class="word-result math-paragraph"><b>Original Paragraph / Formula Formatting</b><div class="formatted-reference">${renderMathParagraph(r.referenceText)}</div></div><p class="muted">हरे अंडरलाइन वाले शब्द बोलने से डिटेक्ट हुए हैं। जो शब्द छूट गए, उन्हें टैप करें—वे नीले हो जाएँगे। गलत अंडरलाइन हटाने के लिए उस शब्द पर फिर टैप करें।</p><div class="word-result" data-manual-words>${renderEditableWords(r.referenceText,r.matched)}</div><p><b data-manual-count></b></p><button type="button" data-manual-save>✓ Manual underline save करके score दोबारा निकालें</button><p class="muted" data-manual-status>शब्दों पर टैप करके सही मिलान ठीक करें, फिर Save दबाएँ।</p><p class="muted">WhatsApp message अपने-आप नहीं भेजा जाता।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
+      const sameAttempts=await api('/results/'+studentId).catch(()=>[]); const key=`${type}:${chapterId}:${itemId||0}`; const attemptNo=sameAttempts.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).length; score.innerHTML=`<h3>Score: <span id="manualScorePercent">${r.percent}%</span></h3><p id="manualScoreSummary">${r.correct}/${r.total} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><p class="muted">हरे अंडरलाइन वाले शब्द बोलने से डिटेक्ट हुए हैं। जो शब्द छूट गए, उन्हें टैप करें—वे नीले हो जाएँगे। गलत अंडरलाइन हटाने के लिए उस शब्द पर फिर टैप करें।</p><div class="word-result" data-manual-words>${renderEditableWords(r.referenceText,r.matched)}</div><p><b data-manual-count></b></p><button type="button" data-manual-save>✓ Manual underline save करके score दोबारा निकालें</button><p class="muted" data-manual-status>शब्दों पर टैप करके सही मिलान ठीक करें, फिर Save दबाएँ।</p><p class="muted">WhatsApp message अपने-आप नहीं भेजा जाता।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
       bindManualScoreEditor(score,{resultId:r.resultId,reference:r.referenceText,matched:r.matched,studentId,onSaved:updated=>{r.percent=updated.percent;r.correct=updated.correct;r.total=updated.total;r.passed=updated.passed;r.matched=updated.matched;document.getElementById('manualScorePercent').textContent=`${updated.percent}%`;document.getElementById('manualScoreSummary').innerHTML=`${updated.correct}/${updated.total} words correct — <b>${updated.passed?'PASS':'NOT PASS'}</b>`}});
       document.getElementById('nextButton').onclick=()=>onDone?onDone(r):refresh();
     }catch(e){
@@ -595,7 +725,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
 function startParagraphTest(sid,cid){selectParagraph(sid,cid)}
 function showChapterReady(sid,cid){const c=getChapter(cid);root.innerHTML=`<header><b>${esc(c.name)}</b><button onclick="refresh()">Exit</button></header><main><section class="card"><h2>All Paragraphs Completed</h2><p>अब पूरा chapter test दिया जा सकता है।</p><button onclick="startChapterTest(${sid},${cid})">Start Complete Chapter Test</button></section></main>`}
 function startQaTest(sid,cid){const c=getChapter(cid);if(!c?.qa.length)return alert('No Q&A');let index=0;const run=()=>{const q=c.qa[index];speakTest({studentId:sid,chapterId:cid,type:'qa',itemId:q.id,reference:q.answer,title:`Q&A ${index+1} of ${c.qa.length} — ${q.question}`,onDone:()=>{index++;if(index<c.qa.length)run();else refresh()}})};run()}
-function startChapterTest(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraph content');const reference=c.paragraphs.slice().sort((a,b)=>Number(a.position||0)-Number(b.position||0)).map(p=>p.text).join('\n\n');speakTest({studentId:sid,chapterId:cid,type:'chapter',itemId:null,reference,title:`${c.name} — Complete Paragraph Test`,onDone:()=>studentTests(sid),onCancel:()=>startChapterTest(sid,cid)})}
+function startChapterTest(sid,cid){const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraph content');const reference=c.paragraphs.slice().sort((a,b)=>Number(a.position||0)-Number(b.position||0)).map(p=>paragraphPlainText(p.text)).join('\n\n');speakTest({studentId:sid,chapterId:cid,type:'chapter',itemId:null,reference,title:`${c.name} — Complete Paragraph Test`,onDone:()=>studentTests(sid),onCancel:()=>startChapterTest(sid,cid)})}
 function showItemHistory(sid,cid,itemId,type,position){const rows=(window.__attempts||[]).filter(r=>r.chapter_id===cid&&r.item_id===itemId&&r.test_type===type).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));root.innerHTML=`<header><b>Paragraph ${position} — Result History</b><button class="btn-secondary" onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>Previous Attempts</h2>${rows.length?rows.map(r=>`<div class="attempt-row"><span>${new Date(r.created_at).toLocaleString()}</span><button class="result-link" onclick="showAttemptResult(${r.id})">${Number(r.score_percent).toFixed(2)}%</button></div>`).join(''):'<p class="muted">अभी कोई saved attempt नहीं है।</p>'}</section></main>`}
 async function editChapterName(id){const c=getChapter(id);if(!c)return;const name=prompt('Edit Chapter name',c.name);if(name===null||!name.trim())return;try{await api('/chapters/'+id,{method:'PUT',body:JSON.stringify({name:name.trim()})});await refresh()}catch(e){alert(e.message)}}
 function getCorrectWords(reference,matched){const ws=tokenize(reference);return (matched||[]).map(i=>ws[i]).filter(Boolean)}
@@ -632,7 +762,7 @@ async function createStudentParagraphPdfFile(st,group){
   const safeBase=String(st.name||'Student').replace(/[^a-z0-9_-]+/gi,'_')||'Student';
   const pos=String(arr[0].paragraph_position||'').replace(/[^a-z0-9_-]+/gi,'_')||String(arr[0].item_id);
   const filename=`${safeBase}-Paragraph-${pos}-Test-Report.pdf`;
-  const wrap=document.createElement('div');wrap.id='pdfReportTemp';wrap.innerHTML=`<div class="pdf-report"><h1>Tuition Student Test Report</h1><p><b>Student:</b> ${esc(st.name)}<br><b>Class:</b> ${esc(st.class_name||'')}</p><section class="pdf-section"><h2>${esc(c?.subjectName||'Subject')} → ${esc(c?.bookName||'Book')} → ${esc(c?.name||'Chapter')} → Paragraph ${esc(arr[0].paragraph_position||'')}</h2><h3>Original Paragraph</h3><p class="pdf-original math-paragraph">${renderMathParagraph(arr[0].reference_text||p.text||'')}</p><h3>Test Attempts</h3>${arr.map((a,i)=>{const ref=a.reference_text||p.text||'';return `<div class="pdf-attempt"><h4>Attempt ${i+1}</h4><p><b>Score:</b> ${Number(a.score_percent).toFixed(2)}% &nbsp; <b>Words:</b> ${a.correct_words}/${a.total_words} &nbsp; <b>Result:</b> ${a.passed?'PASS':'NOT PASS'}</p><div class="pdf-words">${renderWords(ref,a.matched_word_indexes||a.matched||[],a.manual_word_indexes||a.manualWordIndexes||[])}</div></div>`}).join('')}</section></div>`;
+  const wrap=document.createElement('div');wrap.id='pdfReportTemp';wrap.innerHTML=`<div class="pdf-report"><h1>Tuition Student Test Report</h1><p><b>Student:</b> ${esc(st.name)}<br><b>Class:</b> ${esc(st.class_name||'')}</p><section class="pdf-section"><h2>${esc(c?.subjectName||'Subject')} → ${esc(c?.bookName||'Book')} → ${esc(c?.name||'Chapter')} → Paragraph ${esc(arr[0].paragraph_position||'')}</h2><h3>Original Paragraph</h3><p class="pdf-original math-paragraph">${renderStoredParagraph(arr[0].reference_text||p.text||'')}</p><h3>Test Attempts</h3>${arr.map((a,i)=>{const ref=a.reference_text||p.text||'';return `<div class="pdf-attempt"><h4>Attempt ${i+1}</h4><p><b>Score:</b> ${Number(a.score_percent).toFixed(2)}% &nbsp; <b>Words:</b> ${a.correct_words}/${a.total_words} &nbsp; <b>Result:</b> ${a.passed?'PASS':'NOT PASS'}</p><div class="pdf-words">${renderWords(ref,a.matched_word_indexes||a.matched||[],a.manual_word_indexes||a.manualWordIndexes||[])}</div></div>`}).join('')}</section></div>`;
   Object.assign(wrap.style,{position:'absolute',left:'0px',top:'0px',width:'794px',background:'#fff',color:'#111',zIndex:'2147483647',pointerEvents:'none'});document.body.appendChild(wrap);
   try{
     if(window.MathJax?.typesetPromise)await window.MathJax.typesetPromise([wrap]).catch(()=>{});if(document.fonts&&document.fonts.ready)await document.fonts.ready;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
@@ -665,11 +795,11 @@ function openWhatsAppPart(phone,parts,index){
     setTimeout(()=>{if(confirm(`Part ${index+1}/${parts.length} WhatsApp में तैयार है। अगला part खोलें?`))openWhatsAppPart(phone,parts,index+1)},1200);
   }
 }
-function showAttemptResult(id){const r=(window.__attempts||[]).find(x=>x.id===id);if(!r)return;const reference=r.reference_text||r.paragraph_text||r.qa_answer||'';const label=r.test_type==='paragraph'?`Paragraph ${r.paragraph_position||''}`:r.test_type==='qa'?'Q&A':'Complete Chapter';const matched=r.matched_word_indexes||r.matched||[];const attemptDateTime=new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});root.innerHTML=`<header><b>Attempt ${r.attempt_no} — ${esc(label)}</b><button onclick="studentTests(${r.student_id})">Back</button></header><main><section class="card"><h2>Score: ${Number(r.score_percent).toFixed(2)}%</h2><p><b>Test Date & Time:</b> ${esc(attemptDateTime)}</p><p>${r.correct_words}/${r.total_words} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p>${r.question?`<div class="attempt-question"><b>Question:</b><p>${esc(r.question)}</p></div>`:''}<div class="word-result">${renderWords(reference,matched,r.manual_word_indexes||r.manualWordIndexes||[])}</div></section></main>`}
-function editChapterParagraphs(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Paragraphs</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Paragraphs (${c.paragraphs.length})</h2>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><textarea id="p${p.id}" rows="5">${esc(p.text)}</textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge next</button>`:''}</div></div>`).join('')}<button onclick="addPara(${cid})">+ Add Paragraph</button><button class="btn-secondary" onclick="editChapterName(${cid})">Edit Chapter Name</button></section></main>`}
+function showAttemptResult(id){const r=(window.__attempts||[]).find(x=>x.id===id);if(!r)return;const reference=r.reference_text||r.paragraph_text||r.qa_answer||'';const label=r.test_type==='paragraph'?`Paragraph ${r.paragraph_position||''}`:r.test_type==='qa'?'Q&A':'Complete Chapter';const matched=r.matched_word_indexes||r.matched||[];const attemptDateTime=new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});root.innerHTML=`<header><b>Attempt ${r.attempt_no} — ${esc(label)}</b><button onclick="studentTests(${r.student_id})">Back</button></header><main><section class="card"><h2>Score: ${Number(r.score_percent).toFixed(2)}%</h2><p><b>Test Date & Time:</b> ${esc(attemptDateTime)}</p><p>${r.correct_words}/${r.total_words} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p>${r.question?`<div class="attempt-question"><b>Question:</b><p>${esc(r.question)}</p></div>`:''}<h3>Original Paragraph / Answer</h3><div class="math-paragraph original-test-text">${renderStoredParagraph(reference)}</div><h3>Word Matching</h3><div class="word-result">${renderWords(reference,matched,r.manual_word_indexes||r.manualWordIndexes||[])}</div></section></main>`;typesetMath(root)}
+function editChapterParagraphs(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Paragraphs</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Paragraphs (${c.paragraphs.length})</h2>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><div id="p${p.id}" class="rich-paragraph-editor" contenteditable="true" spellcheck="false">${richEditorHtml(p.text)}</div><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste (Book Format)</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge next</button>`:''}</div></div>`).join('')}<button onclick="addPara(${cid})">+ Add Paragraph</button><button class="btn-secondary" onclick="editChapterName(${cid})">Edit Chapter Name</button></section></main>`}
 function editChapterQA(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Question-Answer</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Add Question & Answer</h2><label for="q">Question</label><input id="q" placeholder="प्रश्न लिखें या पेस्ट करें"><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('q')">📋 Paste Question</button><button class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('a')">📋 Paste Answer</button><button class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Gallery OCR</button></div>${cameraPanelHtml()}<button onclick="addQA(${cid})">+ Add Q&A</button></section><section class="card"><h2>Saved Q&A (${c.qa.length})</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')||'<p class="muted">अभी Q&A नहीं है।</p>'}</section></main>`}
-function editChapter(cid){const c=getChapter(cid);closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">CHAPTER EDITOR</span><b>${esc(c.name)}</b></div><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card"><div class="section-heading"><h2>Chapter settings</h2></div><button class="btn-secondary" onclick="editChapterName(${cid})">✎ Edit Chapter Name</button></section><section class="card"><div class="section-heading"><div><div class="section-kicker">READING CONTENT</div><h2>Paragraphs</h2></div><span class="count-pill">${c.paragraphs.length} total</span></div><p class="muted">हर पैराग्राफ का टेक्स्ट बदल सकते हैं। कॉपी किया हुआ टेक्स्ट पेस्ट करने के लिए Paste बटन दबाएँ। अगले पैराग्राफ से जोड़ने का विकल्प भी उपलब्ध है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><textarea id="p${p.id}" rows="5">${esc(p.text)}</textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete Paragraph</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button type="button" onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><div class="section-kicker">QUESTION PRACTICE</div><h2>Add Question & Answer</h2><p class="muted">प्रश्न और उत्तर टाइप/पेस्ट करें या Gallery की फोटो से टेक्स्ट पहचानकर संबंधित फ़ील्ड में डालें।</p><label for="q">Question</label><input id="q" placeholder="यहाँ प्रश्न लिखें या पेस्ट करें"><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('q')">📋 Question Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Question Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="यहाँ सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('a')">📋 Answer Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Answer Gallery OCR</button></div>${cameraPanelHtml()}<div class="form-actions"><button onclick="addQA(${cid})">+ Add Q&A</button></div></section>${c.qa.length?`<section class="card"><div class="section-kicker">SAVED ITEMS</div><h2>Existing Q&A</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
-async function savePara(id){try{await api('/paragraphs/'+id,{method:'PUT',body:JSON.stringify({text:document.getElementById('p'+id).value})});await refresh()}catch(e){alert(e.message)}}
+function editChapter(cid){const c=getChapter(cid);closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">CHAPTER EDITOR</span><b>${esc(c.name)}</b></div><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card"><div class="section-heading"><h2>Chapter settings</h2></div><button class="btn-secondary" onclick="editChapterName(${cid})">✎ Edit Chapter Name</button></section><section class="card"><div class="section-heading"><div><div class="section-kicker">READING CONTENT</div><h2>Paragraphs</h2></div><span class="count-pill">${c.paragraphs.length} total</span></div><p class="muted">हर पैराग्राफ का टेक्स्ट बदल सकते हैं। कॉपी किया हुआ टेक्स्ट पेस्ट करने के लिए Paste बटन दबाएँ। अगले पैराग्राफ से जोड़ने का विकल्प भी उपलब्ध है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><div id="p${p.id}" class="rich-paragraph-editor" contenteditable="true" spellcheck="false">${richEditorHtml(p.text)}</div><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste (Book Format)</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete Paragraph</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button type="button" onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><div class="section-kicker">QUESTION PRACTICE</div><h2>Add Question & Answer</h2><p class="muted">प्रश्न और उत्तर टाइप/पेस्ट करें या Gallery की फोटो से टेक्स्ट पहचानकर संबंधित फ़ील्ड में डालें।</p><label for="q">Question</label><input id="q" placeholder="यहाँ प्रश्न लिखें या पेस्ट करें"><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('q')">📋 Question Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Question Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="यहाँ सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('a')">📋 Answer Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Answer Gallery OCR</button></div>${cameraPanelHtml()}<div class="form-actions"><button onclick="addQA(${cid})">+ Add Q&A</button></div></section>${c.qa.length?`<section class="card"><div class="section-kicker">SAVED ITEMS</div><h2>Existing Q&A</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
+async function savePara(id){try{const text=richParagraphPayload('p'+id);if(!text)return alert('Paragraph खाली है।');await api('/paragraphs/'+id,{method:'PUT',body:JSON.stringify({text})});await refresh()}catch(e){alert(e.message)}}
 async function deleteParagraph(id,cid,number){if(!confirm(`पहली पुष्टि: क्या Paragraph ${number} delete करना चाहते हैं?`))return;if(!confirm('दूसरी पुष्टि: यह paragraph स्थायी रूप से हट जाएगा। पुराने saved test results/history को सुरक्षित रखने का प्रयास किया जाएगा। क्या delete करें?'))return;try{await api('/paragraphs/'+id,{method:'DELETE'});await editChapter(cid)}catch(e){alert(e.message)}}
 async function mergePara(firstId,secondId){if(!confirm('इन दोनों paragraphs को एक में merge करें?'))return;try{await api('/paragraphs/merge',{method:'POST',body:JSON.stringify({firstId,secondId})});await refresh()}catch(e){alert(e.message)}}
 let paragraphCameraStream=null;
@@ -687,19 +817,19 @@ function closeParagraphCamera(){
   paragraphCameraCapturedCanvas=null;
   paragraphLensMode=false;
 }
-function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Gallery Image OCR</b><p class="muted">फोन की Gallery से अपनी फोटो चुनें। फोटो कैमरे से अपने-आप नहीं ली जाएगी और चुनी हुई इमेज ऐप/server पर सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><div class="button-row camera-actions"><button type="button" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से फोटो चुनें</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><div id="galleryOcrResultBox" hidden><label for="galleryOcrResult"><b>OCR से पहचाना गया टेक्स्ट</b></label><textarea id="galleryOcrResult" rows="10" placeholder="फोटो से पहचाना गया टेक्स्ट यहाँ आएगा। जरूरत हो तो टेक्स्ट को उंगली से select करके Copy/Share करें।"></textarea><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="copyGallerySelectedText()">📋 Copy Selected</button><button type="button" class="btn-secondary" onclick="copyGalleryAllText()">📋 Copy All</button><button type="button" class="btn-secondary" onclick="shareGalleryText()">↗️ Share Text</button><button type="button" onclick="pasteGalleryTextToParagraph()">⬇️ Paragraph में Paste</button></div></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">Gallery से फोटो चुनकर OCR करें।</p></div>`}
+function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Gallery Image OCR</b><p class="muted">फोन की Gallery से अपनी फोटो चुनें। Formula वाले हिस्सों में superscript, subscript और fraction को पहचानकर mathematical format में बदलने की कोशिश की जाएगी। फोटो ऐप/server पर सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><div class="button-row camera-actions"><button type="button" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से फोटो चुनें</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><div id="galleryOcrResultBox" hidden><label for="galleryOcrResult"><b>OCR से पहचाना गया टेक्स्ट / Formula</b></label><div id="galleryOcrResult" class="rich-ocr-result" contenteditable="true" spellcheck="false" data-placeholder="फोटो से पहचाना गया टेक्स्ट यहाँ आएगा…"></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="copyGallerySelectedText()">📋 Copy Selected</button><button type="button" class="btn-secondary" onclick="copyGalleryAllText()">📋 Copy All</button><button type="button" class="btn-secondary" onclick="shareGalleryText()">↗️ Share Text</button><button type="button" onclick="pasteGalleryTextToParagraph()">⬇️ Paragraph में Paste</button></div></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">Gallery से फोटो चुनकर OCR करें।</p></div>`}
 async function loadTesseract(){if(window.Tesseract)return window.Tesseract;await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('OCR library लोड नहीं हुई। इंटरनेट कनेक्शन जाँचें।'));document.head.appendChild(script)});return window.Tesseract;}
 async function openParagraphCamera(targetId='newParagraphText'){paragraphCameraTargetId=targetId;paragraphLensMode=false;const panel=document.getElementById('paragraphCameraPanel');const status=document.getElementById('paragraphCameraStatus');if(panel)panel.hidden=false;if(status)status.textContent='Gallery से अपनी फोटो चुनें। फोटो कैमरे से नहीं ली जाएगी।';chooseParagraphGalleryImage();}
-async function copyGallerySelectedText(){const box=document.getElementById('galleryOcrResult');if(!box)return;const text=box.value.slice(box.selectionStart||0,box.selectionEnd||0).trim();if(!text){alert('पहले OCR टेक्स्ट में जरूरी हिस्सा select करें।');return;}try{await navigator.clipboard.writeText(text);alert('Selected text clipboard में copy हो गया।');}catch{box.focus();document.execCommand('copy');alert('Selected text copy करने की कोशिश की गई।');}}
-async function copyGalleryAllText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.value.trim()){alert('पहले फोटो का OCR करें।');return;}try{await navigator.clipboard.writeText(box.value);alert('पूरा OCR text clipboard में copy हो गया।');}catch{box.focus();box.select();document.execCommand('copy');alert('पूरा टेक्स्ट copy करने की कोशिश की गई।');}}
-async function shareGalleryText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.value.trim()){alert('पहले फोटो का OCR करें।');return;}const selected=box.value.slice(box.selectionStart||0,box.selectionEnd||0).trim();const text=selected||box.value.trim();try{if(navigator.share){await navigator.share({title:'Easyway Learn OCR Text',text});}else{await navigator.clipboard.writeText(text);alert('Share इस device/browser में उपलब्ध नहीं है। Text clipboard में copy कर दिया गया है।');}}catch(e){if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(text);alert('Share नहीं खुल सका। Text clipboard में copy कर दिया गया है।');}catch{}}}}
-async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=box.value.slice(box.selectionStart||0,box.selectionEnd||0).trim();const text=selected||box.value.trim();if(!text){alert('पहले फोटो का OCR करें।');return;}const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+text:text;target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया।';}
+async function copyGallerySelectedText(){const box=document.getElementById('galleryOcrResult');if(!box)return;const sel=window.getSelection();const text=sel&&sel.rangeCount?sel.toString().trim():'';if(!text){alert('पहले OCR टेक्स्ट में जरूरी हिस्सा select करें।');return;}try{await navigator.clipboard.writeText(text);alert('Selected text clipboard में copy हो गया।');}catch{document.execCommand('copy');alert('Selected text copy करने की कोशिश की गई।');}}
+async function copyGalleryAllText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.innerText.trim()){alert('पहले फोटो का OCR करें।');return;}try{const html=box.innerHTML,plain=box.innerText;if(navigator.clipboard?.write&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);}else await navigator.clipboard.writeText(plain);alert('पूरा OCR text और उपलब्ध formula formatting clipboard में copy हो गया।');}catch{try{await navigator.clipboard.writeText(box.innerText);alert('Plain text clipboard में copy हो गया।');}catch{document.execCommand('copy');}}}
+async function shareGalleryText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.innerText.trim()){alert('पहले फोटो का OCR करें।');return;}const text=box.innerText.trim();try{if(navigator.share){await navigator.share({title:'Easyway Learn OCR Text',text});}else{await navigator.clipboard.writeText(text);alert('Share इस device/browser में उपलब्ध नहीं है। Text clipboard में copy कर दिया गया है।');}}catch(e){if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(text);alert('Share नहीं खुल सका। Text clipboard में copy कर दिया गया है।');}catch{}}}}
+async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=window.getSelection();let html='',text='';if(selected&&selected.rangeCount&&box.contains(selected.anchorNode)){const range=selected.getRangeAt(0);const frag=range.cloneContents();const holder=document.createElement('div');holder.appendChild(frag);html=holder.innerHTML;text=holder.innerText||holder.textContent||'';}else{html=box.innerHTML;text=box.innerText||'';}if(!text.trim()){alert('पहले फोटो का OCR करें।');return;}if(target.isContentEditable){if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+html);else target.innerHTML=html;}else{const plain=text.trim();const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+plain:plain;}target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया; formulas का उपलब्ध formatting रखा गया है।'}
 async function chooseParagraphGalleryImage(){
   const input=document.getElementById('paragraphGalleryInput');
   if(!input){alert('Gallery विकल्प नहीं मिला। फ़ॉर्म को दोबारा खोलकर कोशिश करें।');return;}
   input.value='';input.click();
 }
-async function scanParagraphGalleryImage(input){const status=document.getElementById('paragraphCameraStatus');const file=input?.files?.[0];if(!file)return;if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}const textarea=document.getElementById(paragraphCameraTargetId),resultBox=document.getElementById('galleryOcrResult');if(!textarea||!resultBox){if(status)status.textContent='Text field नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}try{if(status)status.textContent='Gallery photo तैयार की जा रही है…';const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('इमेज पढ़ी नहीं जा सकी।'));i.src=url;});const maxSide=4200,scale=Math.min(1.6,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);const box=document.getElementById('galleryOcrResultBox');if(box)box.hidden=false;resultBox.value='';await scanParagraphSource(canvas,resultBox,status,{appendToTarget:false});}finally{URL.revokeObjectURL(url);}}catch(e){if(status)status.textContent='Gallery OCR नहीं हो पाया: '+(e.message||'कृपया साफ फोटो चुनें।');}finally{input.value='';}}
+async function scanParagraphGalleryImage(input){const status=document.getElementById('paragraphCameraStatus');const file=input?.files?.[0];if(!file)return;if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}const target=document.getElementById(paragraphCameraTargetId),resultBox=document.getElementById('galleryOcrResult');if(!target||!resultBox){if(status)status.textContent='Text field नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}try{if(status)status.textContent='Gallery photo तैयार की जा रही है…';const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('इमेज पढ़ी नहीं जा सकी।'));i.src=url;});const maxSide=4200,scale=Math.min(1.6,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);const box=document.getElementById('galleryOcrResultBox');if(box)box.hidden=false;resultBox.innerHTML='';await scanParagraphSource(canvas,resultBox,status,{appendToTarget:false});}finally{URL.revokeObjectURL(url);}}catch(e){if(status)status.textContent='Gallery OCR नहीं हो पाया: '+(e.message||'कृपया साफ फोटो चुनें।');}finally{input.value='';}}
 async function scanParagraphCamera(){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='अब Live Camera OCR उपलब्ध नहीं है। Gallery से फोटो चुनकर OCR करें।';chooseParagraphGalleryImage();}
 async function scanParagraphSource(source,textarea,status,options={}){
   status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
@@ -721,28 +851,37 @@ async function scanParagraphSource(source,textarea,status,options={}){
     const gray=makeGray(1.18);
     const bin=document.createElement('canvas');bin.width=base.width;bin.height=base.height;const bctx=bin.getContext('2d',{willReadFrequently:true});bctx.drawImage(gray,0,0);const bf=bctx.getImageData(0,0,bin.width,bin.height),bd=bf.data;for(let i=0;i<bd.length;i+=4){const v=bd[i]<threshold?0:255;bd[i]=bd[i+1]=bd[i+2]=v;}bctx.putImageData(bf,0,0);
     const original=base;
-    const variants=[['original',original],['contrast',gray],['binarized',bin]];
+    const inv=document.createElement('canvas');inv.width=bin.width;inv.height=bin.height;const ictx=inv.getContext('2d',{willReadFrequently:true});ictx.drawImage(bin,0,0);const idata=ictx.getImageData(0,0,inv.width,inv.height);for(let i=0;i<idata.data.length;i+=4){const v=255-idata.data[i];idata.data[i]=idata.data[i+1]=idata.data[i+2]=v;}ictx.putImageData(idata,0,0);
+    const variants=[['original',original,6],['contrast',gray,6],['binarized',bin,6],['inverted',inv,6],['block-text',original,4],['sparse-text',original,11]];
     const results=[];
-    for(const [name,canvas] of variants){status.textContent=`OCR प्रयास: ${name}…`;const r=await window.__paragraphOcrWorker.recognize(canvas);results.push(r);}
+    for(const [name,canvas,psm] of variants){status.textContent=`OCR प्रयास: ${name}…`;await window.__paragraphOcrWorker.setParameters({tessedit_pageseg_mode:String(psm),preserve_interword_spaces:'1',user_defined_dpi:'300'});const r=await window.__paragraphOcrWorker.recognize(canvas);results.push(r);}
+    await window.__paragraphOcrWorker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300'});
     const clean=r=>(r?.data?.text||'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
     const scored=results.map((r,i)=>({r,i,text:clean(r),confidence:Number(r?.data?.confidence)||0})).filter(x=>x.text);
     if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
     scored.sort((a,b)=>{const score=x=>x.confidence+Math.min(18,x.text.length/180)+Math.min(8,x.text.split(/\s+/).filter(Boolean).length/40)+Math.min(3,(x.text.match(/\n/g)||[]).length/8);return score(b)-score(a);});
     const best=scored[0],text=best.text;
+    const rich=ocrTextToRichHtml(text);
     if(options.appendToTarget!==false){
-      const existing=String(textarea.value||'').trim(),separator=textarea.tagName==='TEXTAREA'?(existing?'\n\n':''):' ';
-      textarea.value=existing?existing+separator+text:text;textarea.dispatchEvent(new Event('input',{bubbles:true}));textarea.focus();
+      const target=textarea;
+      if(target.isContentEditable){
+        if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+rich);else target.innerHTML=rich;
+        target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();
+      }else{
+        const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+text:text;target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();
+      }
     }else{
-      textarea.value=text;
-      const box=document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
+      textarea.innerHTML=rich;
+      const box=document.getElementById('galleryOcrResultBox')||document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
+      typesetMath(root);
     }
     status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। अब ऊपर पहचाने गए टेक्स्ट में जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). चार OCR passes में बेहतर परिणाम चुना गया। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
-  closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">READING CONTENT</span><b>+ Add Paragraph</b></div><button class="btn-secondary" type="button" onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card form-card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">Gallery की फोटो से किताब का टेक्स्ट पहचानें या सीधे लिखें/पेस्ट करें। पहचाना गया टेक्स्ट एक पैराग्राफ के रूप में सेव होगा। हिंदी और English OCR उपलब्ध हैं; सेव करने से पहले टेक्स्ट जाँच लें।</p><div class="button-row"><button type="button" onclick="openParagraphCamera('newParagraphText')">🖼️ Gallery से फोटो OCR</button><button type="button" class="btn-secondary" onclick="pasteIntoField('newParagraphText')">📋 Clipboard से Paste</button></div>${cameraPanelHtml()}<label for="newParagraphText">Paragraph text</label><textarea id="newParagraphText" rows="10" placeholder="Gallery OCR से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></textarea><div class="button-row form-actions"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
+  closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">READING CONTENT</span><b>+ Add Paragraph</b></div><button class="btn-secondary" type="button" onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card form-card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">Gallery की फोटो से किताब का टेक्स्ट पहचानें या सीधे लिखें/पेस्ट करें। पहचाना गया टेक्स्ट एक पैराग्राफ के रूप में सेव होगा। हिंदी और English OCR उपलब्ध हैं; सेव करने से पहले टेक्स्ट जाँच लें।</p><div class="button-row"><button type="button" onclick="openParagraphCamera('newParagraphText')">🖼️ Gallery से फोटो OCR</button><button type="button" class="btn-secondary" onclick="pasteIntoField('newParagraphText')">📋 Clipboard से Paste</button></div>${cameraPanelHtml()}<label for="newParagraphText">Paragraph text</label><div id="newParagraphText" class="rich-paragraph-editor" contenteditable="true" spellcheck="false" data-placeholder="Gallery OCR से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></div><div class="button-row form-actions"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
 }
-async function saveNewParagraph(cid){const field=document.getElementById('newParagraphText');const text=field?.value?.trim();if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
+async function saveNewParagraph(cid){const text=richParagraphPayload('newParagraphText');if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await load();editChapterQA(cid)}catch(e){alert(e.message)}}
 async function reportTeacherActivity(){
   if(!token)return;

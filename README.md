@@ -156,3 +156,12 @@ This release is rebuilt directly from V56 Final Combined Updates. Existing featu
 - Existing student, subject, book, chapter, paragraph, Q&A, test, scoring, history, account, authentication, OCR, microphone and report actions are preserved; this dashboard change only changes presentation and the way existing dashboard actions are surfaced.
 - Dashboard data uses the existing live API/state; no new fake student/test records are created.
 - No database reset/recreation is performed.
+
+## V65 update — mixed-language speech + formula-safe display
+This version keeps the stored paragraph text unchanged while improving the display layer for textbook-style formula rendering (including Unicode superscript/subscript and common operators), adds a formula-structure speech matching pass, and improves Hindi/English phonetic matching for common educational terms. Existing database records are not reset or migrated destructively.
+
+## V66 paragraph-format preservation update
+- Paragraph editing now uses a rich contenteditable field so clipboard HTML/MathML, superscript/subscript, fractions, symbols and textbook-style formula markup can be retained when the source clipboard provides that structure.
+- Saved rich paragraphs use an internal marker and sanitized HTML/MathML; legacy plain-text paragraphs remain unchanged.
+- Speech matching uses a plain-text extraction of rich paragraphs, while display/test preview uses the preserved rich representation.
+- Browser/clipboard support still determines how much source formatting can be transferred; image OCR cannot recreate formatting that is not present in OCR output.
