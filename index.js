@@ -47,59 +47,48 @@ app.post('/api/admin/request-reset',async(req,res)=>{try{const email=normalizeEm
 app.post('/api/admin/reset-password',async(req,res)=>{try{const email=normalizeEmail(req.body.email),otp=String(req.body.otp||'').trim(),newPassword=String(req.body.newPassword||'');if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Password reset'});if(newPassword.length<6)return res.status(400).json({error:'New password must be at least 6 characters'});const rec=adminOtps.get(email);if(!rec)return res.status(400).json({error:'Reset code not found. Request a new code.'});if(Date.now()>rec.expiresAt){adminOtps.delete(email);return res.status(400).json({error:'Reset code expired. Request a new code.'});}if(rec.attempts>=5){adminOtps.delete(email);return res.status(429).json({error:'Too many incorrect attempts. Request a new code.'});}const h=crypto.createHash('sha256').update(otp).digest('hex');if(h!==rec.hash){rec.attempts++;return res.status(401).json({error:'Incorrect reset code'});}const ph=await bcrypt.hash(newPassword,12);await pool.query(`INSERT INTO admin_account(id,email,password_hash) VALUES(1,$1,$2) ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash,updated_at=NOW()`,[adminEmail(),ph]);adminOtps.delete(email);res.json({ok:true,message:'Admin password reset successfully.'})}catch(e){console.error(e);res.status(500).json({error:'Could not reset Admin password'})}});
 app.get('/api/admin/me',auth,requireAdmin,async(req,res)=>res.json({role:'admin',email:adminEmail()}));
 function words(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
+function formulaSpeechText(input){
+  let s=String(input||'').normalize('NFKC');
+  const sup={'⁰':' 0 ','¹':' 1 ','²':' 2 ','³':' 3 ','⁴':' 4 ','⁵':' 5 ','⁶':' 6 ','⁷':' 7 ','⁸':' 8 ','⁹':' 9 '};
+  const sub={'₀':' 0 ','₁':' 1 ','₂':' 2 ','₃':' 3 ','₄':' 4 ','₅':' 5 ','₆':' 6 ','₇':' 7 ','₈':' 8 ','₉':' 9 '};
+  for(const [a,b] of Object.entries(sup))s=s.split(a).join(b);
+  for(const [a,b] of Object.entries(sub))s=s.split(a).join(b);
+  s=s.replace(/\^\{([^}]+)\}/g,' $1 ').replace(/\^([A-Za-z0-9]+)/g,' $1 ');
+  s=s.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g,' fraction $1 divided by $2 ');
+  s=s.replace(/\\left|\\right/g,' ');
+  s=s.replace(/\\times|×|·|\*/g,' times ').replace(/÷|\\div/g,' divided by ').replace(/→|⇒|⟶|->|=>/g,' arrow ');
+  s=s.replace(/±/g,' plus minus ').replace(/=/g,' equals ').replace(/\+/g,' plus ').replace(/−|–|—|-/g,' minus ');
+  s=s.replace(/[()]/g,m=>m==='('? ' bracket open ':' bracket close ');
+  s=s.replace(/[\[\]]/g,m=>m==='['?' square bracket open ':' square bracket close ');
+  s=s.replace(/[{}]/g,m=>m==='{'?' curly bracket open ':' curly bracket close ');
+  s=s.replace(/%/g,' percent ');
+  return s;
+}
+function canonicalSpokenToken(w){
+  const x=String(w||'').normalize('NFKC').toLowerCase().replace(/[“”‘’'".,!?;:]/g,'');
+  const aliases={
+    'zero':'0','शून्य':'0','one':'1','वान':'1','एक':'1','two':'2','to':'2','टू':'2','दो':'2','three':'3','थ्री':'3','तीन':'3','four':'4','फोर':'4','चार':'4','five':'5','फाइव':'5','पांच':'5','six':'6','सिक्स':'6','छह':'6','seven':'7','सेवन':'7','सात':'7','eight':'8','एट':'8','आठ':'8','nine':'9','नाइन':'9','नौ':'9',
+    'plus':'plus','प्लस':'plus','add':'plus','जोड़':'plus','माइनस':'minus','minus':'minus','घटाव':'minus','equals':'equals','equal':'equals','बराबर':'equals','times':'times','गुणा':'times','multiply':'times','divided':'divided','divide':'divided','div':'divided','बटा':'divided','fraction':'fraction','भिन्न':'fraction','arrow':'arrow','एरो':'arrow','तीर':'arrow','bracket':'bracket','ब्रैकेट':'bracket','open':'open','ओपन':'open','खुला':'open','close':'close','क्लोज':'close','बंद':'close','square':'square','स्क्वायर':'square','curly':'curly','प्रतिशत':'percent','percent':'percent','प्रतिशत':'percent'
+  };
+  return aliases[x]||x;
+}
+function scoringTokens(s){return words(formulaSpeechText(s)).map(canonicalSpokenToken)}
 function scriptOf(w){return /[\u0900-\u097F]/u.test(w)?'hi':'en'}
 function devanagariToLatin(input){
   const s=String(input||'').normalize('NFKC').replace(/़/g,'');
-  const map={
-    'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au',
-    'क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'ny',
-    'ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n',
-    'प':'p','फ':'f','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h',
-    'ड़':'r','ढ़':'rh','क़':'q','ख़':'kh','ग़':'gh','ज़':'z','फ़':'f','य़':'y','ल़':'l','श़':'sh',
-    'ँ':'n','ं':'n','ः':'h','ऽ':'a','्':'','़':''
-  };
-  const vowel={'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o','ो':'o'};
-  let out='';
-  for(let i=0;i<s.length;i++){
-    const ch=s[i];
-    if(vowel[ch]){out+=vowel[ch];continue}
-    if(ch==='्'){continue}
-    out+=map[ch]??ch;
-  }
-  return out.toLowerCase();
+  const map={'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au','क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'ny','ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n','प':'p','फ':'f','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h','ड़':'r','ढ़':'rh','क़':'q','ख़':'kh','ग़':'gh','ज़':'z','फ़':'f','य़':'y','ल़':'l','श़':'sh','ँ':'n','ं':'n','ः':'h','ऽ':'a','्':'','़':''};
+  const vowel={'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o'};let out='';
+  for(let i=0;i<s.length;i++){const ch=s[i];if(vowel[ch]){out+=vowel[ch];continue}if(ch==='्')continue;out+=map[ch]??ch}return out.toLowerCase();
 }
 function romanize(w){return /[\u0900-\u097F]/u.test(w)?devanagariToLatin(w):String(w||'').toLowerCase();}
-function phoneticKey(w){
-  let x=romanize(w).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g,'');
-  if(!x)return '';
-  x=x.replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o');
-  x=x.replace(/([a-z])\1+/g,'$1');
-  return x;
-}
-function editSimilarity(a,b){
-  if(a===b)return 1;if(!a||!b)return 0;
-  const A=[...a],B=[...b];let prev=Array(B.length+1).fill(0).map((_,j)=>j);
-  for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}
-  const d=prev[B.length];return 1-d/Math.max(A.length,B.length);
-}
-function tokenSimilarity(a,b){
-  const aa=romanize(a),bb=romanize(b);if(aa===bb)return 1;
-  const pa=phoneticKey(a),pb=phoneticKey(b);if(pa&&pa===pb)return 0.94;
-  const sim=editSimilarity(aa,bb);
-  if(sim>=0.82 && Math.min(aa.length,bb.length)>=4)return sim;
-  return 0;
-}
+function phoneticKey(w){let x=romanize(w).normalize('NFKD').replace(/[^a-z0-9]/g,'');if(!x)return '';return x.replace(/ph/g,'f').replace(/bh/g,'b').replace(/dh/g,'d').replace(/th/g,'t').replace(/kh/g,'k').replace(/gh/g,'g').replace(/chh/g,'ch').replace(/ch/g,'c').replace(/sh/g,'s').replace(/aa|a+/g,'a').replace(/ee|i+/g,'i').replace(/oo|u+/g,'u').replace(/ai|ay/g,'e').replace(/au|aw/g,'o').replace(/([a-z])\1+/g,'$1');}
+function editSimilarity(a,b){if(a===b)return 1;if(!a||!b)return 0;const A=[...a],B=[...b];let prev=Array(B.length+1).fill(0).map((_,j)=>j);for(let i=1;i<=A.length;i++){const cur=[i];for(let j=1;j<=B.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(A[i-1]===B[j-1]?0:1));prev=cur;}return 1-prev[B.length]/Math.max(A.length,B.length)}
+function tokenSimilarity(a,b){a=canonicalSpokenToken(a);b=canonicalSpokenToken(b);if(a===b)return 1;const aa=romanize(a),bb=romanize(b),pa=phoneticKey(a),pb=phoneticKey(b);if(pa&&pa===pb)return 0.94;const sim=editSimilarity(aa,bb);return sim>=0.82&&Math.min(aa.length,bb.length)>=3?sim:0}
 function scoreText(reference,spoken){
-  const a=words(reference),b=words(spoken);const n=a.length,m=b.length;
-  const dp=Array.from({length:n+1},()=>Array(m+1).fill(0));const take=Array.from({length:n+1},()=>Array(m+1).fill(false));
-  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--){
-    const sim=tokenSimilarity(a[i],b[j]);
-    const match=sim>=0.82?dp[i+1][j+1]+sim: -1;
-    const skipRef=dp[i+1][j],skipSpoken=dp[i][j+1];
-    if(match>=skipRef && match>=skipSpoken && sim>=0.82){dp[i][j]=match;take[i][j]=true;}else dp[i][j]=Math.max(skipRef,skipSpoken);
-  }
-  let i=0,j=0;const matched=new Set();let quality=0;
-  while(i<n&&j<m){const sim=tokenSimilarity(a[i],b[j]);if(take[i][j]&&sim>=0.82){matched.add(i);quality+=sim;i++;j++;}else if(dp[i+1][j]>=dp[i][j+1])i++;else j++;}
+  const a=scoringTokens(reference),b=scoringTokens(spoken),n=a.length,m=b.length;
+  const dp=Array.from({length:n+1},()=>Array(m+1).fill(0)),take=Array.from({length:n+1},()=>Array(m+1).fill(false));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--){const sim=tokenSimilarity(a[i],b[j]);const match=sim>=0.82?dp[i+1][j+1]+sim:-1,skipRef=dp[i+1][j],skipSpoken=dp[i][j+1];if(match>=skipRef&&match>=skipSpoken&&sim>=0.82){dp[i][j]=match;take[i][j]=true}else dp[i][j]=Math.max(skipRef,skipSpoken)}
+  let i=0,j=0;const matched=new Set();let quality=0;while(i<n&&j<m){const sim=tokenSimilarity(a[i],b[j]);if(take[i][j]&&sim>=0.82){matched.add(i);quality+=sim;i++;j++}else if(dp[i+1][j]>=dp[i][j+1])i++;else j++}
   const correct=matched.size;return {total:n,correct,percent:n?Math.round(correct/n*10000)/100:0,matched:[...matched],matchQuality:n?Math.round(quality/n*10000)/100:0};
 }
 app.post('/api/admin/request-otp',async(req,res)=>{try{const email=normalizeEmail(req.body.email);if(!isAdminEmail(email))return res.status(401).json({error:'This email is not authorized for Admin Login'});const existing=adminOtps.get(email);if(existing && existing.lastSentAt && Date.now()-existing.lastSentAt<60000)return res.status(429).json({error:'Please wait 60 seconds before requesting another OTP'});const otp=createAdminOtp();adminOtps.set(email,{hash:crypto.createHash('sha256').update(otp).digest('hex'),expiresAt:Date.now()+10*60*1000,attempts:0,lastSentAt:Date.now()});await sendAdminOtpEmail(email,otp);res.json({ok:true,message:'OTP sent to your authorized email. It expires in 10 minutes.'});}catch(e){console.error(e);res.status(503).json({error:e.message||'Could not send Admin OTP'})}});
@@ -178,7 +167,7 @@ app.post('/api/tests/score',auth,async(req,res)=>{
   }catch(e){console.error(e);res.status(500).json({error:'Could not score test'});
   }
 });
-app.put('/api/results/:resultId/matches',auth,async(req,res)=>{try{const resultId=Number(req.params.resultId);if(!Number.isInteger(resultId)||resultId<1)return res.status(400).json({error:'Invalid result ID'});const found=await pool.query("SELECT tr.id,tr.student_id,COALESCE(tr.reference_text,CASE WHEN tr.test_type='paragraph' THEN p.text WHEN tr.test_type='qa' THEN q.answer WHEN tr.test_type='chapter' THEN (SELECT COALESCE(string_agg(pp.text,' ' ORDER BY pp.position),'') FROM paragraphs pp WHERE pp.chapter_id=tr.chapter_id) END,'') AS reference_text FROM test_results tr LEFT JOIN paragraphs p ON tr.test_type='paragraph' AND p.id=tr.item_id LEFT JOIN qa_items q ON tr.test_type='qa' AND q.id=tr.item_id WHERE tr.id=$1 AND tr.teacher_id=$2",[resultId,req.user.id]);if(!found.rowCount)return res.status(404).json({error:'Test result not found'});const reference=String(found.rows[0].reference_text||'');const total=words(reference).length;const incoming=Array.isArray(req.body.matchedWordIndexes)?req.body.matchedWordIndexes:[];const matched=[...new Set(incoming.map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<total))].sort((a,b)=>a-b);const manualIncoming=Array.isArray(req.body.manualWordIndexes)?req.body.manualWordIndexes:[];const manual=[...new Set(manualIncoming.map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<total&&matched.includes(n)))].sort((a,b)=>a-b);const correct=matched.length;const percent=total?Math.round(correct/total*10000)/100:0;const passed=percent>=80;const updated=await pool.query('UPDATE test_results SET total_words=$1,correct_words=$2,score_percent=$3,passed=$4,matched_word_indexes=$5::jsonb,manual_word_indexes=$6::jsonb,reference_text=$7 WHERE id=$8 AND teacher_id=$9 RETURNING id,student_id,total_words,correct_words,score_percent,passed,reference_text,matched_word_indexes,manual_word_indexes',[total,correct,percent,passed,JSON.stringify(matched),JSON.stringify(manual),reference,resultId,req.user.id]);res.json({...updated.rows[0],percent:Number(updated.rows[0].score_percent),correct:updated.rows[0].correct_words,total:updated.rows[0].total_words,matched,manualWordIndexes:manual,passed:updated.rows[0].passed,referenceText:updated.rows[0].reference_text});}catch(e){console.error(e);res.status(500).json({error:'Could not update manual score'});}});
+app.put('/api/results/:resultId/matches',auth,async(req,res)=>{try{const resultId=Number(req.params.resultId);if(!Number.isInteger(resultId)||resultId<1)return res.status(400).json({error:'Invalid result ID'});const found=await pool.query("SELECT tr.id,tr.student_id,COALESCE(tr.reference_text,CASE WHEN tr.test_type='paragraph' THEN p.text WHEN tr.test_type='qa' THEN q.answer WHEN tr.test_type='chapter' THEN (SELECT COALESCE(string_agg(pp.text,' ' ORDER BY pp.position),'') FROM paragraphs pp WHERE pp.chapter_id=tr.chapter_id) END,'') AS reference_text FROM test_results tr LEFT JOIN paragraphs p ON tr.test_type='paragraph' AND p.id=tr.item_id LEFT JOIN qa_items q ON tr.test_type='qa' AND q.id=tr.item_id WHERE tr.id=$1 AND tr.teacher_id=$2",[resultId,req.user.id]);if(!found.rowCount)return res.status(404).json({error:'Test result not found'});const reference=String(found.rows[0].reference_text||'');const total=scoringTokens(reference).length;const incoming=Array.isArray(req.body.matchedWordIndexes)?req.body.matchedWordIndexes:[];const matched=[...new Set(incoming.map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<total))].sort((a,b)=>a-b);const manualIncoming=Array.isArray(req.body.manualWordIndexes)?req.body.manualWordIndexes:[];const manual=[...new Set(manualIncoming.map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<total&&matched.includes(n)))].sort((a,b)=>a-b);const correct=matched.length;const percent=total?Math.round(correct/total*10000)/100:0;const passed=percent>=80;const updated=await pool.query('UPDATE test_results SET total_words=$1,correct_words=$2,score_percent=$3,passed=$4,matched_word_indexes=$5::jsonb,manual_word_indexes=$6::jsonb,reference_text=$7 WHERE id=$8 AND teacher_id=$9 RETURNING id,student_id,total_words,correct_words,score_percent,passed,reference_text,matched_word_indexes,manual_word_indexes',[total,correct,percent,passed,JSON.stringify(matched),JSON.stringify(manual),reference,resultId,req.user.id]);res.json({...updated.rows[0],percent:Number(updated.rows[0].score_percent),correct:updated.rows[0].correct_words,total:updated.rows[0].total_words,matched,manualWordIndexes:manual,passed:updated.rows[0].passed,referenceText:updated.rows[0].reference_text});}catch(e){console.error(e);res.status(500).json({error:'Could not update manual score'});}});
 app.get('/api/results/:studentId',auth,async(req,res)=>{try{const studentId=Number(req.params.studentId);const own=await pool.query('SELECT id FROM students WHERE id=$1 AND teacher_id=$2',[studentId,req.user.id]);if(!own.rowCount)return res.status(404).json({error:'Student not found'});const r=await pool.query(`SELECT tr.id,tr.student_id,tr.chapter_id,tr.test_type,tr.item_id,tr.total_words,tr.correct_words,tr.score_percent,tr.passed,tr.spoken_text,tr.reference_text,tr.matched_word_indexes,tr.manual_word_indexes,tr.created_at,c.name chapter_name,p.position paragraph_position,p.text paragraph_text,q.question,q.answer qa_answer FROM test_results tr LEFT JOIN chapters c ON c.id=tr.chapter_id LEFT JOIN paragraphs p ON tr.test_type='paragraph' AND p.id=tr.item_id LEFT JOIN qa_items q ON tr.test_type='qa' AND q.id=tr.item_id WHERE tr.student_id=$1 AND tr.teacher_id=$2 ORDER BY tr.created_at DESC`,[studentId,req.user.id]);const rows=r.rows.map(x=>{let matched=[];try{matched=Array.isArray(x.matched_word_indexes)?x.matched_word_indexes:JSON.parse(x.matched_word_indexes||'[]')}catch{};let reference=x.reference_text||x.paragraph_text||x.qa_answer||'';if(reference&&x.spoken_text&&(x.reference_text==null||!Array.isArray(x.matched_word_indexes)||x.matched_word_indexes.length===0)){matched=scoreText(reference,x.spoken_text).matched}return {...x,score_percent:Number(x.score_percent),matched_word_indexes:matched,manual_word_indexes:Array.isArray(x.manual_word_indexes)?x.manual_word_indexes:[],reference_text:reference}});res.json(rows)}catch(e){console.error(e);res.status(500).json({error:'Could not load test history'})}});
 app.get('/api/results',auth,async(req,res)=>{const r=await pool.query(`SELECT s.id student_id,s.name,s.class_name,ROUND(COALESCE(AVG(tr.score_percent),0),2) score,COUNT(tr.id)::int tests FROM students s LEFT JOIN test_results tr ON tr.student_id=s.id AND tr.teacher_id=$1 WHERE s.teacher_id=$1 GROUP BY s.id ORDER BY score DESC, s.name`,[req.user.id]);res.json(r.rows)});
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'index.html')));

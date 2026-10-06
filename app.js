@@ -5,12 +5,19 @@ let recognition=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 // Display pasted LaTeX formulas as mathematics without changing the stored source text.
 function renderMathParagraph(value){
-  let text=String(value??'');
-  // Wrap common standalone LaTeX formula patterns even when the source has no \( \) delimiters.
-  text=text.replace(/(\\left\([^\n]*?\\times\s*1000?)/g, m=>'\\('+m+'\\)');
-  text=text.replace(/(x_1\s*=\s*\\frac\{[^{}]*\}\{[^{}]*\}\s*\\quad\s*\\text\{or\}\s*\\quad\s*x_2\s*=\s*\\frac\{[^{}]*\}\{[^{}]*\})/g, m=>'\\('+m+'\\)');
-  // If the text already contains explicit MathJax delimiters, keep them.
-  return esc(text).replace(/\\\\\(/g,'\\(').replace(/\\\\\)/g,'\\)');
+  let text=String(value??'').replace(/\r\n?/g,'\n');
+  // Preserve the stored paragraph exactly; only the display layer is transformed.
+  const sup={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  const sub={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+  const chemical=/\b(?:H|C|N|O|F|P|S|K|V|Y|I|W|B|U|Na|Mg|Al|Si|Cl|Ca|Fe|Cu|Zn|Ag|Au|Hg|Pb|Br|Mn|Co|Ni|Cr|Sn|Ba|Li|Be|Ne|Ar|He|Xe|Rn)(?:[0-9]+)?(?:\s*(?:H|C|N|O|F|P|S|K|V|Y|I|W|B|U|Na|Mg|Al|Si|Cl|Ca|Fe|Cu|Zn|Ag|Au|Hg|Pb|Br|Mn|Co|Ni|Cr|Sn|Ba|Li|Be|Ne|Ar|He|Xe|Rn)(?:[0-9]+)?)+\b/g;
+  text=text.replace(chemical,m=>m.replace(/([A-Za-z]{1,2})(\d+)/g,(_,el,n)=>el+[...n].map(x=>sub[x]||x).join('')));
+  text=text.replace(/\^([0-9]+)/g,(_,n)=>[...n].map(x=>sup[x]||x).join(''));
+  text=text.replace(/_([0-9]+)/g,(_,n)=>[...n].map(x=>sub[x]||x).join(''));
+  text=text.replace(/\\\((.*?)\\\)/gs,'\\($1\\)');
+  text=text.replace(/\\\[(.*?)\\\]/gs,'\\[$1\\]');
+  text=text.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g,'\\(\\frac{$1}{$2}\\)');
+  text=text.replace(/(^|[\s:])((?:[A-Za-z0-9]+\s*)?[=+−×÷*/]\s*[A-Za-z0-9]+(?:\s*[=+−×÷*/]\s*[A-Za-z0-9]+)+)(?=$|[\s.,;:])/gm,'$1\\($2\\)');
+  return esc(text).replace(/\\\\\(/g,'\\(').replace(/\\\\\)/g,'\\)').replace(/\\\\\[/g,'\\[').replace(/\\\\\]/g,'\\]');
 }
 function typesetMath(container=root){
   if(window.MathJax?.typesetPromise) window.MathJax.typesetPromise([container]).catch(()=>{});
@@ -269,9 +276,17 @@ function showPronunciationHelp(sid,cid,pid,index){
 }
 
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
-function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}
+function tokenize(s){return (s||'').normalize('NFKC').match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu)||[]}function scoringTokens(s){
+  let text=String(s||'').normalize('NFKC');
+  const sup={'⁰':' 0 ','¹':' 1 ','²':' 2 ','³':' 3 ','⁴':' 4 ','⁵':' 5 ','⁶':' 6 ','⁷':' 7 ','⁸':' 8 ','⁹':' 9 '};
+  const sub={'₀':' 0 ','₁':' 1 ','₂':' 2 ','₃':' 3 ','₄':' 4 ','₅':' 5 ','₆':' 6 ','₇':' 7 ','₈':' 8 ','₉':' 9 '};
+  for(const [a,b] of Object.entries(sup))text=text.split(a).join(b);for(const [a,b] of Object.entries(sub))text=text.split(a).join(b);
+  text=text.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g,' fraction $1 divided by $2 ').replace(/×|\\times|·|\*/g,' times ').replace(/÷|\\div/g,' divided by ').replace(/→|⇒|⟶|->|=>/g,' arrow ').replace(/±/g,' plus minus ').replace(/=/g,' equals ').replace(/\+/g,' plus ').replace(/−|–|—|-/g,' minus ').replace(/[()]/g,m=>m==='('? ' bracket open ':' bracket close ').replace(/[\[\]]/g,m=>m==='['?' square bracket open ':' square bracket close ').replace(/[{}]/g,m=>m==='{'?' curly bracket open ':' curly bracket close ').replace(/%/g,' percent ');
+  return tokenize(text).map(w=>{const x=w.toLowerCase();const a={'plus':'plus','प्लस':'plus','minus':'minus','माइनस':'minus','equals':'equals','equal':'equals','बराबर':'equals','times':'times','गुणा':'times','divided':'divided','divide':'divided','बटा':'divided','bracket':'bracket','ब्रैकेट':'bracket','open':'open','ओपन':'open','close':'close','क्लोज':'close','square':'square','स्क्वायर':'square','fraction':'fraction','भिन्न':'fraction','arrow':'arrow','एरो':'arrow','two':'2','टू':'2','दो':'2','three':'3','थ्री':'3','तीन':'3','one':'1','एक':'1','four':'4','फोर':'4','चार':'4','five':'5','फाइव':'5','पांच':'5','six':'6','सिक्स':'6','छह':'6','seven':'7','सेवन':'7','सात':'7','eight':'8','एट':'8','आठ':'8','nine':'9','नाइन':'9','नौ':'9'};return a[x]||x});
+}
+
 function renderWords(reference,matched,manualMatched=[]){const set=new Set(matched||[]),manualSet=new Set(manualMatched||[]);let i=0;return tokenize(reference).map(w=>{const cls=['word',set.has(i)?'correct':'',manualSet.has(i)?'manual-added':''].filter(Boolean).join(' ');const html=`<span class="${cls}"${manualSet.has(i)?' title="मैनुअल अंडरलाइन"':''}>${esc(w)}</span>`;i++;return html}).join(' ')}
-function renderEditableWords(reference,matched){const set=new Set(matched||[]);return tokenize(reference).map((w,i)=>`<span class="word manual-word ${set.has(i)?'correct speech-detected':''}" data-word-index="${i}" role="button" tabindex="0" aria-pressed="${set.has(i)}" title="Tap to toggle underline">${esc(w)}</span>`).join(' ')}
+function renderEditableWords(reference,matched){const set=new Set(matched||[]);return scoringTokens(reference).map((w,i)=>`<span class="word manual-word ${set.has(i)?'correct speech-detected':''}" data-word-index="${i}" role="button" tabindex="0" aria-pressed="${set.has(i)}" title="Tap to toggle underline">${esc(w)}</span>`).join(' ')}
 function bindManualScoreEditor(container,{resultId,reference,matched,studentId,onSaved}){
   const speechDetected=new Set(matched||[]);
   const selected=new Set(matched||[]);
@@ -280,7 +295,7 @@ function bindManualScoreEditor(container,{resultId,reference,matched,studentId,o
   const countEl=container.querySelector('[data-manual-count]');
   const saveBtn=container.querySelector('[data-manual-save]');
   const status=container.querySelector('[data-manual-status]');
-  const total=tokenize(reference).length;
+  const total=scoringTokens(reference).length;
   const paint=()=>{
     wordsBox.querySelectorAll('[data-word-index]').forEach(el=>{
       const i=Number(el.dataset.wordIndex),yes=selected.has(i),manual=yes&&manualAdded.has(i),speech=yes&&speechDetected.has(i);
@@ -472,7 +487,7 @@ function beginRecognition({studentId,chapterId,type,itemId,reference,title,onDon
     }
     try{
       const r=await api('/tests/score',{method:'POST',body:JSON.stringify({studentId,chapterId,testType:type,itemId,spokenText})});
-      const sameAttempts=await api('/results/'+studentId).catch(()=>[]); const key=`${type}:${chapterId}:${itemId||0}`; const attemptNo=sameAttempts.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).length; score.innerHTML=`<h3>Score: <span id="manualScorePercent">${r.percent}%</span></h3><p id="manualScoreSummary">${r.correct}/${r.total} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><p class="muted">हरे अंडरलाइन वाले शब्द बोलने से डिटेक्ट हुए हैं। जो शब्द छूट गए, उन्हें टैप करें—वे नीले हो जाएँगे। गलत अंडरलाइन हटाने के लिए उस शब्द पर फिर टैप करें।</p><div class="word-result" data-manual-words>${renderEditableWords(r.referenceText,r.matched)}</div><p><b data-manual-count></b></p><button type="button" data-manual-save>✓ Manual underline save करके score दोबारा निकालें</button><p class="muted" data-manual-status>शब्दों पर टैप करके सही मिलान ठीक करें, फिर Save दबाएँ।</p><p class="muted">WhatsApp message अपने-आप नहीं भेजा जाता।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
+      const sameAttempts=await api('/results/'+studentId).catch(()=>[]); const key=`${type}:${chapterId}:${itemId||0}`; const attemptNo=sameAttempts.filter(x=>`${x.test_type}:${x.chapter_id}:${x.item_id||0}`===key).length; score.innerHTML=`<h3>Score: <span id="manualScorePercent">${r.percent}%</span></h3><p id="manualScoreSummary">${r.correct}/${r.total} speech units correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p><div class="word-result math-paragraph"><b>Original Paragraph / Formula Formatting</b><div class="formatted-reference">${renderMathParagraph(r.referenceText)}</div></div><p class="muted">हरे अंडरलाइन वाले शब्द बोलने से डिटेक्ट हुए हैं। जो शब्द छूट गए, उन्हें टैप करें—वे नीले हो जाएँगे। गलत अंडरलाइन हटाने के लिए उस शब्द पर फिर टैप करें।</p><div class="word-result" data-manual-words>${renderEditableWords(r.referenceText,r.matched)}</div><p><b data-manual-count></b></p><button type="button" data-manual-save>✓ Manual underline save करके score दोबारा निकालें</button><p class="muted" data-manual-status>शब्दों पर टैप करके सही मिलान ठीक करें, फिर Save दबाएँ।</p><p class="muted">WhatsApp message अपने-आप नहीं भेजा जाता।</p><button id="nextButton" type="button">${onDone?'Next':'Done'}</button>`;
       bindManualScoreEditor(score,{resultId:r.resultId,reference:r.referenceText,matched:r.matched,studentId,onSaved:updated=>{r.percent=updated.percent;r.correct=updated.correct;r.total=updated.total;r.passed=updated.passed;r.matched=updated.matched;document.getElementById('manualScorePercent').textContent=`${updated.percent}%`;document.getElementById('manualScoreSummary').innerHTML=`${updated.correct}/${updated.total} words correct — <b>${updated.passed?'PASS':'NOT PASS'}</b>`}});
       document.getElementById('nextButton').onclick=()=>onDone?onDone(r):refresh();
     }catch(e){
