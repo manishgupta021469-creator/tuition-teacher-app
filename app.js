@@ -80,13 +80,29 @@ function canonicalizeKnownFormulaLine(line){
   const example=COMMON_FORMULA_EXAMPLES[info.number]||'';
   return `${prefix} ${info.formula}${example?` | ${example}`:''}`.trim();
 }
-function canonicalizeKnownFormulaText(text){
-  const lines=String(text??'').replace(/\r/g,'').split('\n');
-  return lines.map(line=>{
-    const info=formulaTitleInfo(line);
-    return info?canonicalizeKnownFormulaLine(line):repairGenericFormulaLine(line);
-  }).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+function splitKnownFormulaChunks(text){
+  const raw=String(text??'').replace(/\r/g,'').trim();
+  if(!raw)return [];
+  // OCR frequently collapses an entire photographed formula page into ONE line.
+  // Split at the numbered textbook formula headings before doing any formula repair.
+  const re=/(?:^|\s)(?=(\d{1,2})\.\s*(?:Molarity|Normality|Molality|Mole\s+Fraction|Raoult[’']s\s+Law|Osmotic\s+Pressure|Rate\s+of\s+Reaction|First\s+Order\s+Rate\s+Law|Arrhenius\s+Equation|Nernst\s+Equation|Gibbs\s+Free\s+Energy|Equilibrium\s+Constant|pH\s*:|Faraday[’']s\s+Law|Depression\s+in\s+Freezing\s+Point|Elevation\s+in\s+Boiling\s+Point|Henry[’']s\s+Law|Ionic\s+Product\s+of\s+Water|Solubility\s+Product|(?:Van|h)[’']?t\s+Hoff\s+Factor|Hess[’']s\s+Law))/gi;
+  const marks=[];let m;while((m=re.exec(raw)))marks.push(m.index+(raw[m.index]===' '?1:0));
+  if(!marks.length)return [raw];
+  const chunks=[];for(let i=0;i<marks.length;i++){const a=marks[i],b=i+1<marks.length?marks[i+1]:raw.length;const chunk=raw.slice(a,b).trim();if(chunk)chunks.push(chunk)}
+  return chunks;
 }
+function canonicalizeKnownFormulaText(text){
+  const chunks=splitKnownFormulaChunks(String(text??''));
+  if(!chunks.length)return '';
+  const out=[];
+  for(const chunk of chunks){
+    const info=formulaTitleInfo(chunk);
+    if(info) out.push(canonicalizeKnownFormulaLine(chunk));
+    else out.push(repairGenericFormulaLine(chunk));
+  }
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
 function formulaBodyPlain(formula){
   let s=String(formula??'');
   // Recurse through the small LaTeX subset used by textbook-style formula OCR.
@@ -1052,24 +1068,46 @@ async function refineFormulaLines(result,base,worker,status){
     await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_char_whitelist:''});
   }
 }
+function knownFormulaRichHtml(chunk){
+  const canonical=canonicalizeKnownFormulaLine(chunk);
+  const pipe=canonical.indexOf('|');
+  const left=pipe>=0?canonical.slice(0,pipe).trim():canonical;
+  const tail=pipe>=0?canonical.slice(pipe+1).trim():'';
+  const colon=left.indexOf(':');
+  const prefix=colon>=0?left.slice(0,colon+1).trim():'';
+  const formula=colon>=0?left.slice(colon+1).trim():left;
+  const speech=formulaBodyPlain(formula)+(tail?` | ${tail}`:'');
+  return `<span class="ocr-book-line formula-known" contenteditable="false"><span class="ocr-book-line-text" data-ewl-text="${esc(canonical)}" data-ewl-speech="${esc(speech)}">${esc(prefix)} ${formulaTextToMathML(formula)}${tail?` <span class="formula-example">| ${esc(tail)}</span>`:''}</span></span>`;
+}
 function ocrLinesToBookLikeHtml(result,base){
   const lines=Array.isArray(result?.data?.lines)?result.data.lines:[];
-  if(!lines.length)return ocrTextToRichHtml(result?.data?.text||'');
+  if(!lines.length){
+    const raw=result?.data?.text||'';
+    return splitKnownFormulaChunks(raw).map(chunk=>canonicalFormulaForLine(chunk)?knownFormulaRichHtml(chunk):ocrLineToRichHtml(chunk)).join('<br>');
+  }
   const out=[];
   for(const line of lines){
     const original=String(line?.text||'').trim();if(!original){out.push('<br>');continue;}
+    const chunks=splitKnownFormulaChunks(original);
+    if(chunks.length>1 || canonicalFormulaForLine(original)){
+      chunks.forEach((chunk,idx)=>{if(canonicalFormulaForLine(chunk))out.push(knownFormulaRichHtml(chunk));else out.push(ocrLineToRichHtml(chunk));if(idx<chunks.length-1)out.push('<br>')});
+      out.push('<br>');continue;
+    }
     const text=repairOcrFormulaLine(original),b=line?.bbox;
     if(looksLikeFormulaLine(text)&&b&&Number.isFinite(b.x0)&&Number.isFinite(b.x1)&&Number.isFinite(b.y0)&&Number.isFinite(b.y1)){
       try{
         const c=cropOcrLine(base,b,.95);if(!c)throw new Error('crop');
         const src=c.toDataURL('image/webp',.96);
-        out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text" data-ewl-text="${esc(text)}">${esc(text)}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
+        // Keep the original crop for exact visual fidelity, but ALWAYS store the repaired
+        // text fallback. Scoring/copying must never use the raw OCR string.
+        out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text" data-ewl-text="${esc(canonicalizeKnownFormulaText(text))}">${esc(canonicalizeKnownFormulaText(text))}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
       }catch{out.push(ocrLineToRichHtml(text));}
     }else out.push(esc(text));
     out.push('<br>');
   }
   if(out[out.length-1]==='<br>')out.pop();return out.join('');
 }
+
 async function scanParagraphSource(source,textarea,status,options={}){
   status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
   try{

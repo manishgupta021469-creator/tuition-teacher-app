@@ -338,3 +338,5 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 .formula-source sup,.formula-source sub,.math-paragraph sup,.math-paragraph sub{font-size:.72em;line-height:0;position:relative}
 .formula-source sup,.math-paragraph sup{top:-.25em}
 .formula-source sub,.math-paragraph sub{top:.1em}
+
+.formula-known{display:block;margin:7px 0;line-height:1.65}.formula-known .formula-math{font-size:1.08em}.formula-example{font-style:normal;font-family:inherit;margin-left:.25em}.rich-ocr-result .formula-known{user-select:text}
