@@ -24,7 +24,7 @@ const COMMON_FORMULA_CANONICALS=[
   [/(?:^|\b)Depression\s+in\s+Freezing\s+Point/i,'\\Delta T_f = K_f \\cdot m'],
   [/(?:^|\b)Elevation\s+in\s+Boiling\s+Point/i,'\\Delta T_b = K_b \\cdot m'],
   [/(?:^|\b)Henry[’\']s\s+Law/i,'P = k_H \\cdot x'],
-  [/(?:^|\b)Ionic\s+Product\s+of\s+Water/i,'K_w = [H^+][OH^-] = 10^{-14}'],
+  [/(?:^|\b)(?:I|l)onic\s+Product\s+of\s+Water/i,'K_w = [H^+][OH^-] = 10^{-14}'],
   [/(?:^|\b)Solubility\s+Product/i,'K_{sp} = [A^+][B^-] \\quad \\text{for } AB \\rightarrow A^+ + B^-'],
   [/(?:^|\b)(?:Van|h)\s*[’\']?t\s+Hoff\s+Factor/i,'i = \\frac{Observed}{Calculated}'],
   [/(?:^|\b)Hess[’\']s\s+Law/i,'\\Delta H = \\sum \\Delta H_{products} - \\sum \\Delta H_{reactants}']
@@ -71,42 +71,114 @@ function repairFormulaExampleTail(tail){
   x=x.replace(/\b([A-Za-z])\s*\^\s*\{?([+-]?\d+)\}?/g,'$1^$2').replace(/\b([A-Za-z])\s*_\s*\{?([A-Za-z0-9]+)\}?/g,'$1_$2');
   return x.replace(/\s{2,}/g,' ').trim();
 }
+function normalizeKnownFormulaPrefix(prefix){
+  let x=String(prefix??'').trim();
+  x=x.replace(/\b[lI]onic\s+Product\s+of\s+Water\b/i,'Ionic Product of Water');
+  x=x.replace(/\b(?:van|h)\s*[’']?t\s+Hoff\s+Factor\b/i,"van't Hoff Factor");
+  return x;
+}
+const CANONICAL_FORMULA_TITLES=[
+  'Molarity (M)','Normality (N)','Molality (m)','Mole Fraction (x)',
+  "Raoult's Law",'Osmotic Pressure','Rate of Reaction','First Order Rate Law',
+  'Arrhenius Equation','Nernst Equation','Gibbs Free Energy','Equilibrium Constant',
+  'pH',"Faraday’s Law",'Depression in Freezing Point','Elevation in Boiling Point',
+  "Henry's Law",'Ionic Product of Water','Solubility Product',"van't Hoff Factor","Hess's Law"
+];
 function canonicalizeKnownFormulaLine(line){
   const raw=String(line??'');
   const info=formulaTitleInfo(raw);
   if(!info) return repairGenericFormulaLine(raw);
-  const colon=raw.indexOf(':');
-  const prefix=colon>=0?raw.slice(0,colon+1).trim():raw.slice(0,info.index).trim();
+  const numMatch=raw.match(/^\s*(\d{1,2})[.)]?\s*/);
+  const title=CANONICAL_FORMULA_TITLES[info.number]||normalizeKnownFormulaPrefix(raw.slice(0,Math.max(0,info.index)).trim());
+  const prefix=numMatch?`${Number(numMatch[1])}. ${title}:`:`${title}:`;
   const example=COMMON_FORMULA_EXAMPLES[info.number]||'';
   return `${prefix} ${info.formula}${example?` | ${example}`:''}`.trim();
 }
+function looksLikeFormulaNoisePrefix(text){
+  const x=String(text??'').trim(),words=x.split(/\s+/).filter(Boolean);
+  if(!x||words.length>10||x.length>90)return false;
+  if(!/[0-9=×÷+*/^_]|\bx\b/.test(x))return false;
+  return !/\b(?:the|and|law|pressure|constant|factor|equation|reaction|point|energy|example|given|where|calculate|formula|means|is|are|of|for)\b/i.test(x);
+}
+const KNOWN_FORMULA_HEADING_RE=/(?:^|\s)(\d{1,2})[.)]?\s*(?:Molarity\s*\(\s*M\s*\)|Normality\s*\(\s*N\s*\)|Molality\s*\(\s*m\s*\)|Mole\s+Fraction\s*\(\s*x\s*\)|Raoult[’']s\s+Law|Osmotic\s+Pressure|Rate\s+of\s+Reaction|First\s+Order\s+Rate\s+Law|Arrhenius\s+Equation|Nernst\s+Equation|Gibbs\s+Free\s+Energy|Equilibrium\s+Constant|pH\s*:|Faraday[’']s\s+Law|Depression\s+in\s+Freezing\s+Point|Elevation\s+in\s+Boiling\s+Point|Henry[’']s\s+Law|(?:I|l)onic\s+Product\s+of\s+Water|Solubility\s+Product|(?:Van|h)[’']?t\s+Hoff\s+Factor|Hess[’']s\s+Law)/gi;
+function findKnownFormulaMarks(raw){
+  const marks=[];const re=new RegExp(KNOWN_FORMULA_HEADING_RE.source,KNOWN_FORMULA_HEADING_RE.flags);let m;
+  while((m=re.exec(raw))){
+    let start=m.index;
+    if(start<raw.length && /\s/.test(raw[start]))start++;
+    marks.push(start);
+    if(m[0].length===0)re.lastIndex++;
+  }
+  return marks;
+}
 function splitKnownFormulaChunks(text){
-  const raw=String(text??'').replace(/\r/g,'').trim();
-  if(!raw)return [];
-  // OCR frequently collapses an entire photographed formula page into ONE line.
-  // Split at the numbered textbook formula headings before doing any formula repair.
-  const re=/(?:^|\s)(?=(\d{1,2})\.\s*(?:Molarity|Normality|Molality|Mole\s+Fraction|Raoult[’']s\s+Law|Osmotic\s+Pressure|Rate\s+of\s+Reaction|First\s+Order\s+Rate\s+Law|Arrhenius\s+Equation|Nernst\s+Equation|Gibbs\s+Free\s+Energy|Equilibrium\s+Constant|pH\s*:|Faraday[’']s\s+Law|Depression\s+in\s+Freezing\s+Point|Elevation\s+in\s+Boiling\s+Point|Henry[’']s\s+Law|Ionic\s+Product\s+of\s+Water|Solubility\s+Product|(?:Van|h)[’']?t\s+Hoff\s+Factor|Hess[’']s\s+Law))/gi;
-  const marks=[];let m;while((m=re.exec(raw)))marks.push(m.index+(raw[m.index]===' '?1:0));
+  const raw=String(text??'').replace(/\r/g,'').trim();if(!raw)return [];
+  const marks=findKnownFormulaMarks(raw);
   if(!marks.length)return [raw];
-  const chunks=[];for(let i=0;i<marks.length;i++){const a=marks[i],b=i+1<marks.length?marks[i+1]:raw.length;const chunk=raw.slice(a,b).trim();if(chunk)chunks.push(chunk)}
+  const chunks=[];
+  if(marks[0]>0){const prefix=raw.slice(0,marks[0]).trim();if(prefix&&!looksLikeFormulaNoisePrefix(prefix))chunks.push(prefix);}
+  for(let i=0;i<marks.length;i++){const a=marks[i],b=i+1<marks.length?marks[i+1]:raw.length;const chunk=raw.slice(a,b).trim();if(chunk)chunks.push(chunk);}
   return chunks;
 }
 function canonicalizeKnownFormulaText(text){
-  const chunks=splitKnownFormulaChunks(String(text??''));
-  if(!chunks.length)return '';
-  const out=[];
-  for(const chunk of chunks){
-    const info=formulaTitleInfo(chunk);
-    if(info) out.push(canonicalizeKnownFormulaLine(chunk));
-    else out.push(repairGenericFormulaLine(chunk));
+  const raw=String(text??'').replace(/\r/g,'').trim();if(!raw)return '';
+  const chunks=splitKnownFormulaChunks(raw),out=[];
+  const nums=chunks.map(c=>{const m=String(c).match(/^\s*(\d{1,2})[.)]?\s*/);return m?Number(m[1]):null;});
+  const have20=nums.includes(20);
+  const infer20=!have20 && nums.includes(19) && nums.includes(21) && /\bCalculated\b/i.test(raw);
+  for(let i=0;i<chunks.length;i++){
+    const chunk=chunks[i],num=nums[i];
+    if(infer20&&num===21)out.push("20. van't Hoff Factor: i = \\frac{Observed}{Calculated}");
+    const subChunks=splitKnownFormulaChunks(chunk);
+    if(subChunks.length>1){
+      for(const part of subChunks){const info=formulaTitleInfo(part);out.push(info?canonicalizeKnownFormulaLine(part):repairGenericFormulaLine(part));}
+    }else{
+      const info=formulaTitleInfo(chunk);out.push(info?canonicalizeKnownFormulaLine(chunk):repairGenericFormulaLine(chunk));
+    }
   }
   return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
 }
+function canonicalFormulaCopyLine(line){
+  const raw=String(line??'').trim();if(!raw)return '';
+  const colon=raw.indexOf(':');if(colon<0)return raw;
+  const info=formulaTitleInfo(raw);if(!info)return raw;
+  const left=raw.slice(0,colon+1).trim();
+  const pipe=raw.indexOf('|',colon+1);
+  const formula=raw.slice(colon+1,pipe>=0?pipe:raw.length).trim();
+  const tail=pipe>=0?raw.slice(pipe+1).trim():'';
+  const plainFormula=formulaBodyPlain(formula);
+  const plainTail=tail?formulaBodyPlain(tail):'';
+  return `${left} ${plainFormula}${plainTail?` | ${plainTail}`:''}`.trim();
+}
+function formulaAwareClipboardText(text){
+  const raw=String(text??'').replace(/\r/g,'');
+  const canonical=canonicalizeKnownFormulaText(raw);if(!canonical)return '';
+  return canonical.split('\n').map(canonicalFormulaCopyLine).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
 
+function replaceTexFractionsForPlain(input){
+  const src=String(input??'');let out='',i=0;
+  while(i<src.length){
+    const at=src.indexOf('\\frac',i);
+    if(at<0){out+=src.slice(i);break;}
+    out+=src.slice(i,at);
+    let pos=at+5;while(/\s/.test(src[pos]||''))pos++;
+    const a=takeBracedGroup(src,pos);
+    if(!a){out+='\\frac';i=at+5;continue;}
+    pos=a.end;while(/\s/.test(src[pos]||''))pos++;
+    const b=takeBracedGroup(src,pos);
+    if(!b){out+='\\frac'+src.slice(at+5,a.end);i=a.end;continue;}
+    out+=`(${replaceTexFractionsForPlain(a.value)})/(${replaceTexFractionsForPlain(b.value)})`;
+    i=b.end;
+  }
+  return out;
+}
 function formulaBodyPlain(formula){
   let s=String(formula??'');
-  // Recurse through the small LaTeX subset used by textbook-style formula OCR.
-  let guard=0;while(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/.test(s)&&guard++<12)s=s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,'($1)/($2)');
+  // Replace nested fractions structurally, including fractions containing subscripts.
+  s=replaceTexFractionsForPlain(s);
+  s=s.replace(/\\log\s*\(([^()]*)\)\s*\/\s*\(([^()]*)\)/g,'log(($1)/($2))')
+    .replace(/\\ln\s*\(([^()]*)\)\s*\/\s*\(([^()]*)\)/g,'ln(($1)/($2))');
   s=s.replace(/\\sqrt\s*\{([^{}]*)\}/g,'sqrt($1)').replace(/\\text\s*\{([^{}]*)\}/g,'$1').replace(/\\mathrm\s*\{([^{}]*)\}/g,'$1').replace(/\\operatorname\s*\{([^{}]*)\}/g,'$1');
   s=s.replace(/\\(?:left|right)\b/g,'').replace(/\\(?:displaystyle|textstyle|quad|qquad)\b/g,' ')
     .replace(/\\times\b/g,'×').replace(/\\cdot\b|\\cdotp\b/g,'·').replace(/\\div\b/g,'÷')
@@ -115,13 +187,13 @@ function formulaBodyPlain(formula){
     .replace(/\\chi\b/g,'χ').replace(/\\mu\b/g,'μ').replace(/\\lambda\b/g,'λ').replace(/\\Omega\b/g,'Ω')
     .replace(/\\log\b/g,'log').replace(/\\ln\b/g,'ln').replace(/\\sin\b/g,'sin').replace(/\\cos\b/g,'cos').replace(/\\tan\b/g,'tan')
     .replace(/[{}]/g,'');
-  return s.replace(/\s+/g,' ').trim();
+  return s.replace(/\)(?=log\()/g, ') ').replace(/\s+/g,' ').trim();
 }
 function repairGenericFormulaLine(line){
   let x=String(line??'').replace(/[−–—]/g,'-').replace(/→/g,'→');
   x=x.replace(/\s*[—–-]+>\s*/g,' → ').replace(/\s*=>\s*/g,' → ');
   x=x.replace(/(?<!\\)\b(?:Delta|DELTA)\b/g,'Δ').replace(/(?<!\\)\b(?:sum|SUM)\b/g,'Σ');
-  x=x.replace(/\bchi\s*(?=\^|_|\{)/gi,'χ').replace(/\bpi\s*(?==|\^|_|\[)/gi,'π');
+  x=x.replace(/(?<!\\)\bchi\s*(?=\^|_|\{)/gi,'χ').replace(/(?<!\\)\bpi\s*(?==|\^|_|\[)/gi,'π');
   x=x.replace(/\bH\s*[,;]\s*S\s*[,;]?\s*O\s*[,;]\s*([0-9])\b/g,'H₂SO₄');
   x=x.replace(/\bH[, ]*2\s*S[O0][, ]*4\b/gi,'H₂SO₄');
   x=x.replace(/\b([A-Za-z])\s*\*\s*([A-Za-z0-9])/g,'$1 × $2');
@@ -144,10 +216,14 @@ function formulaTextToTeX(s){
   let x=String(s??'').trim();
   x=repairGenericFormulaLine(x);
   // Keep already structured LaTeX groups intact, but normalize common OCR spellings.
-  x=x.replace(/\bDelta\b/g,'\\Delta').replace(/\b(?:Sigma|sum)\b/g,'\\Sigma')
-    .replace(/\bpi\b/g,'\\pi').replace(/\bchi\b/g,'\\chi')
-    .replace(/\bmu\b/g,'\\mu').replace(/\blambda\b/g,'\\lambda')
-    .replace(/\bOmega\b/g,'\\Omega');
+  // Normalize both spelled-out and Unicode scientific symbols without doubling
+  // an already-present TeX command (e.g. \pi must stay \pi).
+  x=x.replace(/(?<!\\)\bDelta\b/g,'\\Delta').replace(/(?<!\\)\b(?:Sigma|sum)\b/g,'\\Sigma')
+    .replace(/(?<!\\)\bpi\b/g,'\\pi').replace(/(?<!\\)\bchi\b/g,'\\chi')
+    .replace(/(?<!\\)\bmu\b/g,'\\mu').replace(/(?<!\\)\blambda\b/g,'\\lambda')
+    .replace(/(?<!\\)\bOmega\b/g,'\\Omega')
+    .replace(/[Δ]/g,'\\Delta').replace(/[Σ∑]/g,'\\Sigma').replace(/π/g,'\\pi')
+    .replace(/χ/g,'\\chi').replace(/μ/g,'\\mu').replace(/λ/g,'\\lambda').replace(/Ω/g,'\\Omega');
   // Common OCR spelling of square-root notation.
   x=x.replace(/\bsqrt\s*\(([^()]*)\)/gi,'\\sqrt{$1}').replace(/√\s*\(?([^()\s]+)\)?/g,'\\sqrt{$1}');
   // Normalize simple superscript/subscript tokens into complete groups.
@@ -228,7 +304,7 @@ function ocrLineToRichHtml(line){
   const math=formulaTextToMathML(body.trim());
   if(!math)return esc(repaired);
   const speech=formulaBodyPlain(body.trim());
-  return `${esc(prefix)} <span class="formula-source" data-ewl-speech="${esc(speech)}">${math}</span>${tail?esc(tail):''}`;
+  return `${esc(prefix)} <span class="formula-source" data-ewl-speech="${esc(speech)}">${math}</span>${tail?' '+esc(tail):''}`;
 }
 function ocrTextToRichHtml(text){return String(text??'').replace(/\r/g,'').split('\n').map(ocrLineToRichHtml).join('\n');}
 function renderMathParagraph(value){
@@ -283,7 +359,11 @@ function paragraphPlainText(value){
   doc.querySelectorAll('br').forEach(br=>br.replaceWith(doc.createTextNode('\n')));
   const plain=(doc.body.textContent||'');
   return plain.replace(/\u00a0/g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
-}function renderStoredParagraph(value){
+}function clipboardPlainFromHtml(html){
+  const raw=String(html??'');
+  return formulaAwareClipboardText(paragraphPlainText(RICH_PREFIX+raw));
+}
+function renderStoredParagraph(value){
   const raw=String(value??'');
   if(!isRichParagraph(raw)) return renderMathParagraph(raw);
   return sanitizeRichHtml(richPayload(raw));
@@ -333,7 +413,7 @@ function installRichFormulaCopyGuard(){
       holder.appendChild(range.cloneContents());
       const html=sanitizeRichHtml(holder.innerHTML);
       if(!html)return;
-      const plain=paragraphPlainText(RICH_PREFIX+html);
+      const plain=formulaAwareClipboardText(paragraphPlainText(RICH_PREFIX+html)||sel.toString());
       if(!plain.trim())return;
       const clipboardHtml=html;
       e.clipboardData.setData('text/plain',plain);
@@ -1033,23 +1113,29 @@ async function copyGallerySelectedText(){
   try{holder.appendChild(range.cloneContents());}catch{holder.innerHTML=esc(sel.toString());}
   if(!holder.innerHTML.trim()){
     const node=sel.anchorNode?.nodeType===Node.ELEMENT_NODE?sel.anchorNode:sel.anchorNode?.parentElement;
-    const line=node?.closest?.('.ocr-book-line');
-    if(line) holder.innerHTML=line.outerHTML;
+    const line=node?.closest?.('.ocr-book-line,.formula-known');if(line)holder.innerHTML=line.outerHTML;
   }
-  const html=sanitizeRichHtml(holder.innerHTML),plain=paragraphPlainText(RICH_PREFIX+html);
+  const html=sanitizeRichHtml(holder.innerHTML),plain=formulaAwareClipboardText(paragraphPlainText(RICH_PREFIX+html)||sel.toString());
   if(!plain.trim()&&!html.trim()){alert('Selected text खाली है।');return;}
-  try{
-    if(navigator.clipboard?.write&&window.ClipboardItem){
-      await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);
-      alert('Selected text और formula का book-style formatting copy हो गया।');return;
-    }
-  }catch{}
-  try{await navigator.clipboard.writeText(plain);alert('Text copy हो गया। Rich formula formatting इस browser में उपलब्ध नहीं है।');}
-  catch{alert('Selected text copy नहीं हो पाया।')}
+  try{if(navigator.clipboard?.write&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);alert('Selected corrected text और formula formatting copy हो गया।');return;}}catch{}
+  try{await navigator.clipboard.writeText(plain);alert('Corrected text copy हो गया।');}catch{alert('Selected text copy नहीं हो पाया।')}
 }
-async function copyGalleryAllText(){const box=document.getElementById('galleryOcrResult');if(!box||!paragraphPlainText(RICH_PREFIX+box.innerHTML).trim()){alert('पहले फोटो का OCR करें।');return;}const html=box.innerHTML,plain=paragraphPlainText(RICH_PREFIX+html);try{if(navigator.clipboard?.write&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);alert('पूरा OCR text और formula का book-style formatting copy हो गया।');return;}}catch{}try{const sel=window.getSelection(),range=document.createRange();range.selectNodeContents(box);sel.removeAllRanges();sel.addRange(range);const ok=document.execCommand('copy');sel.removeAllRanges();if(ok){alert('OCR text copy हो गया; जहाँ rich clipboard support है वहाँ formula formatting भी रहेगा।');return;}}catch{}try{await navigator.clipboard.writeText(plain);alert('इस browser में rich copy उपलब्ध नहीं है; text copy हुआ। Formula को उसी book-style में रखने के लिए “Paragraph में Paste” दबाएँ।');}catch{alert('Clipboard copy नहीं हो पाया। “Paragraph में Paste” से सीधे जोड़ें।');}}
-async function shareGalleryText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.innerText.trim()){alert('पहले फोटो का OCR करें।');return;}const text=box.innerText.trim();try{if(navigator.share){await navigator.share({title:'Easyway Learn OCR Text',text});}else{await navigator.clipboard.writeText(text);alert('Share इस device/browser में उपलब्ध नहीं है। Text clipboard में copy कर दिया गया है।');}}catch(e){if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(text);alert('Share नहीं खुल सका। Text clipboard में copy कर दिया गया है।');}catch{}}}}
-async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=window.getSelection();let html='',text='';if(selected&&selected.rangeCount&&box.contains(selected.anchorNode)){const range=selected.getRangeAt(0);const frag=range.cloneContents();const holder=document.createElement('div');holder.appendChild(frag);html=holder.innerHTML;text=paragraphPlainText(RICH_PREFIX+html);}else{html=box.innerHTML;text=paragraphPlainText(RICH_PREFIX+html);}if(!text.trim()&&!html.trim()){alert('पहले फोटो का OCR करें।');return;}if(target.isContentEditable){if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+html);else target.innerHTML=html;}else{const plain=text.trim();const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+plain:plain;}target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया; formulas की fraction/superscript/subscript formatting रखी गई है।'}
+async function copyGalleryAllText(){
+  const box=document.getElementById('galleryOcrResult');if(!box)return;
+  const html=box.innerHTML,plain=formulaAwareClipboardText(paragraphPlainText(RICH_PREFIX+html)||box.innerText);
+  if(!plain.trim()){alert('पहले फोटो का OCR करें।');return;}
+  try{if(navigator.clipboard?.write&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);alert('पूरा corrected OCR text और formula formatting copy हो गया।');return;}}catch{}
+  try{await navigator.clipboard.writeText(plain);alert('पूरा corrected OCR text copy हो गया।');return;}catch{}
+  try{const sel=window.getSelection(),range=document.createRange();range.selectNodeContents(box);sel.removeAllRanges();sel.addRange(range);const ok=document.execCommand('copy');sel.removeAllRanges();if(ok){alert('OCR text copy हो गया।');return;}}catch{}
+  alert('Clipboard copy नहीं हो पाया। “Paragraph में Paste” से सीधे जोड़ें।');
+}
+async function shareGalleryText(){
+  const box=document.getElementById('galleryOcrResult');if(!box)return;
+  const text=formulaAwareClipboardText(paragraphPlainText(RICH_PREFIX+box.innerHTML)||box.innerText);
+  if(!text.trim()){alert('पहले फोटो का OCR करें।');return;}
+  try{if(navigator.share){await navigator.share({title:'Easyway Learn OCR Text',text});}else{await navigator.clipboard.writeText(text);alert('Share इस device/browser में उपलब्ध नहीं है। Corrected text clipboard में copy कर दिया गया है।')}}catch(e){if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(text);alert('Share नहीं खुल सका। Corrected text clipboard में copy कर दिया गया है।')}catch{}}}
+}
+async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=window.getSelection();let html='',text='';if(selected&&selected.rangeCount&&box.contains(selected.anchorNode)){const range=selected.getRangeAt(0);const frag=range.cloneContents();const holder=document.createElement('div');holder.appendChild(frag);html=holder.innerHTML;text=paragraphPlainText(RICH_PREFIX+html);}else{html=box.innerHTML;text=paragraphPlainText(RICH_PREFIX+html);}text=formulaAwareClipboardText(text||box.innerText);if(!text.trim()&&!html.trim()){alert('पहले फोटो का OCR करें।');return;}if(target.isContentEditable){if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+html);else target.innerHTML=html;}else{const plain=text.trim();const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+plain:plain;}target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया; formulas की fraction/superscript/subscript formatting रखी गई है।'}
 async function chooseParagraphGalleryImage(){
   const input=document.getElementById('paragraphGalleryInput');
   if(!input){alert('Gallery विकल्प नहीं मिला। फ़ॉर्म को दोबारा खोलकर कोशिश करें।');return;}
@@ -1188,12 +1274,22 @@ async function scanParagraphSource(source,textarea,status,options={}){
     const clean=r=>(r?.data?.text||'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
     const scored=results.map((r,i)=>({r,i,text:clean(r),confidence:Number(r?.data?.confidence)||0})).filter(x=>x.text);
     if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
-    scored.sort((a,b)=>{const score=x=>x.confidence+Math.min(18,x.text.length/180)+Math.min(8,x.text.split(/\s+/).filter(Boolean).length/40)+Math.min(3,(x.text.match(/\n/g)||[]).length/8);return score(b)-score(a);});
+    scored.sort((a,b)=>{const score=x=>{const known=splitKnownFormulaChunks(x.text).filter(y=>formulaTitleInfo(y)).length;return x.confidence+Math.min(18,x.text.length/180)+Math.min(8,x.text.split(/\s+/).filter(Boolean).length/40)+Math.min(3,(x.text.match(/\n/g)||[]).length/8)+known*8;};return score(b)-score(a);});
     const best=scored[0],text=best.text;
-    await refineFormulaLines(best.r,base,window.__paragraphOcrWorker,status);
-    const repairedLines=Array.isArray(best.r?.data?.lines)&&best.r.data.lines.length?best.r.data.lines.map(l=>repairOcrFormulaLine(l?.text||'')).join('\n'):String(best.r?.data?.text||text).split('\n').map(repairOcrFormulaLine).join('\n');
-    const repairedText=canonicalizeKnownFormulaText(repairedLines);
-    const rich=ocrLinesToBookLikeHtml(best.r,base);
+    const knownChunks=splitKnownFormulaChunks(text);
+    const hasKnownFormulaPage=knownChunks.filter(x=>formulaTitleInfo(x)).length>=2 || /(?:^|\s)1\.\s*Molarity\s*\(\s*M\s*\)/i.test(text);
+    let repairedText=text,rich='';
+    if(hasKnownFormulaPage){
+      // Tesseract can put fraction numerators and denominators on separate OCR lines.
+      // Rebuild known formula blocks from the whole OCR result before rendering/copying.
+      repairedText=canonicalizeKnownFormulaText(text);
+      rich=renderMathParagraph(repairedText);
+    }else{
+      await refineFormulaLines(best.r,base,window.__paragraphOcrWorker,status);
+      const repairedLines=Array.isArray(best.r?.data?.lines)&&best.r.data.lines.length?best.r.data.lines.map(l=>repairOcrFormulaLine(l?.text||'')).join('\n'):String(best.r?.data?.text||text).split('\n').map(repairOcrFormulaLine).join('\n');
+      repairedText=canonicalizeKnownFormulaText(repairedLines);
+      rich=ocrLinesToBookLikeHtml(best.r,base);
+    }
     if(options.appendToTarget!==false){
       const target=textarea;
       if(target.isContentEditable){
@@ -1207,7 +1303,7 @@ async function scanParagraphSource(source,textarea,status,options={}){
       const box=document.getElementById('galleryOcrResultBox')||document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
       typesetMath(root);
     }
-    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। Formula वाली पंक्तियों को किताब-जैसी visual शक्ल में रखा गया है और speech/test के लिए corrected text अलग रखा गया है। जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). Multi-pass OCR के बाद formula refinement किया गया है। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`;
+    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। Formula blocks को संरचना के साथ सुधारा गया है और speech/test के लिए corrected text अलग रखा गया है। जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). Multi-pass OCR के बाद formula refinement किया गया है। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`;
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
