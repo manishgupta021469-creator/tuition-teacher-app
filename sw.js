@@ -1,5 +1,5 @@
-const CACHE_NAME = 'easyway-learn-shell-v63-teacher-dashboard';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/pwa-assets/icon-192.png', '/pwa-assets/icon-512.png'];
+const CACHE_NAME = 'easyway-learn-shell-v77-teacher-dashboard';
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/pwa-assets/icon-192.png', '/pwa-assets/icon-512.png', '/pwa-assets/teacher-avatar.svg', '/pwa-assets/student-avatar.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

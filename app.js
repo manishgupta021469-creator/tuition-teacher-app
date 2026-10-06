@@ -424,7 +424,7 @@ function dashboard(){
     <div class="dash-brand"><button class="dash-menu" type="button" aria-label="Menu">☰</button><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><b>Easyway Learn</b><small>Read&nbsp; • &nbsp;Practice&nbsp; • &nbsp;Improve</small></div></div></div>
     <div class="header-actions">
       ${decodeJwtRole()==='admin_impersonate'?'<button id="backAdmin" class="btn-secondary" type="button">Back to Admin</button>':''}
-      <button id="teacherProfile" class="dash-profile" type="button" aria-expanded="false"><span class="dash-avatar"><img src="/pwa-assets/teacher-avatar.svg" alt="Teacher"></span><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button>
+      <button id="teacherProfile" class="dash-profile" type="button" aria-expanded="false"><span class="dash-avatar"><img src="/pwa-assets/teacher-avatar.svg?v=77" alt="Teacher"></span><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button>
       <button id="logout" class="dash-logout">Logout</button>
     </div>
     <div id="profileMenu" class="profile-menu" hidden><b>${esc(state.teacher?.name||'Teacher')}</b><small>Teacher ID: ${esc(state.teacher?.email||state.teacher?.id||'')}</small><button id="profileChangePassword" class="btn-secondary" type="button">Change Password</button></div>
@@ -432,16 +432,16 @@ function dashboard(){
   <main class="teacher-dashboard">
     ${created?`<section class="success-banner"><b>${esc(created).replace(/\n/g,'<br>')}</b></section>`:''}
     <section class="dash-welcome">
-      <div class="dash-welcome-person"><span class="dash-big-avatar"><img src="/pwa-assets/teacher-avatar.svg" alt="Teacher"></span><div><div class="dash-small-title">Welcome,</div><h1>${esc(state.teacher?.name||'Teacher')}</h1><p>Tuition Teacher <span>•</span> ${orderedStudents.length} Students</p></div></div>
+      <div class="dash-welcome-person"><span class="dash-big-avatar"><img src="/pwa-assets/teacher-avatar.svg?v=77" alt="Teacher"></span><div><div class="dash-small-title">Welcome,</div><h1>${esc(state.teacher?.name||'Teacher')}</h1><p>Tuition Teacher <span>•</span> ${orderedStudents.length} Students</p></div></div>
     </section>
 
     <section class="dash-section-head"><div><span class="dash-section-icon">👥</span><h2>My Students</h2></div><span class="count-pill">${orderedStudents.length}/20</span></section>
     <section class="dash-student-grid">
-      ${orderedStudents.slice(0,4).map((st,i)=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar"><img src="/pwa-assets/student-avatar.svg" alt="Student"></span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}
+      ${orderedStudents.slice(0,4).map((st,i)=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar"><img src="/pwa-assets/student-avatar.svg?v=77" alt="Student"></span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}
       ${orderedStudents.length>4?'<button id="moreStudents" class="dash-more-card" type="button"><span>•••</span><b>More</b><small>View students</small><i>›</i></button>':''}
       ${orderedStudents.length===0?'<div class="dash-empty">अभी कोई Student नहीं है। नीचे “Add Student” से जोड़ें।</div>':''}
     </section>
-    <div id="extraStudents" class="dash-student-grid dash-extra" hidden>${orderedStudents.slice(4).map(st=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar"><img src="/pwa-assets/student-avatar.svg" alt="Student"></span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}</div>
+    <div id="extraStudents" class="dash-student-grid dash-extra" hidden>${orderedStudents.slice(4).map(st=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar"><img src="/pwa-assets/student-avatar.svg?v=77" alt="Student"></span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}</div>
     <div class="dash-action-row"><button id="addStudent" class="dash-primary-action" type="button">＋ Add Student</button></div>
 
     <section class="dash-section-head"><div><span class="dash-section-icon">📚</span><h2>Learning Materials</h2></div><button id="addSubject" class="dash-link-action" type="button">＋ Create Subject</button></section>
