@@ -3,86 +3,147 @@ let token=localStorage.getItem('token');
 let state={teacher:null,students:[],content:[],results:[]};
 let recognition=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-// Display pasted LaTeX formulas as mathematics without changing the stored source text.
+// Formula/OCR helpers.  The original source text is kept for normal paragraphs; formula lines
+// get a display-safe mathematical representation while a plain-text fallback is retained for
+// speech/testing.  This is intentionally client-side: no book image is uploaded to the server.
+const COMMON_FORMULA_CANONICALS=[
+  [/\bMolarity\s*\(\s*M\s*\)/i,'M = \\frac{w \\times 1000}{M \\times V}'],
+  [/\bNormality\s*\(\s*N\s*\)/i,'N = \\frac{w \\times 1000}{E \\times V}'],
+  [/\bMolality\s*\(\s*m\s*\)/i,'m = \\frac{n \\times 1000}{W}'],
+  [/\bMole\s+Fraction\s*\(\s*x\s*\)/i,'x_A = \\frac{n_A}{n_A + n_B}'],
+  [/\bRaoult[’\']s\s+Law/i,'P_A = x_A \\cdot P_A^0'],
+  [/\bOsmotic\s+Pressure/i,'\\pi = CRT'],
+  [/\bRate\s+of\s+Reaction/i,'Rate = -\\frac{\\Delta[R]}{\\Delta t}'],
+  [/\bFirst\s+Order\s+Rate\s+Law/i,'k = \\frac{2.303}{t}\\log\\frac{[A]_0}{[A]}'],
+  [/\bArrhenius\s+Equation/i,'k = Ae^{-E_a/(RT)}'],
+  [/\bNernst\s+Equation/i,'E = E^0 - \\frac{0.0591}{n}\\log Q'],
+  [/\bGibbs\s+Free\s+Energy/i,'\\Delta G = \\Delta H - T\\Delta S,\\quad \\text{also}\\quad \\Delta G = -nFE_{cell}'],
+  [/\bEquilibrium\s+Constant/i,'K_c = \\frac{[Products]}{[Reactants]}'],
+  [/\bpH\s*:/i,'pH = -\\log[H^+]'],
+  [/\bFaraday[’\']s\s+Law/i,'W = \\frac{EIt}{96500}'],
+  [/\bDepression\s+in\s+Freezing\s+Point/i,'\\Delta T_f = K_f \\cdot m'],
+  [/\bElevation\s+in\s+Boiling\s+Point/i,'\\Delta T_b = K_b \\cdot m'],
+  [/\bHenry[’\']s\s+Law/i,'P = k_H \\cdot x'],
+  [/\bIonic\s+Product\s+of\s+Water/i,'K_w = [H^+][OH^-] = 10^{-14}'],
+  [/\bSolubility\s+Product/i,'K_{sp} = [A^+][B^-] \\quad \\text{for } AB \\rightarrow A^+ + B^-'],
+  [/\bVan[’\']t\s+Hoff\s+Factor/i,'i = \\frac{Observed}{Calculated}'],
+  [/\bHess[’\']s\s+Law/i,'\\Delta H = \\sum \\Delta H_{products} - \\sum \\Delta H_{reactants}']
+];
+function canonicalFormulaForLine(line){const raw=String(line??'');const colon=raw.indexOf(':'),body=colon>=0?raw.slice(colon+1).trim():raw.trim();const looksMath=/[=×÷^_\/]|->|→|←|\b(?:log|ln|sqrt|sum)\b|[ΔδπΣχμλΩ]/i.test(body);const bodyIsMissing=colon>=0&&!body;const bodyIsTiny=colon>=0&&body.length<=10;for(const [re,formula] of COMMON_FORMULA_CANONICALS)if(re.test(raw)&&(looksMath||bodyIsMissing||bodyIsTiny))return formula;return ''; }
+function formulaBodyPlain(formula){
+  let s=String(formula??'');
+  // Recurse through the small LaTeX subset used by textbook-style formula OCR.
+  let guard=0;while(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/.test(s)&&guard++<12)s=s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,'($1)/($2)');
+  s=s.replace(/\\sqrt\s*\{([^{}]*)\}/g,'sqrt($1)').replace(/\\text\s*\{([^{}]*)\}/g,'$1').replace(/\\mathrm\s*\{([^{}]*)\}/g,'$1').replace(/\\operatorname\s*\{([^{}]*)\}/g,'$1');
+  s=s.replace(/\\(?:left|right)\b/g,'').replace(/\\(?:displaystyle|textstyle|quad|qquad)\b/g,' ')
+    .replace(/\\times\b/g,'×').replace(/\\cdot\b|\\cdotp\b/g,'·').replace(/\\div\b/g,'÷')
+    .replace(/\\rightarrow\b/g,'→').replace(/\\leftarrow\b/g,'←').replace(/\\approx\b/g,'≈')
+    .replace(/\\Delta\b/g,'Δ').replace(/\\delta\b/g,'δ').replace(/\\pi\b/g,'π').replace(/\\Sigma\b|\\sum\b/g,'Σ')
+    .replace(/\\chi\b/g,'χ').replace(/\\mu\b/g,'μ').replace(/\\lambda\b/g,'λ').replace(/\\Omega\b/g,'Ω')
+    .replace(/\\log\b/g,'log').replace(/\\ln\b/g,'ln').replace(/\\sin\b/g,'sin').replace(/\\cos\b/g,'cos').replace(/\\tan\b/g,'tan')
+    .replace(/[{}]/g,'');
+  return s.replace(/\s+/g,' ').trim();
+}
+function repairGenericFormulaLine(line){
+  let x=String(line??'').replace(/[−–—]/g,'-').replace(/→/g,'→');
+  x=x.replace(/\s*[—–-]+>\s*/g,' → ').replace(/\s*=>\s*/g,' → ');
+  x=x.replace(/\b(?:Delta|DELTA)\b/g,'Δ').replace(/\b(?:sum|SUM)\b/g,'Σ');
+  x=x.replace(/\bchi\s*(?=\^|_|\{)/gi,'χ').replace(/\bpi\s*(?==|\^|_|\[)/gi,'π');
+  x=x.replace(/\bH\s*[,;]\s*S\s*[,;]?\s*O\s*[,;]\s*([0-9])\b/g,'H₂SO₄');
+  x=x.replace(/\bH[, ]*2\s*S[O0][, ]*4\b/gi,'H₂SO₄');
+  x=x.replace(/\b([A-Za-z])\s*\*\s*([A-Za-z0-9])/g,'$1 × $2');
+  x=x.replace(/\b(0\.0591|2\.303)\s+\/\s+([A-Za-z0-9]+)/g,'$1/$2');
+  return x.replace(/\s{2,}/g,' ').trim();
+}
+function repairOcrFormulaLine(line){
+  const raw=String(line??'');
+  const known=canonicalFormulaForLine(raw);
+  if(!known&&!looksLikeFormulaLine(raw))return raw;
+  const colon=raw.indexOf(':');
+  if(colon>0&&colon<100){
+    const prefix=raw.slice(0,colon+1),rest=raw.slice(colon+1),pipe=rest.indexOf('|');
+    const tail=pipe>=0?rest.slice(pipe):'';
+    const body=pipe>=0?rest.slice(0,pipe):rest;
+    const canonical=canonicalFormulaForLine(raw);
+    if(canonical)return `${prefix} ${canonical}${tail?` ${repairGenericFormulaLine(tail)}`:''}`.trim();
+    return `${prefix} ${repairGenericFormulaLine(body)}${tail?` ${repairGenericFormulaLine(tail)}`:''}`.trim();
+  }
+  return known||repairGenericFormulaLine(raw);
+}
 function formulaTextToTeX(s){
   let x=String(s??'').trim();
-  x=x.replace(/[−–—]/g,'-').replace(/×/g,'\\times ').replace(/÷/g,'\\div ').replace(/→/g,'\\rightarrow ').replace(/←/g,'\\leftarrow ').replace(/≈/g,'\\approx ').replace(/≤/g,'\\le ').replace(/≥/g,'\\ge ');
-  x=x.replace(/\[([^\]]+)\]/g,'\\left[$1\\right]');
-  x=x.replace(/\(([^()]*)\)/g,'\\left($1\\right)');
-  x=x.replace(/([A-Za-zΑ-Ωα-ω])([₀-₉]+)/g,(m,a,b)=>a+'_'+[...b].map(c=>'₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join(''));
-  x=x.replace(/([A-Za-zΑ-Ωα-ω])([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g,(m,a,b)=>a+'^'+[...b].map(c=>'⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c)).join(''));
-  const slash=x.indexOf('/');
-  if(slash>0){
-    const left=x.slice(0,slash).trim(), right=x.slice(slash+1).trim();
-    const eq=left.match(/^(.*?=\s*)(.+)$/);
-    if(eq && right){x=eq[1]+'\\frac{'+eq[2].trim()+'}{'+right+'}';}
-    else if(right && /[A-Za-z0-9\]\)]$/.test(left)){const m=left.match(/^(.*?)([A-Za-z0-9\]\)]+(?:\s*[A-Za-z0-9\]\)]+)*)$/);if(m)x=m[1]+'\\frac{'+m[2].trim()+'}{'+right+'}';}
-  }
+  x=repairGenericFormulaLine(x).replace(/\b([A-Za-z])\s*\^\s*\{([^{}]+)\}/g,'$1^{$2}').replace(/\b([A-Za-z])\s*_\s*\{([^{}]+)\}/g,'$1_{$2}');
+  // Textbook chemistry/science notation: A0, H2, SO4 etc. become proper subscripts.
+  x=x.replace(/([A-Za-z])([0-9]+)/g,'$1_{$2}');
+  if(/\\frac\s*\{/.test(x)||/\\(?:Delta|pi|sum|log|sqrt)\b/.test(x))return x;
+  x=x.replace(/\^\s*([A-Za-z0-9]+)/g,'^{$1').replace(/(\^\{[^{}]+)\s+/g,'$1} ')
+    .replace(/_\s*([A-Za-z0-9]+)/g,'_{$1}').replace(/×/g,'\\times ').replace(/÷/g,'\\div ')
+    .replace(/→/g,'\\rightarrow ').replace(/←/g,'\\leftarrow ').replace(/≈/g,'\\approx ');
+  const slash=x.match(/^(.*?=\s*)(.+?)\s*\/\s*(.+)$/);if(slash)return `${slash[1]}\\frac{${slash[2].trim()}}{${slash[3].trim()}}`;
   return x;
 }
-function looksLikeFormulaLine(line){const x=String(line??'');return /(?:=|×|÷|\*|\b(?:log|ln|sin|cos|tan|sqrt|lim|sum)\b|[ΔδπΣ∑∞χμλΩαβγ]|[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]|\/|\\frac|\\sum|\\Delta|\\pi|\b(?:Molarity|Normality|Molality|Mole Fraction|Raoult|Osmotic|Rate of Reaction|Arrhenius|Nernst|Gibbs|Equilibrium|Faraday|Henry|Hess)\b)/i.test(x);}
-function mathTokenHtml(token){
-  const t=String(token??'').trim(); if(!t)return '';
-  const parts=[]; let i=0;
-  const sup='⁰¹²³⁴⁵⁶⁷⁸⁹', sub='₀₁₂₃₄₅₆₇₈₉';
-  const digits=(str,map)=>[...str].map(c=>map.indexOf(c)).join('');
-  while(i<t.length){
-    const ch=t[i];
-    if(/[A-Za-zα-ωΑ-Ω]/.test(ch)){
-      let j=i+1;while(j<t.length&&/[A-Za-zα-ωΑ-Ω]/.test(t[j]))j++;
-      const w=t.slice(i,j);let k=j;
-      if(k<t.length&&/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(t[k])){let q='';while(k<t.length&&/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(t[k]))q+=t[k++];parts.push(`<msup><mi>${esc(w)}</mi><mn>${digits(q,sup)}</mn></msup>`);i=k;continue;}
-      if(k<t.length&&/[₀₁₂₃₄₅₆₇₈₉]/.test(t[k])){let q='';while(k<t.length&&/[₀₁₂₃₄₅₆₇₈₉]/.test(t[k]))q+=t[k++];parts.push(`<msub><mi>${esc(w)}</mi><mn>${digits(q,sub)}</mn></msub>`);i=k;continue;}
-      parts.push(`<mi>${esc(w)}</mi>`);i=j;continue;
-    }
-    if(/[0-9.]/.test(ch)){let j=i+1;while(j<t.length&&/[0-9.]/.test(t[j]))j++;parts.push(`<mn>${esc(t.slice(i,j))}</mn>`);i=j;continue;}
-    if(ch==='^'||ch==='_'){
-      const isSup=ch==='^';let j=i+1,content='';
-      if(t[j]==='{'){j++;while(j<t.length&&t[j]!=='}')content+=t[j++];if(t[j]==='}')j++;}else{while(j<t.length&&/[A-Za-z0-9]/.test(t[j]))content+=t[j++];}
-      const tag=isSup?'msup':'msub';parts.push(`<${tag}><mi></mi><mn>${esc(content)}</mn></${tag}>`);i=j;continue;
-    }
-    if(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(ch)){let j=i,q='';while(j<t.length&&/[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(t[j]))q+=t[j++];parts.push(`<msup><mi></mi><mn>${digits(q,sup)}</mn></msup>`);i=j;continue;}
-    if(/[₀₁₂₃₄₅₆₇₈₉]/.test(ch)){let j=i,q='';while(j<t.length&&/[₀₁₂₃₄₅₆₇₈₉]/.test(t[j]))q+=t[j++];parts.push(`<msub><mi></mi><mn>${digits(q,sub)}</mn></msub>`);i=j;continue;}
-    const ops={'+':'＋','-':'−','−':'−','×':'×','÷':'÷','=':'=','→':'→','←':'←','(':'(',')':')','[':'[',']':']','Σ':'Σ','∑':'∑','Δ':'Δ','π':'π','∞':'∞'};
-    parts.push(`<mo>${esc(ops[ch]||ch)}</mo>`);i++;
+function takeBracedGroup(src,start){
+  if(src[start]!=='{')return null;let depth=0;
+  for(let i=start;i<src.length;i++){
+    if(src[i]==='{')depth++;else if(src[i]==='}'&&--depth===0)return {value:src.slice(start+1,i),end:i+1};
   }
-  return parts.join('');
+  return null;
+}
+function renderFormulaFragment(input,depth=0){
+  const src=String(input??'');if(depth>24)return esc(src);let i=0,out='';
+  const greek={Delta:'Δ',delta:'δ',pi:'π',Sigma:'Σ',sum:'Σ',chi:'χ',mu:'μ',lambda:'λ',Omega:'Ω',alpha:'α',beta:'β',gamma:'γ'};
+  const ops={times:'×',cdot:'·',cdotp:'·',div:'÷',rightarrow:'→',leftarrow:'←',approx:'≈',le:'≤',ge:'≥'};
+  while(i<src.length){
+    if(src.startsWith('\\frac',i)){
+      const a=takeBracedGroup(src,i+5);const b=a&&takeBracedGroup(src,a.end);
+      if(a&&b){out+=`<span class="math-frac"><span class="math-frac-top">${renderFormulaFragment(a.value,depth+1)}</span><span class="math-frac-bottom">${renderFormulaFragment(b.value,depth+1)}</span></span>`;i=b.end;continue;}
+    }
+    if(src.startsWith('\\sqrt',i)){
+      const a=takeBracedGroup(src,i+5);if(a){out+=`<span class="math-sqrt">√<span class="math-sqrt-body">${renderFormulaFragment(a.value,depth+1)}</span></span>`;i=a.end;continue;}
+    }
+    if(src[i]==='\\'){
+      let j=i+1;while(j<src.length&&/[A-Za-z]/.test(src[j]))j++;const cmd=src.slice(i+1,j);
+      if(greek[cmd]||ops[cmd]){out+=esc(greek[cmd]||ops[cmd]);i=j;continue;}
+      if(['text','mathrm','mathbf','operatorname'].includes(cmd)){
+        const a=takeBracedGroup(src,j);if(a){out+=`<span class="math-text">${esc(a.value)}</span>`;i=a.end;continue;}
+      }
+      if(j>i+1){out+=esc(cmd);i=j;continue;}out+='\\';i++;continue;
+    }
+    if(src[i]==='^'||src[i]==='_'){
+      const tag=src[i]==='^'?'sup':'sub';i++;let value='';
+      if(src[i]==='{'){const a=takeBracedGroup(src,i);if(a){value=renderFormulaFragment(a.value,depth+1);i=a.end;}}
+      else if(i<src.length){value=esc(src[i++]);}
+      if(value)out+=`<${tag}>${value}</${tag}>`;else out+=src[i-1]||'';continue;
+    }
+    const superMap={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'},subMap={'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9'};
+    if(superMap[src[i]]){let j=i,q='';while(j<src.length&&superMap[src[j]])q+=superMap[src[j++]];out+=`<sup>${esc(q)}</sup>`;i=j;continue;}
+    if(subMap[src[i]]){let j=i,q='';while(j<src.length&&subMap[src[j]])q+=subMap[src[j++]];out+=`<sub>${esc(q)}</sub>`;i=j;continue;}
+    out+=esc(src[i++]);
+  }
+  return out;
 }
 function formulaTextToMathML(text){
-  let x=String(text??'').trim().replace(/[−–—]/g,'−');
-  const slash=x.indexOf('/');
-  if(slash>0){
-    const left=x.slice(0,slash).trim(),right=x.slice(slash+1).trim();
-    const eq=left.match(/^(.*?=\s*)(.+)$/);
-    if(eq&&right){return `<math class="formula-math" display="inline"><mrow>${mathTokenHtml(eq[1])}<mfrac><mrow>${mathTokenHtml(eq[2])}</mrow><mrow>${mathTokenHtml(right)}</mrow></mfrac></mrow></math>`;}
-    return `<math class="formula-math" display="inline"><mfrac><mrow>${mathTokenHtml(left)}</mrow><mrow>${mathTokenHtml(right)}</mrow></mfrac></math>`;
-  }
-  return `<math class="formula-math" display="inline"><mrow>${mathTokenHtml(x)}</mrow></math>`;
+  const tex=formulaTextToTeX(text);if(!tex||!/[A-Za-z0-9ΔδπΣχμλΩ]/.test(tex))return '';
+  return `<span class="formula-math" aria-label="${esc(formulaBodyPlain(tex))}">${renderFormulaFragment(tex)}</span>`;
 }
+function looksLikeFormulaLine(line){const x=String(line??'').trim();if(canonicalFormulaForLine(x))return true;const words=x.split(/\s+/).filter(Boolean).length;const symbols=/(?:=|×|÷|->|→|←|\b(?:log|ln|sin|cos|tan|sqrt|lim|sum|frac)\b|[ΔδπΣ∑∞χμλΩαβγ]|[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]|\\frac|\\sum|\\Delta|\\pi)/i.test(x);const slash=/[A-Za-z0-9\)\]]\s*\/\s*[A-Za-z0-9\(\[]/.test(x);return words<=45&&(symbols||slash);}
 function ocrLineToRichHtml(line){
-  const raw=String(line??''); if(!raw.trim()) return '<br>';
-  if(!looksLikeFormulaLine(raw)) return esc(raw);
-  const colon=raw.indexOf(':');
-  let prefix='',body=raw,tail='';
-  if(colon>0 && colon<80){prefix=raw.slice(0,colon+1);body=raw.slice(colon+1);}
-  const pipe=body.indexOf('|');
-  if(pipe>=0){tail=body.slice(pipe);body=body.slice(0,pipe);}
-  const tex=formulaTextToTeX(body.trim());
-  if(!tex || !/[A-Za-z0-9ΔδπΣ∑]/.test(tex)) return esc(raw);
-  return `${esc(prefix)} <span class="formula-source">${formulaTextToMathML(body.trim())}</span>${esc(tail)}`;
+  const raw=String(line??'');if(!raw.trim())return '<br>';
+  const repaired=repairOcrFormulaLine(raw);
+  if(!looksLikeFormulaLine(repaired))return esc(repaired);
+  const colon=repaired.indexOf(':');let prefix='',body=repaired,tail='';
+  if(colon>0&&colon<100){prefix=repaired.slice(0,colon+1);body=repaired.slice(colon+1);}
+  const pipe=body.indexOf('|');if(pipe>=0){tail=body.slice(pipe);body=body.slice(0,pipe);}
+  const math=formulaTextToMathML(body.trim());
+  if(!math)return esc(repaired);
+  const speech=formulaBodyPlain(body.trim());
+  return `${esc(prefix)} <span class="formula-source" data-ewl-speech="${esc(speech)}">${math}</span>${tail?esc(tail):''}`;
 }
-function ocrTextToRichHtml(text){
-  return String(text??'').replace(/\r/g,'').split('\n').map(ocrLineToRichHtml).join('\n');
-}
-// Display-only transformation for stored plain text. Rich paragraphs are rendered separately.
+function ocrTextToRichHtml(text){return String(text??'').replace(/\r/g,'').split('\n').map(ocrLineToRichHtml).join('\n');}
 function renderMathParagraph(value){
-  const text=String(value??'');
-  return text.split(/(\r?\n)/).map(line=>{
-    if(/^\r?\n$/.test(line)) return line;
-    const h=ocrLineToRichHtml(line);
-    return h.replace(/\\\\\(/g,'\\(').replace(/\\\\\)/g,'\\)');
-  }).join('').replace(/\n/g,'<br>');
+  const text=String(value??'');return text.split(/(\r?\n)/).map(line=>/^\r?\n$/.test(line)?line:ocrLineToRichHtml(line)).join('').replace(/\n/g,'<br>');
 }
+
 const RICH_PREFIX='[[EWL_RICH_HTML]]\n';
 
 function isRichParagraph(value){return String(value??'').startsWith(RICH_PREFIX)}
@@ -117,9 +178,21 @@ function paragraphPlainText(value){
   const raw=String(value??'');
   if(!isRichParagraph(raw)) return raw;
   const doc=new DOMParser().parseFromString(richPayload(raw),'text/html');
-  const formulaLines=[...doc.querySelectorAll('.ocr-book-line')]; for(const line of formulaLines){const hidden=line.querySelector('.ocr-book-line-text'); if(hidden){line.replaceWith(doc.createTextNode(hidden.textContent||''));}} const plain=(doc.body.innerText||doc.body.textContent||''); return plain.replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').trim();
-}
-function renderStoredParagraph(value){
+  // Formula rows contain an image for visual fidelity and a hidden/plain fallback for
+  // speech + scoring. Replace the visual wrapper with that fallback before extracting text.
+  doc.querySelectorAll('.ocr-book-line').forEach(line=>{
+    const hidden=line.querySelector('.ocr-book-line-text');
+    const speech=hidden?.getAttribute('data-ewl-text')||hidden?.textContent||line.getAttribute('data-ewl-speech')||line.textContent||'';
+    line.replaceWith(doc.createTextNode(speech));
+  });
+  doc.querySelectorAll('.formula-source').forEach(el=>{
+    const speech=el.getAttribute('data-ewl-speech')||formulaBodyPlain(el.textContent||'');
+    el.replaceWith(doc.createTextNode(speech));
+  });
+  doc.querySelectorAll('br').forEach(br=>br.replaceWith(doc.createTextNode('\n')));
+  const plain=(doc.body.textContent||'');
+  return plain.replace(/\u00a0/g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}function renderStoredParagraph(value){
   const raw=String(value??'');
   if(!isRichParagraph(raw)) return renderMathParagraph(raw);
   return sanitizeRichHtml(richPayload(raw));
@@ -369,6 +442,7 @@ function latexToFormulaWords(raw, language='hi'){
    .replace(/_\s*\{?([0-9]+|[A-Za-z])\}?/g,(_,a)=>` ${language==='hi'?'सबस्क्रिप्ट':'subscript'} ${a} `)
    .replace(/\^\s*\{?([0-9]+|[A-Za-z])\}?/g,(_,a)=>` ${language==='hi'?'पावर':'power'} ${a} `)
    .replace(/\\/g,' ');
+  s=s.replace(/Σ/g,language==='hi'?'सिग्मा':'sigma').replace(/Δ/g,language==='hi'?'डेल्टा':'delta').replace(/π/g,language==='hi'?'पाई':'pi').replace(/χ/g,language==='hi'?'काई':'chi').replace(/μ/g,language==='hi'?'म्यू':'mu').replace(/λ/g,language==='hi'?'लैम्ब्डा':'lambda').replace(/Ω/g,language==='hi'?'ओमेगा':'omega');
   const hiLetters={A:'ए',B:'बी',C:'सी',D:'डी',E:'ई',F:'एफ',G:'जी',H:'एच',I:'आई',J:'जे',K:'के',L:'एल',M:'एम',N:'एन',O:'ओ',P:'पी',Q:'क्यू',R:'आर',S:'एस',T:'टी',U:'यू',V:'वी',W:'डब्ल्यू',X:'एक्स',Y:'वाई',Z:'ज़ेड'};
   const enLetters={A:'A',B:'B',C:'C',D:'D',E:'E',F:'F',G:'G',H:'H',I:'I',J:'J',K:'K',L:'L',M:'M',N:'N',O:'O',P:'P',Q:'Q',R:'R',S:'S',T:'T',U:'U',V:'V',W:'W',X:'X',Y:'Y',Z:'Z'};
   const hiNums={'0':'ज़ीरो','1':'वन','2':'टू','3':'थ्री','4':'फोर','5':'फाइव','6':'सिक्स','7':'सेवन','8':'एट','9':'नाइन'};
@@ -837,10 +911,10 @@ function closeParagraphCamera(){
 function cameraPanelHtml(){return `<div id="paragraphCameraPanel" class="camera-panel" hidden><div class="camera-panel-heading"><div><b>Gallery Image OCR</b><p class="muted">फोन की Gallery से अपनी फोटो चुनें। Formula वाले हिस्सों में superscript, subscript और fraction को पहचानकर mathematical format में बदलने की कोशिश की जाएगी। फोटो ऐप/server पर सेव नहीं की जाती।</p></div><button type="button" class="btn-secondary" onclick="closeParagraphCamera()">बंद करें</button></div><div class="button-row camera-actions"><button type="button" onclick="chooseParagraphGalleryImage()">🖼️ Gallery से फोटो चुनें</button><input id="paragraphGalleryInput" type="file" accept="image/*" hidden onchange="scanParagraphGalleryImage(this)"></div><div id="galleryOcrResultBox" hidden><label for="galleryOcrResult"><b>OCR से पहचाना गया टेक्स्ट / Formula</b></label><div id="galleryOcrResult" class="rich-ocr-result" contenteditable="true" spellcheck="false" data-placeholder="फोटो से पहचाना गया टेक्स्ट यहाँ आएगा…"></div><div class="button-row camera-actions"><button type="button" class="btn-secondary" onclick="copyGallerySelectedText()">📋 Copy Selected</button><button type="button" class="btn-secondary" onclick="copyGalleryAllText()">📋 Copy All</button><button type="button" class="btn-secondary" onclick="shareGalleryText()">↗️ Share Text</button><button type="button" onclick="pasteGalleryTextToParagraph()">⬇️ Paragraph में Paste</button></div></div><p id="paragraphCameraStatus" class="camera-status" aria-live="polite">Gallery से फोटो चुनकर OCR करें।</p></div>`}
 async function loadTesseract(){if(window.Tesseract)return window.Tesseract;await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('OCR library लोड नहीं हुई। इंटरनेट कनेक्शन जाँचें।'));document.head.appendChild(script)});return window.Tesseract;}
 async function openParagraphCamera(targetId='newParagraphText'){paragraphCameraTargetId=targetId;paragraphLensMode=false;const panel=document.getElementById('paragraphCameraPanel');const status=document.getElementById('paragraphCameraStatus');if(panel)panel.hidden=false;if(status)status.textContent='Gallery से अपनी फोटो चुनें। फोटो कैमरे से नहीं ली जाएगी।';chooseParagraphGalleryImage();}
-async function copyGallerySelectedText(){const box=document.getElementById('galleryOcrResult');if(!box)return;const sel=window.getSelection();const text=sel&&sel.rangeCount?sel.toString().trim():'';if(!text){alert('पहले OCR टेक्स्ट में जरूरी हिस्सा select करें।');return;}try{await navigator.clipboard.writeText(text);alert('Selected text clipboard में copy हो गया।');}catch{document.execCommand('copy');alert('Selected text copy करने की कोशिश की गई।');}}
-async function copyGalleryAllText(){const box=document.getElementById('galleryOcrResult');if(!box||!paragraphPlainText(RICH_PREFIX+box.innerHTML).trim()){alert('पहले फोटो का OCR करें।');return;}const html=box.innerHTML,plain=paragraphPlainText(RICH_PREFIX+html);try{if(navigator.clipboard?.write&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);alert('OCR text के साथ formula वाली मूल image lines भी clipboard में copy की गईं।');return;}}catch{}try{const sel=window.getSelection(),range=document.createRange();range.selectNodeContents(box);sel.removeAllRanges();sel.addRange(range);const ok=document.execCommand('copy');sel.removeAllRanges();if(ok){alert('Rich copy की कोशिश की गई। जहाँ clipboard formatting support करेगा, formula images भी साथ रहेंगी।');return;}}catch{}try{await navigator.clipboard.writeText(plain);alert('इस browser में rich clipboard उपलब्ध नहीं है; plain text copy हुआ। Formula की मूल visual शक्ल के लिए “Paragraph में Paste” बटन इस्तेमाल करें।');}catch{alert('Clipboard copy नहीं हो पाया। “Paragraph में Paste” बटन से सीधे जोड़ें।');}}
+async function copyGallerySelectedText(){const box=document.getElementById('galleryOcrResult');if(!box)return;const sel=window.getSelection();let text=sel&&sel.rangeCount?sel.toString().trim():'';if(!text&&sel?.rangeCount&&box.contains(sel.anchorNode)){let node=sel.anchorNode;node=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;const line=node?.closest?.('.ocr-book-line');if(line){const hidden=line.querySelector('.ocr-book-line-text');text=hidden?.getAttribute('data-ewl-text')||hidden?.textContent?.trim()||'';}}if(!text){alert('पहले OCR टेक्स्ट में जरूरी हिस्सा select करें।');return;}try{await navigator.clipboard.writeText(text);alert('Selected text clipboard में copy हो गया।');}catch{try{document.execCommand('copy');alert('Selected text copy करने की कोशिश की गई।');}catch{alert('Selected text copy नहीं हो पाया।')}}}
+async function copyGalleryAllText(){const box=document.getElementById('galleryOcrResult');if(!box||!paragraphPlainText(RICH_PREFIX+box.innerHTML).trim()){alert('पहले फोटो का OCR करें।');return;}const html=box.innerHTML,plain=paragraphPlainText(RICH_PREFIX+html);try{if(navigator.clipboard?.write&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);alert('पूरा OCR text और formula का book-style formatting copy हो गया।');return;}}catch{}try{const sel=window.getSelection(),range=document.createRange();range.selectNodeContents(box);sel.removeAllRanges();sel.addRange(range);const ok=document.execCommand('copy');sel.removeAllRanges();if(ok){alert('OCR text copy हो गया; जहाँ rich clipboard support है वहाँ formula formatting भी रहेगा।');return;}}catch{}try{await navigator.clipboard.writeText(plain);alert('इस browser में rich copy उपलब्ध नहीं है; text copy हुआ। Formula को उसी book-style में रखने के लिए “Paragraph में Paste” दबाएँ।');}catch{alert('Clipboard copy नहीं हो पाया। “Paragraph में Paste” से सीधे जोड़ें।');}}
 async function shareGalleryText(){const box=document.getElementById('galleryOcrResult');if(!box||!box.innerText.trim()){alert('पहले फोटो का OCR करें।');return;}const text=box.innerText.trim();try{if(navigator.share){await navigator.share({title:'Easyway Learn OCR Text',text});}else{await navigator.clipboard.writeText(text);alert('Share इस device/browser में उपलब्ध नहीं है। Text clipboard में copy कर दिया गया है।');}}catch(e){if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(text);alert('Share नहीं खुल सका। Text clipboard में copy कर दिया गया है।');}catch{}}}}
-async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=window.getSelection();let html='',text='';if(selected&&selected.rangeCount&&box.contains(selected.anchorNode)){const range=selected.getRangeAt(0);const frag=range.cloneContents();const holder=document.createElement('div');holder.appendChild(frag);html=holder.innerHTML;text=holder.innerText||holder.textContent||'';}else{html=box.innerHTML;text=box.innerText||'';}if(!paragraphPlainText(RICH_PREFIX+(html||'')).trim()&&!text.trim()){alert('पहले फोटो का OCR करें।');return;}if(target.isContentEditable){if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+html);else target.innerHTML=html;}else{const plain=text.trim();const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+plain:plain;}target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया; formulas का उपलब्ध formatting रखा गया है।'}
+async function pasteGalleryTextToParagraph(){const box=document.getElementById('galleryOcrResult');const target=document.getElementById(paragraphCameraTargetId);if(!box||!target)return;const selected=window.getSelection();let html='',text='';if(selected&&selected.rangeCount&&box.contains(selected.anchorNode)){const range=selected.getRangeAt(0);const frag=range.cloneContents();const holder=document.createElement('div');holder.appendChild(frag);html=holder.innerHTML;text=paragraphPlainText(RICH_PREFIX+html);}else{html=box.innerHTML;text=paragraphPlainText(RICH_PREFIX+html);}if(!text.trim()&&!html.trim()){alert('पहले फोटो का OCR करें।');return;}if(target.isContentEditable){if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+html);else target.innerHTML=html;}else{const plain=text.trim();const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+plain:plain;}target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='OCR टेक्स्ट Paragraph में paste हो गया; formulas की fraction/superscript/subscript formatting रखी गई है।'}
 async function chooseParagraphGalleryImage(){
   const input=document.getElementById('paragraphGalleryInput');
   if(!input){alert('Gallery विकल्प नहीं मिला। फ़ॉर्म को दोबारा खोलकर कोशिश करें।');return;}
@@ -848,30 +922,78 @@ async function chooseParagraphGalleryImage(){
 }
 async function scanParagraphGalleryImage(input){const status=document.getElementById('paragraphCameraStatus');const file=input?.files?.[0];if(!file)return;if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}const target=document.getElementById(paragraphCameraTargetId),resultBox=document.getElementById('galleryOcrResult');if(!target||!resultBox){if(status)status.textContent='Text field नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}try{if(status)status.textContent='Gallery photo तैयार की जा रही है…';const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('इमेज पढ़ी नहीं जा सकी।'));i.src=url;});const maxSide=4200,scale=Math.min(1.6,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);const box=document.getElementById('galleryOcrResultBox');if(box)box.hidden=false;resultBox.innerHTML='';await scanParagraphSource(canvas,resultBox,status,{appendToTarget:false});}finally{URL.revokeObjectURL(url);}}catch(e){if(status)status.textContent='Gallery OCR नहीं हो पाया: '+(e.message||'कृपया साफ फोटो चुनें।');}finally{input.value='';}}
 async function scanParagraphCamera(){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='अब Live Camera OCR उपलब्ध नहीं है। Gallery से फोटो चुनकर OCR करें।';chooseParagraphGalleryImage();}
+function cropOcrLine(base,b,padRatio=.95){
+  if(!base||!b||![b.x0,b.x1,b.y0,b.y1].every(Number.isFinite))return null;
+  const lineW=Math.max(1,b.x1-b.x0),lineH=Math.max(1,b.y1-b.y0);
+  const padX=Math.max(18,Math.round(lineW*.04)),padY=Math.max(18,Math.round(lineH*padRatio));
+  const x=Math.max(0,Math.floor(b.x0-padX)),y=Math.max(0,Math.floor(b.y0-padY));
+  const x2=Math.min(base.width,Math.ceil(b.x1+padX)),y2=Math.min(base.height,Math.ceil(b.y1+padY));
+  const c=document.createElement('canvas');c.width=Math.max(1,x2-x);c.height=Math.max(1,y2-y);
+  const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(base,x,y,c.width,c.height,0,0,c.width,c.height);return c;
+}
+function formulaLineScore(text){
+  const x=String(text??'').trim();if(!x)return -999;
+  const eq=(x.match(/=/g)||[]).length,frac=(x.match(/\/|frac/g)||[]).length,sym=(x.match(/[+\-×÷^_()[\]{}]/g)||[]).length;
+  const letters=(x.match(/[A-Za-z]/g)||[]).length,digits=(x.match(/[0-9]/g)||[]).length;
+  const words=x.split(/\s+/).filter(Boolean).length;
+  const prose=(x.match(/\b(?:the|and|law|pressure|constant|factor|equation|reaction|point|energy)\b/gi)||[]).length;
+  return eq*4+frac*2+Math.min(8,sym)*.5+Math.min(8,letters*.18+digits*.25)-Math.max(0,words-22)*.1-prose*.6;
+}
+async function refineFormulaLines(result,base,worker,status){
+  const lines=Array.isArray(result?.data?.lines)?result.data.lines:[];if(!lines.length)return;
+  // Known textbook equation names are repaired deterministically. Unknown formula rows get
+  // one focused PSM-7 OCR pass on a high-resolution crop, without altering normal text rows.
+  const unknown=lines.filter(line=>{
+    const text=String(line?.text||'').trim();return text&&looksLikeFormulaLine(text)&&!canonicalFormulaForLine(text)&&line?.bbox;
+  }).slice(0,28);
+  if(!unknown.length)return;
+  const oldParams={tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-=()[]{}^_.,:|'};
+  try{
+    await worker.setParameters(oldParams);
+    for(let n=0;n<unknown.length;n++){
+      const line=unknown[n],crop=cropOcrLine(base,line.bbox,.9);if(!crop)continue;
+      status.textContent=`Formula refinement: ${n+1}/${unknown.length}…`;
+      const candidates=[String(line.text||'').trim()];
+      for(const psm of [7,13]){
+        await worker.setParameters({...oldParams,tessedit_pageseg_mode:String(psm)});
+        try{const r=await worker.recognize(crop);const t=String(r?.data?.text||'').replace(/[ \t]+\n/g,' ').replace(/\n+/g,' ').trim();if(t)candidates.push(t);}catch{}
+      }
+      const chosen=candidates.map(repairGenericFormulaLine).sort((a,b)=>formulaLineScore(b)-formulaLineScore(a))[0]||String(line.text||'').trim();
+      // Keep the original title/example text and only replace the mathematical body if the
+      // focused pass produced a formula-like fragment of comparable quality.
+      const original=String(line.text||'').trim(),oc=original.indexOf(':'),op=original.indexOf('|');
+      const cc=chosen.indexOf(':'),cp=chosen.indexOf('|');
+      let candidateBody=chosen;
+      if(cc>=0)candidateBody=chosen.slice(cc+1);if(cp>=0)candidateBody=candidateBody.slice(0,candidateBody.indexOf('|'));
+      candidateBody=repairGenericFormulaLine(candidateBody).trim();
+      if(oc>=0&&candidateBody&&/[=^_\\/]/.test(candidateBody)){
+        const originalTail=op>=0?original.slice(op):'';
+        line.text=`${original.slice(0,oc+1)} ${candidateBody}${originalTail?` ${repairGenericFormulaLine(originalTail)}`:''}`.trim();
+      }else if(oc<0&&candidateBody&&/[=^_\\/→←]/.test(candidateBody)&&formulaLineScore(candidateBody)>=formulaLineScore(original)+1){
+        line.text=candidateBody;
+      }
+    }
+  }finally{
+    await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_char_whitelist:''});
+  }
+}
 function ocrLinesToBookLikeHtml(result,base){
   const lines=Array.isArray(result?.data?.lines)?result.data.lines:[];
-  if(!lines.length) return ocrTextToRichHtml(result?.data?.text||'');
+  if(!lines.length)return ocrTextToRichHtml(result?.data?.text||'');
   const out=[];
   for(const line of lines){
-    const text=String(line?.text||'').trim();
-    if(!text){out.push('<br>');continue;}
-    const b=line?.bbox;
+    const original=String(line?.text||'').trim();if(!original){out.push('<br>');continue;}
+    const text=repairOcrFormulaLine(original),b=line?.bbox;
     if(looksLikeFormulaLine(text)&&b&&Number.isFinite(b.x0)&&Number.isFinite(b.x1)&&Number.isFinite(b.y0)&&Number.isFinite(b.y1)){
       try{
-        // Give math rows generous vertical margins so superscripts/subscripts and fraction bars are not clipped.
-        const padX=Math.max(18,Math.round((b.x1-b.x0)*0.035)),padY=Math.max(18,Math.round((b.y1-b.y0)*0.9));
-        const x=Math.max(0,Math.floor(b.x0-padX)),y=Math.max(0,Math.floor(b.y0-padY));
-        const x2=Math.min(base.width,Math.ceil(b.x1+padX)),y2=Math.min(base.height,Math.ceil(b.y1+padY));
-        const w=Math.max(1,x2-x),h=Math.max(1,y2-y);
-        const c=document.createElement('canvas');c.width=Math.max(1,w);c.height=Math.max(1,h);c.getContext('2d').drawImage(base,x,y,w,h,0,0,w,h);
-        const src=c.toDataURL('image/webp',.94);
-        out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text">${esc(text)}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
+        const c=cropOcrLine(base,b,.95);if(!c)throw new Error('crop');
+        const src=c.toDataURL('image/webp',.96);
+        out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text" data-ewl-text="${esc(text)}">${esc(text)}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
       }catch{out.push(ocrLineToRichHtml(text));}
     }else out.push(esc(text));
     out.push('<br>');
   }
-  if(out[out.length-1]==='<br>')out.pop();
-  return out.join('');
+  if(out[out.length-1]==='<br>')out.pop();return out.join('');
 }
 async function scanParagraphSource(source,textarea,status,options={}){
   status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
@@ -881,7 +1003,7 @@ async function scanParagraphSource(source,textarea,status,options={}){
       if(window.__paragraphOcrWorker){await window.__paragraphOcrWorker.terminate();window.__paragraphOcrWorker=null;}
       window.__paragraphOcrWorker=await Tesseract.createWorker(lang,1,{logger:m=>{if(m.status==='recognizing text')status.textContent=`टेक्स्ट पहचाना जा रहा है… ${Math.round((m.progress||0)*100)}%`;}});
       window.__paragraphOcrLang=lang;
-      await window.__paragraphOcrWorker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_pageseg_mode:'6'});
+      await window.__paragraphOcrWorker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_pageseg_mode:'6',tessedit_char_whitelist:''});
     }
     const maxSide=3600,scale=Math.min(2.8,Math.max(1,maxSide/Math.max(source.width,source.height)));const base=document.createElement('canvas');base.width=Math.round(source.width*scale);base.height=Math.round(source.height*scale);
     const ctx=base.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,base.width,base.height);
@@ -897,12 +1019,15 @@ async function scanParagraphSource(source,textarea,status,options={}){
     const variants=[['original',original,6],['contrast',gray,6],['binarized',bin,6],['inverted',inv,6],['block-text',original,4],['sparse-text',original,11]];
     const results=[];
     for(const [name,canvas,psm] of variants){status.textContent=`OCR प्रयास: ${name}…`;await window.__paragraphOcrWorker.setParameters({tessedit_pageseg_mode:String(psm),preserve_interword_spaces:'1',user_defined_dpi:'300'});const r=await window.__paragraphOcrWorker.recognize(canvas);results.push(r);}
-    await window.__paragraphOcrWorker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    await window.__paragraphOcrWorker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300',tessedit_char_whitelist:''});
     const clean=r=>(r?.data?.text||'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
     const scored=results.map((r,i)=>({r,i,text:clean(r),confidence:Number(r?.data?.confidence)||0})).filter(x=>x.text);
     if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
     scored.sort((a,b)=>{const score=x=>x.confidence+Math.min(18,x.text.length/180)+Math.min(8,x.text.split(/\s+/).filter(Boolean).length/40)+Math.min(3,(x.text.match(/\n/g)||[]).length/8);return score(b)-score(a);});
     const best=scored[0],text=best.text;
+    await refineFormulaLines(best.r,base,window.__paragraphOcrWorker,status);
+    const repairedLines=Array.isArray(best.r?.data?.lines)&&best.r.data.lines.length?best.r.data.lines.map(l=>repairOcrFormulaLine(l?.text||'')).join('\n'):String(best.r?.data?.text||text).split('\n').map(repairOcrFormulaLine).join('\n');
+    const repairedText=repairedLines.replace(/\n{3,}/g,'\n\n').trim();
     const rich=ocrLinesToBookLikeHtml(best.r,base);
     if(options.appendToTarget!==false){
       const target=textarea;
@@ -910,14 +1035,14 @@ async function scanParagraphSource(source,textarea,status,options={}){
         if(target.innerText.trim())document.execCommand('insertHTML',false,'<br><br>'+rich);else target.innerHTML=rich;
         target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();
       }else{
-        const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+text:text;target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();
+        const existing=String(target.value||'').trim();target.value=existing?existing+'\n\n'+repairedText:repairedText;target.dispatchEvent(new Event('input',{bubbles:true}));target.focus();
       }
     }else{
       textarea.innerHTML=rich;
       const box=document.getElementById('galleryOcrResultBox')||document.getElementById('lensOcrResultBox');if(box)box.hidden=false;
       typesetMath(root);
     }
-    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। Formula वाली पंक्तियाँ मूल फोटो के crop के रूप में दिखाई जाती हैं ताकि fraction/superscript/subscript की शक्ल न टूटे। उन्हें उसी रूप में Paragraph में रखने के लिए “Paragraph में Paste” बटन इस्तेमाल करें; केवल plain text copy करने पर यह visual formatting नहीं जा सकती। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). Formula वाली पंक्तियों की मूल visual शक्ल सुरक्षित रखने के लिए “Paragraph में Paste” का इस्तेमाल करें। सेव करने से पहले OCR text जाँचें। Gallery की इमेज ऐप/server पर सेव नहीं की गई।`;
+    status.textContent=options.appendToTarget===false?`टेक्स्ट पहचान लिया गया। Formula वाली पंक्तियों को किताब-जैसी visual शक्ल में रखा गया है और speech/test के लिए corrected text अलग रखा गया है। जिस हिस्से की जरूरत हो उसे select करके “Copy Selected” या “Paragraph में Paste” दबाएँ। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`:`टेक्स्ट पहचाना गया (best OCR confidence लगभग ${Math.round(best.confidence)}%). Multi-pass OCR के बाद formula refinement किया गया है। सेव करने से पहले spelling, punctuation, numbers और formulas जाँचें। Gallery की फोटो ऐप/server पर सेव नहीं की गई।`;
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
