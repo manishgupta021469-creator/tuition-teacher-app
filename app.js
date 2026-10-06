@@ -374,31 +374,64 @@ function richEditorHtml(value){
 }
 async function pasteIntoField(id){
   const el=document.getElementById(id); if(!el)return;
+  const insert=(text,html='')=>{
+    const source=String(text||'');
+    const known=splitKnownFormulaChunks(source).filter(x=>formulaTitleInfo(x)).length>=1 || /(?:^|\s)1\.\s*Molarity\s*\(\s*M\s*\)/i.test(source);
+    if(el.isContentEditable){
+      if(known){document.execCommand('insertHTML',false,normalizeFormulaEditorContent(source));}
+      else if(html){document.execCommand('insertHTML',false,sanitizeRichHtml(html));}
+      else document.execCommand('insertText',false,source);
+    }else if(el.tagName==='TEXTAREA' || el.tagName==='INPUT'){
+      const value=known?canonicalizeKnownFormulaText(source):source;
+      const start=el.selectionStart??el.value.length,end=el.selectionEnd??start;el.setRangeText(value,start,end,'end');
+    }
+    el.dispatchEvent(new Event('input',{bubbles:true})); el.focus();
+  };
   try{
     const clip=await navigator.clipboard.read();
     for(const item of clip){
       if(item.types.includes('text/html')){
         const html=await (await item.getType('text/html')).text();
-        const safe=sanitizeRichHtml(html);
-        if(el.isContentEditable){document.execCommand('insertHTML',false,safe);}
-        else if(el.tagName==='TEXTAREA' || el.tagName==='INPUT'){
-          const text=new DOMParser().parseFromString(safe,'text/html').body.innerText||'';
-          const start=el.selectionStart??el.value.length,end=el.selectionEnd??start;el.setRangeText(text,start,end,'end');
-        }
-        el.dispatchEvent(new Event('input',{bubbles:true})); el.focus(); return;
+        const text=paragraphPlainText(RICH_PREFIX+html);
+        insert(text,html); return;
+      }
+      if(item.types.includes('text/plain')){
+        insert(await (await item.getType('text/plain')).text()); return;
       }
     }
   }catch{}
-  try{
-    const text=await navigator.clipboard.readText();
-    if(el.isContentEditable){document.execCommand('insertText',false,text);}
-    else if(el.tagName==='TEXTAREA' || el.tagName==='INPUT'){
-      const start=el.selectionStart??el.value.length,end=el.selectionEnd??start;el.setRangeText(text,start,end,'end');
-    }
-    el.dispatchEvent(new Event('input',{bubbles:true})); el.focus();
-  }catch(e){alert('Clipboard से Paste नहीं हो पाया। कृपया field पर long-press करके Paste करें।');}
+  try{insert(await navigator.clipboard.readText());}
+  catch(e){alert('Clipboard से Paste नहीं हो पाया। कृपया field पर long-press करके Paste करें।');}
 }
-function richParagraphPayload(id){const el=document.getElementById(id);if(!el)return '';const html=sanitizeRichHtml(el.isContentEditable?el.innerHTML:esc(el.value||'').replace(/\r?\n/g,'<br>'));return html?RICH_PREFIX+html:'';}
+function installFormulaPasteGuard(){
+  if(window.__ewlFormulaPasteGuardInstalled)return;
+  window.__ewlFormulaPasteGuardInstalled=true;
+  document.addEventListener('paste',e=>{
+    const el=e.target?.closest?.('.rich-paragraph-editor');if(!el)return;
+    const text=e.clipboardData?.getData('text/plain')||'';
+    if(!text.trim())return;
+    const known=splitKnownFormulaChunks(text).filter(x=>formulaTitleInfo(x)).length>=1 || /(?:^|\s)1\.\s*Molarity\s*\(\s*M\s*\)/i.test(text);
+    if(!known)return;
+    e.preventDefault();
+    document.execCommand('insertHTML',false,normalizeFormulaEditorContent(text));
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+}
+
+function normalizeFormulaEditorContent(htmlOrText){
+  const raw=String(htmlOrText??'');
+  const plain=/<[A-Za-z][^>]*>/.test(raw)?paragraphPlainText(RICH_PREFIX+raw):raw.replace(/\r/g,'');
+  const canonical=canonicalizeKnownFormulaText(plain);
+  const known=splitKnownFormulaChunks(plain).filter(x=>formulaTitleInfo(x)).length>=1 || /(?:^|\s)1\.\s*Molarity\s*\(\s*M\s*\)/i.test(plain);
+  if(known) return renderMathParagraph(canonical);
+  return sanitizeRichHtml(raw);
+}
+function richParagraphPayload(id){
+  const el=document.getElementById(id);if(!el)return '';
+  const raw=el.isContentEditable?el.innerHTML:esc(el.value||'').replace(/\r?\n/g,'<br>');
+  const html=normalizeFormulaEditorContent(raw);
+  return html?RICH_PREFIX+html:'';
+}
 
 function installRichFormulaCopyGuard(){
   if(window.__ewlFormulaCopyGuardInstalled)return;
@@ -504,7 +537,7 @@ function dashboard(){
     <div class="dash-brand"><button class="dash-menu" type="button" aria-label="Menu">☰</button><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><b>Easyway Learn</b><small>Read&nbsp; • &nbsp;Practice&nbsp; • &nbsp;Improve</small></div></div></div>
     <div class="header-actions">
       ${decodeJwtRole()==='admin_impersonate'?'<button id="backAdmin" class="btn-secondary" type="button">Back to Admin</button>':''}
-      <button id="teacherProfile" class="dash-profile" type="button" aria-expanded="false"><span class="dash-avatar"><img src="/pwa-assets/teacher-avatar.svg?v=77" alt="Teacher"></span><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button>
+      <button id="teacherProfile" class="dash-profile" type="button" aria-expanded="false"><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button>
       <button id="logout" class="dash-logout">Logout</button>
     </div>
     <div id="profileMenu" class="profile-menu" hidden><b>${esc(state.teacher?.name||'Teacher')}</b><small>Teacher ID: ${esc(state.teacher?.email||state.teacher?.id||'')}</small><button id="profileChangePassword" class="btn-secondary" type="button">Change Password</button></div>
@@ -512,16 +545,16 @@ function dashboard(){
   <main class="teacher-dashboard">
     ${created?`<section class="success-banner"><b>${esc(created).replace(/\n/g,'<br>')}</b></section>`:''}
     <section class="dash-welcome">
-      <div class="dash-welcome-person"><span class="dash-big-avatar"><img src="/pwa-assets/teacher-avatar.svg?v=77" alt="Teacher"></span><div><div class="dash-small-title">Welcome,</div><h1>${esc(state.teacher?.name||'Teacher')}</h1><p>Tuition Teacher <span>•</span> ${orderedStudents.length} Students</p></div></div>
+      <div class="dash-welcome-person"><div><div class="dash-small-title">Welcome,</div><h1>${esc(state.teacher?.name||'Teacher')}</h1><p>Tuition Teacher <span>•</span> ${orderedStudents.length} Students</p></div></div>
     </section>
 
     <section class="dash-section-head"><div><span class="dash-section-icon">👥</span><h2>My Students</h2></div><span class="count-pill">${orderedStudents.length}/20</span></section>
     <section class="dash-student-grid">
-      ${orderedStudents.slice(0,4).map((st,i)=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar"><img src="/pwa-assets/student-avatar.svg?v=77" alt="Student"></span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}
+      ${orderedStudents.slice(0,4).map((st,i)=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}
       ${orderedStudents.length>4?'<button id="moreStudents" class="dash-more-card" type="button"><span>•••</span><b>More</b><small>View students</small><i>›</i></button>':''}
       ${orderedStudents.length===0?'<div class="dash-empty">अभी कोई Student नहीं है। नीचे “Add Student” से जोड़ें।</div>':''}
     </section>
-    <div id="extraStudents" class="dash-student-grid dash-extra" hidden>${orderedStudents.slice(4).map(st=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-avatar"><img src="/pwa-assets/student-avatar.svg?v=77" alt="Student"></span><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}</div>
+    <div id="extraStudents" class="dash-student-grid dash-extra" hidden>${orderedStudents.slice(4).map(st=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}</div>
     <div class="dash-action-row"><button id="addStudent" class="dash-primary-action" type="button">＋ Add Student</button></div>
 
     <section class="dash-section-head"><div><span class="dash-section-icon">📚</span><h2>Learning Materials</h2></div><button id="addSubject" class="dash-link-action" type="button">＋ Create Subject</button></section>
@@ -594,7 +627,7 @@ async function studentTests(id){
   window.__attempts=attempts;
   const overallCorrect=attempts.reduce((n,r)=>n+Number(r.correct_words||0),0),overallTotal=attempts.reduce((n,r)=>n+Number(r.total_words||0),0),overallPct=overallTotal?overallCorrect/overallTotal*100:0;
   const subjects=state.content.map(sub=>{const chapters=sub.books.flatMap(b=>b.chapters);const ids=new Set(chapters.map(c=>c.id));const rows=attempts.filter(r=>ids.has(r.chapter_id));const latest=rows.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];const correct=rows.reduce((n,r)=>n+Number(r.correct_words||0),0),total=rows.reduce((n,r)=>n+Number(r.total_words||0),0);const subjectPct=total?Math.round(correct/total*10000)/100:0;return {...sub,chapters,latest,rows,correct,total,subjectPct}});
-  root.innerHTML=`<header><div class="student-heading"><span class="profile-avatar">${esc(st.name.trim().charAt(0).toUpperCase())}</span><b>${esc(st.name)} — Class ${esc(st.class_name)}</b><button id="deleteCurrentStudent" class="delete-student" type="button">🗑 Delete Student</button></div><button class="btn-secondary" onclick="refresh()">Back</button></header><main><section class="card" id="studentActions"><h2>Student Options</h2><button id="setPhone">📱 WhatsApp Number</button>${st.phone?`<button id="makePdfReport" class="student-action-button" type="button">📄 PDF + 📎 Send Attachment</button><button id="sendTextAttachment" class="student-action-button" type="button">💬 Text Send Attachment</button>`:''}</section><section class="card"><h2>Overall Result</h2><button class="result-link" type="button" onclick="showStudentOverallHistory(${id})">${overallTotal?overallPct.toFixed(2)+'% accuracy':'Results'} · ${overallCorrect}/${overallTotal} words</button></section><section class="card"><h2>Subjects — Test चुनें</h2><div class="compact-grid">${subjects.slice(0,5).map((sub,i)=>`<div class="subject-tile"><button class="list compact-item" onclick="studentSubjectFlow(${id},${sub.id})">${i+1}. ${esc(sub.name)}</button><button class="result-link" onclick="showSubjectHistory(${id},${sub.id})">${sub.total?`${sub.subjectPct.toFixed(2)}%`:'Results'}</button></div>`).join('')}${subjects.length>5?'<button id="moreStudentSubjects" class="btn-secondary compact-item">More</button>':''}</div><div id="extraStudentSubjects" class="compact-grid" hidden>${subjects.slice(5).map((sub,i)=>`<div class="subject-tile"><button class="list compact-item" onclick="studentSubjectFlow(${id},${sub.id})">${i+6}. ${esc(sub.name)}</button><button class="result-link" onclick="showSubjectHistory(${id},${sub.id})">${sub.total?`${sub.subjectPct.toFixed(2)}%`:'Results'}</button></div>`).join('')}</div></section></main>`;
+  root.innerHTML=`<header><div class="student-heading"><b>${esc(st.name)} — Class ${esc(st.class_name)}</b><button id="deleteCurrentStudent" class="delete-student" type="button">🗑 Delete Student</button></div><button class="btn-secondary" onclick="refresh()">Back</button></header><main><section class="card" id="studentActions"><h2>Student Options</h2><button id="setPhone">📱 WhatsApp Number</button>${st.phone?`<button id="makePdfReport" class="student-action-button" type="button">📄 PDF + 📎 Send Attachment</button><button id="sendTextAttachment" class="student-action-button" type="button">💬 Text Send Attachment</button>`:''}</section><section class="card"><h2>Overall Result</h2><button class="result-link" type="button" onclick="showStudentOverallHistory(${id})">${overallTotal?overallPct.toFixed(2)+'% accuracy':'Results'} · ${overallCorrect}/${overallTotal} words</button></section><section class="card"><h2>Subjects — Test चुनें</h2><div class="compact-grid">${subjects.slice(0,5).map((sub,i)=>`<div class="subject-tile"><button class="list compact-item" onclick="studentSubjectFlow(${id},${sub.id})">${i+1}. ${esc(sub.name)}</button><button class="result-link" onclick="showSubjectHistory(${id},${sub.id})">${sub.total?`${sub.subjectPct.toFixed(2)}%`:'Results'}</button></div>`).join('')}${subjects.length>5?'<button id="moreStudentSubjects" class="btn-secondary compact-item">More</button>':''}</div><div id="extraStudentSubjects" class="compact-grid" hidden>${subjects.slice(5).map((sub,i)=>`<div class="subject-tile"><button class="list compact-item" onclick="studentSubjectFlow(${id},${sub.id})">${i+6}. ${esc(sub.name)}</button><button class="result-link" onclick="showSubjectHistory(${id},${sub.id})">${sub.total?`${sub.subjectPct.toFixed(2)}%`:'Results'}</button></div>`).join('')}</div></section></main>`;
   document.getElementById('deleteCurrentStudent').onclick=()=>deleteStudent(id);
   document.getElementById('setPhone').onclick=async()=>{const phone=prompt('WhatsApp number country code सहित',st.phone||'');if(phone===null)return;try{await api('/students/'+id+'/phone',{method:'PUT',body:JSON.stringify({phone})});await studentTests(id)}catch(e){alert(e.message)}};
   if(st.phone){document.getElementById('makePdfReport').onclick=()=>studentPdfAttachmentManager(id,attempts);document.getElementById('sendTextAttachment').onclick=()=>openWhatsAppStudentReport(id,attempts)}
@@ -1319,6 +1352,7 @@ async function reportTeacherActivity(){
 }
 
 installRichFormulaCopyGuard();
+installFormulaPasteGuard();
 
 async function boot(){const isAdminRoute=location.pathname.replace(/\/+$/,'')==='/admin';if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;isAdminRoute?adminLoginView():authView();return}try{if(isAdminRoute){if(decodeJwtRole()==='admin'){await adminDashboard()}else{adminLoginView()}return}if(decodeJwtRole()==='admin'||decodeJwtRole()==='admin_impersonate'){localStorage.removeItem('token');token=null;authView();return}await load();dashboard();reportTeacherActivity().catch(()=>{})}catch(e){localStorage.clear();sessionStorage.removeItem('adminTeacherToken');token=null;isAdminRoute?adminLoginView():authView()}}
 boot();
