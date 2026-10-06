@@ -1,3 +1,10 @@
+
+## V82 change
+- Pronunciation Help now lists complete formulas one-by-one instead of breaking a formula into separate symbol readings.
+- Each detected formula shows both Hindi and English spoken forms and separate listen buttons.
+- The original paragraph remains visible; scoring, attempts, history, accounts, and database logic are unchanged.
+- Formula Editor / tap-to-edit functionality from V81 is retained.
+
 # Easyway Learn — Tuition Teacher App — V56
 
 V27 keeps the existing V26 app features unchanged. The only functional change is the email delivery method for:

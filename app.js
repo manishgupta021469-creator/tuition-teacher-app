@@ -445,6 +445,69 @@ function richParagraphPayload(id){
   return html?RICH_PREFIX+html:'';
 }
 
+
+function formulaEditorToolbarHtml(){
+  const items=[
+    ['\\frac{a}{b}','Fraction'],['^{x}','Superscript'],['_{x}','Subscript'],['\\sqrt{x}','√ Root'],
+    ['Δ','Δ'],['Σ','Σ'],['π','π'],['α','α'],['β','β'],['γ','γ'],['μ','μ'],['λ','λ'],['Ω','Ω'],
+    ['→','→'],['←','←'],['⇌','⇌'],['×','×'],['÷','÷'],['±','±'],['≤','≤'],['≥','≥']
+  ];
+  return items.map(([v,label])=>`<button type="button" class="formula-tool-btn" title="${esc(label)}" onclick="formulaEditorInsert(${JSON.stringify(v)})">${esc(label)}</button>`).join('');
+}
+let __formulaEditorTarget=null;
+let __formulaEditorInsertEditor=null;
+let __formulaEditorMode='insert';
+function openFormulaEditor(target){
+  const isFormula=target?.classList?.contains('formula-source');
+  __formulaEditorTarget=isFormula?target:null;
+  __formulaEditorMode=isFormula?'edit':'insert';
+  const initial=isFormula?(target.getAttribute('data-ewl-speech')||formulaBodyPlain(target.textContent||'')) : '';
+  let modal=document.getElementById('formulaEditorModal');
+  if(!modal){
+    modal=document.createElement('div');modal.id='formulaEditorModal';modal.className='formula-editor-modal';
+    modal.innerHTML=`<div class="formula-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="formulaEditorTitle">
+      <div class="formula-editor-head"><div><b id="formulaEditorTitle">Formula Editor</b><div class="muted">Formula लिखें या नीचे दिए buttons से structure बनाएं।</div></div><button type="button" class="btn-secondary" onclick="closeFormulaEditor()">✕</button></div>
+      <div class="formula-editor-preview" id="formulaEditorPreview" aria-label="Formula preview"></div>
+      <textarea id="formulaEditorInput" class="formula-editor-input" rows="4" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="जैसे: \\frac{a}{b}, H_{2}SO_{4}, 10^{-3}"></textarea>
+      <div class="formula-editor-tools">${formulaEditorToolbarHtml()}</div>
+      <div class="formula-editor-hint">Fraction: <b>\\frac{numerator}{denominator}</b> · Superscript: <b>^{power}</b> · Subscript: <b>_{number}</b></div>
+      <div class="button-row form-actions"><button type="button" onclick="applyFormulaEditor()">Save Formula</button><button type="button" class="btn-secondary" onclick="closeFormulaEditor()">Cancel</button></div>
+    </div>`;
+    modal.addEventListener('click',e=>{if(e.target===modal)closeFormulaEditor();});
+    document.body.appendChild(modal);
+  }
+  const input=document.getElementById('formulaEditorInput');input.value=initial;
+  modal.hidden=false;document.body.classList.add('formula-editor-open');
+  updateFormulaEditorPreview();input.focus();input.setSelectionRange(input.value.length,input.value.length);
+}
+function closeFormulaEditor(){const modal=document.getElementById('formulaEditorModal');if(modal)modal.hidden=true;document.body.classList.remove('formula-editor-open');__formulaEditorTarget=null;__formulaEditorInsertEditor=null;}
+function updateFormulaEditorPreview(){const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');if(!input||!preview)return;const value=input.value.trim();preview.innerHTML=value?formulaTextToMathML(value):'<span class="muted">Formula preview यहाँ दिखेगा</span>';}
+function formulaEditorInsert(value){const input=document.getElementById('formulaEditorInput');if(!input)return;const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;input.setRangeText(value,start,end,'end');input.focus();let caret=input.selectionStart;if(value==='\\frac{a}{b}')caret=start+6;else if(value==='^{x}'||value==='_{x}')caret=start+2;else if(value==='\\sqrt{x}')caret=start+6;input.setSelectionRange(caret,caret);updateFormulaEditorPreview();}
+function applyFormulaEditor(){
+  const input=document.getElementById('formulaEditorInput');const value=input?.value?.trim()||'';if(!value)return alert('पहले formula लिखें।');
+  const rendered=formulaTextToMathML(value);if(!rendered)return alert('इस formula को render नहीं किया जा सका।');
+  if(__formulaEditorMode==='edit'&&__formulaEditorTarget?.isConnected){
+    const el=__formulaEditorTarget;el.setAttribute('data-ewl-speech',formulaBodyPlain(value));el.innerHTML=rendered;el.setAttribute('title','Formula edit करने के लिए tap करें');
+  }else{
+    const editor=__formulaEditorInsertEditor||document.querySelector('.rich-paragraph-editor:focus');
+    if(!editor)return alert('Paragraph editor पर cursor रखकर फिर Formula Insert करें।');
+    editor.focus();document.execCommand('insertHTML',false,`<span class="formula-source" data-ewl-speech="${esc(formulaBodyPlain(value))}" title="Formula edit करने के लिए tap करें">${rendered}</span>`);
+    editor.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+  closeFormulaEditor();
+}
+function installFormulaEditor(){
+  if(window.__ewlFormulaEditorInstalled)return;window.__ewlFormulaEditorInstalled=true;
+  document.addEventListener('click',e=>{
+    const formula=e.target?.closest?.('.rich-paragraph-editor .formula-source');
+    if(formula){e.preventDefault();e.stopPropagation();openFormulaEditor(formula);return;}
+    const insert=e.target?.closest?.('.formula-insert-btn');
+    if(insert){e.preventDefault();const editor=insert.closest('.para')?.querySelector('.rich-paragraph-editor')||document.querySelector('.rich-paragraph-editor:focus');if(editor){__formulaEditorInsertEditor=editor;editor.focus();openFormulaEditor(null);__formulaEditorInsertEditor=editor;}}
+  },true);
+  document.addEventListener('input',e=>{if(e.target?.id==='formulaEditorInput')updateFormulaEditorPreview();});
+}
+function formulaInsertButtonHtml(){return `<button type="button" class="btn-secondary formula-insert-btn">ƒx Formula</button>`;}
+
 function installRichFormulaCopyGuard(){
   if(window.__ewlFormulaCopyGuardInstalled)return;
   window.__ewlFormulaCopyGuardInstalled=true;
@@ -705,25 +768,49 @@ function speakHelpText(text,lang='hi-IN'){
   window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=.82;window.speechSynthesis.speak(u);
 }
 function stopSpeaker(){if('speechSynthesis' in window)window.speechSynthesis.cancel();}
+function extractPronunciationFormulas(text){
+  const src=String(text||'').replace(/\u00a0/g,' ').trim();
+  const found=[];
+  const add=v=>{const x=String(v||'').trim().replace(/^[,;:]+|[,;:]+$/g,'');if(!x)return;if(/^\d+(?:\.\d+)?$/.test(x))return;if(x.length<2)return;if(!found.includes(x))found.push(x);};
+  // Whole equations/expressions: keep the complete formula as one pronunciation item.
+  const eqRe=/(?:[A-Za-zΑ-Ωα-ωΔΣπμλΩχ√]|\d|[₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹]|[+\-×÷=<>≤≥→←≈∝/%^(){}\[\]\/]|\\[A-Za-z]+|\s)+(?:[=→←≈∝]|\\to|\\rightarrow)(?:\s*(?:[A-Za-zΑ-Ωα-ωΔΣπμλΩχ√]|\d|[₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹]|[+\-×÷=<>≤≥→←≈∝/%^(){}\[\]\/]|\\[A-Za-z]+|\s)+)/g;
+  (src.match(eqRe)||[]).forEach(add);
+  // Fractions/roots/LaTeX structures are single formulas.
+  (src.match(/\\(?:frac|sqrt)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?/g)||[]).forEach(add);
+  // Compact symbolic formulas: H₂SO₄, x², 10⁻³, ΔH, v=u+at, etc.
+  const compactRe=/(?<![\p{L}\p{N}])(?:[A-Za-zΔΣπμλΩχαβγθφ]+(?:[_^](?:\{[^{}]+\}|[A-Za-z0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹+\-]+)|[₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹]+)*|\d+(?:[₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+)|[A-Za-zΔΣπμλΩχαβγθφ]+[0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹]+)(?![\p{L}\p{N}])/gu;
+  (src.match(compactRe)||[]).forEach(t=>{if(/[A-Za-zΔΣπμλΩχαβγθφ]/u.test(t)&&/[0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹_^{⁻⁺}]/u.test(t))add(t);else if(/[⁻⁺]/u.test(t))add(t);});
+  // Standalone Greek/scientific symbols only when they form a recognizable formula with a letter/number.
+  const symbolFormulaRe=/(?:Δ|Σ|π|μ|λ|Ω|χ|α|β|γ|θ|φ)[A-Za-z]?\d*[₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]*/g;
+  (src.match(symbolFormulaRe)||[]).forEach(add);
+  // Space-separated equations such as F = ma or 2 H₂ + O₂ → 2 H₂O.
+  const spaced=src.match(/(?:\b[A-Za-zΔΣπμλΩχαβγθφ0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹]+\b\s*)?(?:[=+\-×÷→←≈∝]\s*[A-Za-zΔΣπμλΩχαβγθφ0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*){1,6}/gu)||[];
+  spaced.forEach(add);
+  return found;
+}
+function formulaPronunciation(raw,language='hi'){return latexToFormulaWords(raw,language);}
+function formulaSpeechEnglish(raw){return latexToFormulaWords(raw,'en');}
+function speakHelpText(text,lang='hi-IN'){
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance)return alert('इस मोबाइल/browser में Text-to-Speech उपलब्ध नहीं है।');
+  window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=.82;window.speechSynthesis.speak(u);
+}
+function stopSpeaker(){if('speechSynthesis' in window)window.speechSynthesis.cancel();}
 function showPronunciationHelp(sid,cid,pid,index){
   const c=getChapter(cid),p=c?.paragraphs.find(x=>x.id===pid);if(!p)return;
   const plainParagraph=paragraphPlainText(p.text);
-  const rawTokens=(plainParagraph.match(/[^\s,;:]+/g)||[]).map(t=>t.replace(/^[“”‘’"'`]+|[.,;:!?।॥”’"'`]+$/g,''));
-  const formulas=[...new Set(rawTokens.filter(t=>/[A-Za-z]/.test(t)&&/[0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹()[\]{}^]/.test(t)))];
-  // Also detect equations with spaces around operators, e.g. F = ma or 2H₂ + O₂ → 2H₂O.
-  const equations=plainParagraph.match(/(?:[A-Za-z0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹()[\]{}]+\s*)?(?:[=+\-→←]\s*[A-Za-z0-9₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹()[\]{}]+\s*)+/g)||[];
-  for(const eq of equations){const clean=eq.trim();if(/[A-Za-z]/.test(clean)&&/[=+\-→←]/.test(clean)&&!formulas.includes(clean))formulas.push(clean);}
-  const speechLanguage=paragraphSpeechLanguage(plainParagraph);
-  const speechLocale=speechLanguage==='hi'?'hi-IN':'en-IN';
-  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main><section class="card"><h2>पैराग्राफ कैसे बोलें?</h2><p class="muted">यह सहायता टेस्ट से अलग है। विद्यार्थी पहले यहाँ फॉर्मूले देखने और सुनने का अभ्यास कर सकता है। फॉर्मूले को अक्षर, अंक और ब्रैकेट के क्रम से पढ़ने का तरीका दिखाया गया है।</p><h3>Original Paragraph</h3><div class="word-result math-paragraph">${renderStoredParagraph(p.text)}</div><div class="button-row"><button id="speakWholeParagraph" type="button">🔊 Speaker ON — पूरा पैराग्राफ सुनें</button><button id="stopWholeParagraph" type="button" class="btn-secondary">⏹ Speaker OFF / Stop</button></div></section><section class="card"><h3>Formula / Equation Pronunciation</h3>${formulas.length?formulas.map((f,i)=>`<div class="para"><p><b>Formula ${i+1}:</b> <span class="formula-original">${esc(f)}</span></p><p><b>${speechLanguage==='hi'?'ऐसे बोलें:':'Pronunciation:'}</b> ${esc(formulaPronunciation(f,speechLanguage))}</p><button type="button" data-speak-formula="${i}">🔊 सुनें</button></div>`).join(''):'<p class="muted">इस पैराग्राफ में अंक/ब्रैकेट वाले कोई स्पष्ट फॉर्मूले नहीं मिले। पूरे पैराग्राफ को सुनने के लिए ऊपर का बटन इस्तेमाल करें।</p>'}<p class="muted">ध्यान दें: यह फॉर्मूले के अक्षर/अंक पढ़ने का तरीका है; यौगिक का रासायनिक नाम अलग हो सकता है।</p></section><section class="card"><h3>कुछ चिह्न कैसे बोलें?</h3><p>( ) = ओपन/क्लोज ब्रैकेट · [ ] = ओपन/क्लोज स्क्वायर ब्रैकेट · + = प्लस · − = माइनस · → = रिएक्शन एरो · ₂ = टू · ₃ = थ्री</p></section></main>`;
+  const formulas=extractPronunciationFormulas(plainParagraph);
+  root.innerHTML=`<header><b>Pronunciation Help — Paragraph ${index+1}</b><button onclick="selectParagraph(${sid},${cid})">Back</button></header><main>
+  <section class="card"><h2>Original Paragraph</h2><div class="word-result math-paragraph">${renderStoredParagraph(p.text)}</div></section>
+  <section class="card"><h3>Formula Pronunciation — फॉर्मूला कैसे बोलें</h3>
+  <p class="muted">इस paragraph में मिले हर पूरे formula को एक ही item में दिखाया गया है। किसी formula को अलग-अलग टुकड़ों में नहीं तोड़ा गया है।</p>
+  ${formulas.length?formulas.map((f,i)=>`<div class="para formula-pronunciation-item"><p><b>${i+1}. Formula:</b> <span class="formula-original">${esc(f)}</span></p><p><b>हिंदी:</b> ${esc(formulaPronunciation(f,'hi'))}</p><p><b>English:</b> ${esc(formulaPronunciation(f,'en'))}</p><button type="button" data-speak-formula-hi="${i}">🔊 हिंदी में सुनें</button> <button type="button" data-speak-formula-en="${i}">🔊 English में सुनें</button></div>`).join(''):'<p class="muted">इस paragraph में कोई स्पष्ट formula नहीं मिला।</p>'}
+  </section>
+  <section class="card"><h3>Speaker</h3><p class="muted">Formula की pronunciation को सुनने के लिए ऊपर दिए buttons का उपयोग करें।</p><div class="button-row"><button id="stopWholeParagraph" type="button" class="btn-secondary">⏹ Speaker OFF / Stop</button></div></section>
+  </main>`;
   typesetMath(root);
-  let spokenParagraph=plainParagraph;
-  for(const formula of formulas.slice().sort((a,b)=>b.length-a.length)){
-    const escaped=formula.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    spokenParagraph=spokenParagraph.replace(new RegExp(escaped,'g'),formulaPronunciation(formula,speechLanguage));
-  }
-  document.getElementById('speakWholeParagraph').onclick=()=>speakHelpText(spokenParagraph,speechLocale);document.getElementById('stopWholeParagraph').onclick=stopSpeaker;
-  root.querySelectorAll('[data-speak-formula]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaPronunciation(formulas[Number(btn.dataset.speakFormula)],speechLanguage),speechLocale));
+  root.querySelector('#stopWholeParagraph').onclick=stopSpeaker;
+  root.querySelectorAll('[data-speak-formula-hi]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaPronunciation(formulas[Number(btn.dataset.speakFormulaHi)],'hi'),'hi-IN'));
+  root.querySelectorAll('[data-speak-formula-en]').forEach(btn=>btn.onclick=()=>speakHelpText(formulaPronunciation(formulas[Number(btn.dataset.speakFormulaEn)],'en'),'en-IN'));
 }
 
 function getChapter(id){return state.content.flatMap(s=>s.books.flatMap(b=>b.chapters)).find(c=>c.id===id)}
@@ -1126,9 +1213,9 @@ function openWhatsAppPart(phone,parts,index){
   }
 }
 function showAttemptResult(id){const r=(window.__attempts||[]).find(x=>x.id===id);if(!r)return;const reference=r.reference_text||r.paragraph_text||r.qa_answer||'';const label=r.test_type==='paragraph'?`Paragraph ${r.paragraph_position||''}`:r.test_type==='qa'?'Q&A':'Complete Chapter';const matched=r.matched_word_indexes||r.matched||[];const attemptDateTime=new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});root.innerHTML=`<header><b>Attempt ${r.attempt_no} — ${esc(label)}</b><button onclick="studentTests(${r.student_id})">Back</button></header><main><section class="card"><h2>Score: ${Number(r.score_percent).toFixed(2)}%</h2><p><b>Test Date & Time:</b> ${esc(attemptDateTime)}</p><p>${r.correct_words}/${r.total_words} words correct — <b>${r.passed?'PASS':'NOT PASS'}</b></p>${r.question?`<div class="attempt-question"><b>Question:</b><p>${esc(r.question)}</p></div>`:''}<h3>Original Paragraph / Answer</h3><div class="math-paragraph original-test-text">${renderStoredParagraph(reference)}</div><h3>Word Matching</h3><div class="word-result">${renderWords(reference,matched,r.manual_word_indexes||r.manualWordIndexes||[])}</div></section></main>`;typesetMath(root)}
-function editChapterParagraphs(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Paragraphs</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Paragraphs (${c.paragraphs.length})</h2>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><div id="p${p.id}" class="rich-paragraph-editor" contenteditable="true" spellcheck="false">${richEditorHtml(p.text)}</div><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste (Book Format)</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge next</button>`:''}</div></div>`).join('')}<button onclick="addPara(${cid})">+ Add Paragraph</button><button class="btn-secondary" onclick="editChapterName(${cid})">Edit Chapter Name</button></section></main>`}
+function editChapterParagraphs(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Paragraphs</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Paragraphs (${c.paragraphs.length})</h2>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><div id="p${p.id}" class="rich-paragraph-editor" contenteditable="true" spellcheck="false">${richEditorHtml(p.text)}</div><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste (Book Format)</button>${formulaInsertButtonHtml()}<button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge next</button>`:''}</div></div>`).join('')}<button onclick="addPara(${cid})">+ Add Paragraph</button><button class="btn-secondary" onclick="editChapterName(${cid})">Edit Chapter Name</button></section></main>`}
 function editChapterQA(cid){const c=getChapter(cid);if(!c)return;closeParagraphCamera();root.innerHTML=`<header><b>${esc(c.name)} — Question-Answer</b><button class="btn-secondary" onclick="teacherChapterFlow(${state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)))?.id},${state.content.flatMap(s=>s.books).find(b=>b.chapters.some(x=>x.id===cid))?.id},${cid})">Back</button></header><main><section class="card"><h2>Add Question & Answer</h2><label for="q">Question</label><input id="q" placeholder="प्रश्न लिखें या पेस्ट करें"><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('q')">📋 Paste Question</button><button class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('a')">📋 Paste Answer</button><button class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Gallery OCR</button></div>${cameraPanelHtml()}<button onclick="addQA(${cid})">+ Add Q&A</button></section><section class="card"><h2>Saved Q&A (${c.qa.length})</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')||'<p class="muted">अभी Q&A नहीं है।</p>'}</section></main>`}
-function editChapter(cid){const c=getChapter(cid);closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">CHAPTER EDITOR</span><b>${esc(c.name)}</b></div><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card"><div class="section-heading"><h2>Chapter settings</h2></div><button class="btn-secondary" onclick="editChapterName(${cid})">✎ Edit Chapter Name</button></section><section class="card"><div class="section-heading"><div><div class="section-kicker">READING CONTENT</div><h2>Paragraphs</h2></div><span class="count-pill">${c.paragraphs.length} total</span></div><p class="muted">हर पैराग्राफ का टेक्स्ट बदल सकते हैं। कॉपी किया हुआ टेक्स्ट पेस्ट करने के लिए Paste बटन दबाएँ। अगले पैराग्राफ से जोड़ने का विकल्प भी उपलब्ध है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><div id="p${p.id}" class="rich-paragraph-editor" contenteditable="true" spellcheck="false">${richEditorHtml(p.text)}</div><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste (Book Format)</button><button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete Paragraph</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button type="button" onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><div class="section-kicker">QUESTION PRACTICE</div><h2>Add Question & Answer</h2><p class="muted">प्रश्न और उत्तर टाइप/पेस्ट करें या Gallery की फोटो से टेक्स्ट पहचानकर संबंधित फ़ील्ड में डालें।</p><label for="q">Question</label><input id="q" placeholder="यहाँ प्रश्न लिखें या पेस्ट करें"><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('q')">📋 Question Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Question Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="यहाँ सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('a')">📋 Answer Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Answer Gallery OCR</button></div>${cameraPanelHtml()}<div class="form-actions"><button onclick="addQA(${cid})">+ Add Q&A</button></div></section>${c.qa.length?`<section class="card"><div class="section-kicker">SAVED ITEMS</div><h2>Existing Q&A</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
+function editChapter(cid){const c=getChapter(cid);closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">CHAPTER EDITOR</span><b>${esc(c.name)}</b></div><button class="btn-secondary" type="button" onclick="refresh()">Back</button></header><main><section class="card"><div class="section-heading"><h2>Chapter settings</h2></div><button class="btn-secondary" onclick="editChapterName(${cid})">✎ Edit Chapter Name</button></section><section class="card"><div class="section-heading"><div><div class="section-kicker">READING CONTENT</div><h2>Paragraphs</h2></div><span class="count-pill">${c.paragraphs.length} total</span></div><p class="muted">हर पैराग्राफ का टेक्स्ट बदल सकते हैं। कॉपी किया हुआ टेक्स्ट पेस्ट करने के लिए Paste बटन दबाएँ। अगले पैराग्राफ से जोड़ने का विकल्प भी उपलब्ध है।</p>${c.paragraphs.map((p,i)=>`<div class="para"><label for="p${p.id}">Paragraph ${i+1}</label><div id="p${p.id}" class="rich-paragraph-editor" contenteditable="true" spellcheck="false">${richEditorHtml(p.text)}</div><div class="button-row"><button class="btn-secondary" onclick="pasteIntoField('p${p.id}')">📋 Paste (Book Format)</button>${formulaInsertButtonHtml()}<button onclick="savePara(${p.id})">Save</button><button class="btn-danger" onclick="deleteParagraph(${p.id},${cid},${i+1})">Delete Paragraph</button>${i<c.paragraphs.length-1?`<button class="btn-secondary" onclick="mergePara(${p.id},${c.paragraphs[i+1].id})">Merge with next</button>`:''}</div></div>`).join('')}<button type="button" onclick="addPara(${cid})">+ Add Paragraph</button></section><section class="card"><div class="section-kicker">QUESTION PRACTICE</div><h2>Add Question & Answer</h2><p class="muted">प्रश्न और उत्तर टाइप/पेस्ट करें या Gallery की फोटो से टेक्स्ट पहचानकर संबंधित फ़ील्ड में डालें।</p><label for="q">Question</label><input id="q" placeholder="यहाँ प्रश्न लिखें या पेस्ट करें"><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('q')">📋 Question Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('q')">🖼️ Question Gallery OCR</button></div><label for="a">Correct answer</label><textarea id="a" rows="5" placeholder="यहाँ सही उत्तर लिखें या पेस्ट करें"></textarea><div class="button-row field-actions"><button type="button" class="btn-secondary" onclick="pasteIntoField('a')">📋 Answer Paste</button><button type="button" class="btn-secondary" onclick="openParagraphCamera('a')">🖼️ Answer Gallery OCR</button></div>${cameraPanelHtml()}<div class="form-actions"><button onclick="addQA(${cid})">+ Add Q&A</button></div></section>${c.qa.length?`<section class="card"><div class="section-kicker">SAVED ITEMS</div><h2>Existing Q&A</h2>${c.qa.map((x,i)=>`<div class="qa"><div class="qa-number">Q&A ${i+1}</div><b>${esc(x.question)}</b><p>${esc(x.answer)}</p></div>`).join('')}</section>`:''}</main>`}
 async function savePara(id){try{const text=richParagraphPayload('p'+id);if(!text)return alert('Paragraph खाली है।');await api('/paragraphs/'+id,{method:'PUT',body:JSON.stringify({text})});await refresh()}catch(e){alert(e.message)}}
 async function deleteParagraph(id,cid,number){if(!confirm(`पहली पुष्टि: क्या Paragraph ${number} delete करना चाहते हैं?`))return;if(!confirm('दूसरी पुष्टि: यह paragraph स्थायी रूप से हट जाएगा। पुराने saved test results/history को सुरक्षित रखने का प्रयास किया जाएगा। क्या delete करें?'))return;try{await api('/paragraphs/'+id,{method:'DELETE'});await editChapter(cid)}catch(e){alert(e.message)}}
 async function mergePara(firstId,secondId){if(!confirm('इन दोनों paragraphs को एक में merge करें?'))return;try{await api('/paragraphs/merge',{method:'POST',body:JSON.stringify({firstId,secondId})});await refresh()}catch(e){alert(e.message)}}
@@ -1352,7 +1439,7 @@ async function scanParagraphSource(source,textarea,status,options={}){
   }catch(e){status.textContent='OCR नहीं हो पाया: '+(e.message||'कृपया फिर कोशिश करें।');}
 }
 async function addPara(cid){
-  closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">READING CONTENT</span><b>+ Add Paragraph</b></div><button class="btn-secondary" type="button" onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card form-card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">Gallery की फोटो से किताब का टेक्स्ट पहचानें या सीधे लिखें/पेस्ट करें। पहचाना गया टेक्स्ट एक पैराग्राफ के रूप में सेव होगा। हिंदी और English OCR उपलब्ध हैं; सेव करने से पहले टेक्स्ट जाँच लें।</p><div class="button-row"><button type="button" onclick="openParagraphCamera('newParagraphText')">🖼️ Gallery से फोटो OCR</button><button type="button" class="btn-secondary" onclick="pasteIntoField('newParagraphText')">📋 Clipboard से Paste</button></div>${cameraPanelHtml()}<label for="newParagraphText">Paragraph text</label><div id="newParagraphText" class="rich-paragraph-editor" contenteditable="true" spellcheck="false" data-placeholder="Gallery OCR से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></div><div class="button-row form-actions"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
+  closeParagraphCamera();root.innerHTML=`<header><div class="header-title"><span class="header-eyebrow">READING CONTENT</span><b>+ Add Paragraph</b></div><button class="btn-secondary" type="button" onclick="closeParagraphCamera();editChapter(${cid})">Back</button></header><main><section class="card form-card"><h2>नया पैराग्राफ जोड़ें</h2><p class="muted">Gallery की फोटो से किताब का टेक्स्ट पहचानें या सीधे लिखें/पेस्ट करें। पहचाना गया टेक्स्ट एक पैराग्राफ के रूप में सेव होगा। हिंदी और English OCR उपलब्ध हैं; सेव करने से पहले टेक्स्ट जाँच लें।</p><div class="button-row"><button type="button" onclick="openParagraphCamera('newParagraphText')">🖼️ Gallery से फोटो OCR</button><button type="button" class="btn-secondary" onclick="pasteIntoField('newParagraphText')">📋 Clipboard से Paste</button>${formulaInsertButtonHtml()}</div>${cameraPanelHtml()}<label for="newParagraphText">Paragraph text</label><div id="newParagraphText" class="rich-paragraph-editor" contenteditable="true" spellcheck="false" data-placeholder="Gallery OCR से पहचाना गया टेक्स्ट यहाँ आएगा… या यहाँ लिखें/पेस्ट करें"></div><div class="button-row form-actions"><button type="button" onclick="saveNewParagraph(${cid})">Save Paragraph</button><button type="button" class="btn-secondary" onclick="closeParagraphCamera();editChapter(${cid})">Cancel</button></div></section></main>`;
 }
 async function saveNewParagraph(cid){const text=richParagraphPayload('newParagraphText');if(!text)return alert('पहले टेक्स्ट पहचानें या पैराग्राफ लिखें।');try{await api('/chapters/'+cid+'/paragraphs',{method:'POST',body:JSON.stringify({text})});closeParagraphCamera();await refresh()}catch(e){alert(e.message)}}
 async function addQA(cid){if(!q.value||!a.value)return alert('Question और answer दोनों भरें');try{await api('/chapters/'+cid+'/qa',{method:'POST',body:JSON.stringify({question:q.value,answer:a.value})});await load();editChapterQA(cid)}catch(e){alert(e.message)}}
@@ -1365,6 +1452,7 @@ async function reportTeacherActivity(){
 
 installRichFormulaCopyGuard();
 installFormulaPasteGuard();
+installFormulaEditor();
 
 async function boot(){const isAdminRoute=location.pathname.replace(/\/+$/,'')==='/admin';if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;isAdminRoute?adminLoginView():authView();return}try{if(isAdminRoute){if(decodeJwtRole()==='admin'){await adminDashboard()}else{adminLoginView()}return}if(decodeJwtRole()==='admin'||decodeJwtRole()==='admin_impersonate'){localStorage.removeItem('token');token=null;authView();return}await load();dashboard();reportTeacherActivity().catch(()=>{})}catch(e){localStorage.clear();sessionStorage.removeItem('adminTeacherToken');token=null;isAdminRoute?adminLoginView():authView()}}
 boot();

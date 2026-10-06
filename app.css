@@ -346,3 +346,21 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 /* V80: reliable negative scientific exponents on Android/limited fonts. */
 .formula-example .formula-exp{font-size:.72em;line-height:0;position:relative;top:-.35em;font-style:normal}
 .formula-math .formula-exp{font-size:.72em;line-height:0;position:relative;top:-.35em}
+
+/* Formula Editor: mobile-friendly insert/edit without changing stored paragraph/test logic */
+.formula-source{cursor:pointer;border-radius:5px;}
+.rich-paragraph-editor .formula-source{background:rgba(37,99,235,.06);padding:1px 3px;}
+.rich-paragraph-editor .formula-source:active,.rich-paragraph-editor .formula-source:hover{outline:1px dashed #2563eb;background:rgba(37,99,235,.10);}
+.formula-editor-modal{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:14px;}
+.formula-editor-modal[hidden]{display:none;}
+.formula-editor-dialog{width:min(720px,100%);max-height:min(92vh,760px);overflow:auto;background:#fff;border-radius:18px;padding:16px;box-shadow:0 20px 60px rgba(15,23,42,.25);}
+.formula-editor-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px;}
+.formula-editor-preview{min-height:78px;display:flex;align-items:center;justify-content:center;border:1px solid #dbe3ee;border-radius:12px;background:#f8fafc;padding:14px;margin-bottom:10px;font-size:1.35rem;overflow:auto;}
+.formula-editor-input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:12px;padding:12px;font-size:17px;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;}
+.formula-editor-input:focus{outline:2px solid rgba(37,99,235,.18);border-color:#2563eb;}
+.formula-editor-tools{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0;}
+.formula-tool-btn{min-width:42px;min-height:40px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font-size:16px;padding:7px 9px;cursor:pointer;}
+.formula-tool-btn:active{transform:translateY(1px);}
+.formula-editor-hint{font-size:13px;color:#64748b;margin:4px 0 8px;line-height:1.5;}
+.formula-insert-btn{white-space:nowrap;}
+@media (max-width:520px){.formula-editor-modal{padding:8px;align-items:flex-end}.formula-editor-dialog{border-radius:18px 18px 0 0;padding:13px;max-height:94vh}.formula-editor-preview{min-height:66px;font-size:1.2rem}.formula-tool-btn{min-width:40px;min-height:40px}.formula-editor-input{font-size:16px;}}
