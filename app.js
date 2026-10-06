@@ -299,6 +299,29 @@ async function pasteIntoField(id){
 }
 function richParagraphPayload(id){const el=document.getElementById(id);if(!el)return '';const html=sanitizeRichHtml(el.isContentEditable?el.innerHTML:esc(el.value||'').replace(/\r?\n/g,'<br>'));return html?RICH_PREFIX+html:'';}
 
+function installRichFormulaCopyGuard(){
+  if(window.__ewlFormulaCopyGuardInstalled)return;
+  window.__ewlFormulaCopyGuardInstalled=true;
+  document.addEventListener('copy',e=>{
+    const sel=window.getSelection(); if(!sel||!sel.rangeCount||sel.isCollapsed)return;
+    const anchor=sel.anchorNode?.nodeType===Node.ELEMENT_NODE?sel.anchorNode:sel.anchorNode?.parentElement;
+    const box=anchor?.closest?.('.rich-paragraph-editor,.rich-ocr-result');
+    if(!box)return;
+    try{
+      const range=sel.getRangeAt(0),holder=document.createElement('div');
+      holder.appendChild(range.cloneContents());
+      const html=sanitizeRichHtml(holder.innerHTML);
+      if(!html)return;
+      const plain=paragraphPlainText(RICH_PREFIX+html);
+      if(!plain.trim())return;
+      const clipboardHtml=html;
+      e.clipboardData.setData('text/plain',plain);
+      e.clipboardData.setData('text/html',clipboardHtml);
+      e.preventDefault();
+    }catch{}
+  },true);
+}
+
 function typesetMath(container=root){
   if(window.MathJax?.typesetPromise) window.MathJax.typesetPromise([container]).catch(()=>{});
 }
@@ -1169,6 +1192,8 @@ async function reportTeacherActivity(){
   try{await api('/teacher/activity',{method:'POST',body:JSON.stringify({mode})});}catch{}
   window.addEventListener('appinstalled',()=>{api('/teacher/activity',{method:'POST',body:JSON.stringify({mode:'standalone'})}).catch(()=>{});},{once:true});
 }
+
+installRichFormulaCopyGuard();
 
 async function boot(){const isAdminRoute=location.pathname.replace(/\/+$/,'')==='/admin';if(new URLSearchParams(location.search).get('reset')){localStorage.removeItem('token');token=null;isAdminRoute?adminLoginView():authView();return}try{if(isAdminRoute){if(decodeJwtRole()==='admin'){await adminDashboard()}else{adminLoginView()}return}if(decodeJwtRole()==='admin'||decodeJwtRole()==='admin_impersonate'){localStorage.removeItem('token');token=null;authView();return}await load();dashboard();reportTeacherActivity().catch(()=>{})}catch(e){localStorage.clear();sessionStorage.removeItem('adminTeacherToken');token=null;isAdminRoute?adminLoginView():authView()}}
 boot();
