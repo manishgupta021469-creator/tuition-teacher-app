@@ -90,7 +90,7 @@ function richPayload(value){return isRichParagraph(value)?String(value).slice(RI
 function sanitizeRichHtml(input){
   const raw=String(input??'');
   const doc=new DOMParser().parseFromString(raw,'text/html');
-  const allowed=new Set(['DIV','P','BR','SPAN','B','STRONG','I','EM','U','SUB','SUP','S','MARK','UL','OL','LI','TABLE','TBODY','THEAD','TR','TD','TH','MATH','MROW','MI','MN','MO','MS','MSUP','MSUB','MSUBSUP','MFRAC','MSQRT','MROOT','MTEXT','MSTYLE','MFENCED','MPADDED','MENCLOSE','MUNDER','MOVER','MUNDEROVER','ANNOTATION','SEMANTICS','SVG','PATH']);
+  const allowed=new Set(['DIV','P','BR','SPAN','B','STRONG','I','EM','U','SUB','SUP','S','MARK','UL','OL','LI','TABLE','TBODY','THEAD','TR','TD','TH','MATH','MROW','MI','MN','MO','MS','MSUP','MSUB','MSUBSUP','MFRAC','MSQRT','MROOT','MTEXT','MSTYLE','MFENCED','MPADDED','MENCLOSE','MUNDER','MOVER','MUNDEROVER','ANNOTATION','SEMANTICS','SVG','PATH','IMG']);
   const walk=node=>{
     for(const child of [...node.children]){
       if(!allowed.has(child.tagName)){
@@ -101,10 +101,10 @@ function sanitizeRichHtml(input){
         if(n==='style'){
           const safe=v.split(';').map(x=>x.trim()).filter(x=>/^(vertical-align|font-(size|style|weight|family)|text-(align|decoration)|display|white-space)\s*:/i.test(x)).join(';');
           if(safe) child.setAttribute('style',safe); else child.removeAttribute('style');
-        } else if(n==='class' && /^(math|math-inline|math-display|formula)/i.test(v)){} 
+        } else if(n==='class' && /^(math|math-inline|math-display|formula|ocr-book-line|ocr-book-line-text|ocr-formula-line-image)/i.test(v)){} 
         else if((child.namespaceURI||'').includes('MathML') && ['display','displaystyle','scriptlevel','mathvariant','columnalign','rowalign','stretchy','form'].includes(n)){} 
         else if((child.tagName==='PATH' && n==='d')){} 
-        else if(n==='href' || n==='src' || n.startsWith('on') || n==='id' || n==='data') child.removeAttribute(a.name);
+        else if(n==='src'){ if(child.tagName==='IMG' && /^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(v)){} else child.removeAttribute(a.name); } else if(n==='alt' && child.tagName==='IMG'){} else if(n.startsWith('on') || n==='href' || n==='id' || n==='data') child.removeAttribute(a.name);
         else if(!['class','style','display','displaystyle','scriptlevel','mathvariant','columnalign','rowalign','stretchy','form','d'].includes(n)) child.removeAttribute(a.name);
       });
       walk(child);
@@ -117,7 +117,7 @@ function paragraphPlainText(value){
   const raw=String(value??'');
   if(!isRichParagraph(raw)) return raw;
   const doc=new DOMParser().parseFromString(richPayload(raw),'text/html');
-  return (doc.body.innerText||doc.body.textContent||'').replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+  doc.querySelectorAll('.ocr-book-line-text').forEach(el=>{el.setAttribute('data-ewl-text',el.textContent||'');}); const plain=(doc.body.innerText||doc.body.textContent||''); return plain.replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').trim();
 }
 function renderStoredParagraph(value){
   const raw=String(value??'');
@@ -450,7 +450,24 @@ function bindManualScoreEditor(container,{resultId,reference,matched,studentId,o
   paint();
 }
 
-function speakTest({studentId,chapterId,type,itemId,reference,title,onDone,onCancel}){const displayReference=String(reference??'');const plainReference=paragraphPlainText(displayReference);if(recognition){try{recognition.stop()}catch{}};const total=tokenize(plainReference).length;const preview=(type==='paragraph'||type==='chapter')?plainReference.slice(0,700):'';root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div>${displayReference&&((type==='paragraph'||type==='chapter'))?`<div class="paragraph-preview math-paragraph"><span>Paragraph की शुरुआत</span><div>${renderStoredParagraph(displayReference)}${plainReference.length>700?'…':''}</div></div>`:''}<p>Start Test दबाने के बाद original text छिप जाएगा। उसके बाद microphone में paragraph/answer बोलें। Mixed Hindi-English और formula speech को pronunciation/structure के अनुसार मिलाने की कोशिश की जाएगी।</p><button id="start">Start Test</button><div id="live"></div><div id="score"></div></section></main>`;typesetMath(root);exit.onclick=()=>{if(recognition){try{recognition.stop()}catch{}};refresh()};start.onclick=()=>{start.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference:plainReference,displayReference,title,onDone})}}
+function speakTest({studentId,chapterId,type,itemId,reference,title,onDone,onCancel}){
+  const displayReference=String(reference??'');
+  const plainReference=paragraphPlainText(displayReference);
+  if(recognition){try{recognition.stop()}catch{}}
+  stopSpeaker();
+  const total=tokenize(plainReference).length;
+  const previewWords=tokenize(plainReference).slice(0,6).join(' ');
+  const listenLabel=type==='qa'?'उत्तर सुनिए':type==='chapter'?'पूरा पैराग्राफ सुनिए':'पैराग्राफ सुनिए';
+  root.innerHTML=`<header><b>${esc(title)}</b><button id="exit">Exit</button></header><main><section class="card test"><div class="progress"><b>Test</b><span>${total} words</span></div>${displayReference&&((type==='paragraph'||type==='chapter'))?`<div id="testPreview" class="paragraph-preview math-paragraph"><span>Paragraph की शुरुआत</span><div>${esc(previewWords)}${tokenize(plainReference).length>6?' …':''}</div></div>`:''}<p id="testInstruction">Start Test दबाने के बाद paragraph/answer दिखाई नहीं देगा। उसके बाद microphone में बोलें।</p><div class="test-start-row"><button id="start">Start Test</button><button id="listenBeforeTest" class="btn-secondary" type="button">🔊 ${listenLabel}</button><button id="stopBeforeTest" class="btn-secondary" type="button">⏹ बंद कीजिए</button></div><div id="live"></div><div id="score"></div></section></main>`;
+  const exit=document.getElementById('exit'),startBtn=document.getElementById('start'),listenBtn=document.getElementById('listenBeforeTest'),stopBtn=document.getElementById('stopBeforeTest'),preview=document.getElementById('testPreview');
+  typesetMath(root);
+  const speechLang=paragraphSpeechLanguage(plainReference)==='hi'?'hi-IN':'en-IN';
+  listenBtn.onclick=()=>speakHelpText(plainReference,speechLang);
+  stopBtn.onclick=stopSpeaker;
+  exit.onclick=()=>{stopSpeaker();if(recognition){try{recognition.stop()}catch{}};refresh()};
+  startBtn.onclick=()=>{stopSpeaker();if(preview)preview.hidden=true;startBtn.disabled=true;listenBtn.disabled=true;startBtn.style.display='none';listenBtn.style.display='none';stopBtn.style.display='none';beginRecognition({studentId,chapterId,type,itemId,reference:plainReference,displayReference,title,onDone})};
+}
+
 function beginRecognition({studentId,chapterId,type,itemId,reference,displayReference,title,onDone}){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){
@@ -831,6 +848,29 @@ async function chooseParagraphGalleryImage(){
 }
 async function scanParagraphGalleryImage(input){const status=document.getElementById('paragraphCameraStatus');const file=input?.files?.[0];if(!file)return;if(!file.type?.startsWith('image/')){if(status)status.textContent='कृपया Gallery से केवल image चुनें।';input.value='';return;}const target=document.getElementById(paragraphCameraTargetId),resultBox=document.getElementById('galleryOcrResult');if(!target||!resultBox){if(status)status.textContent='Text field नहीं मिला। दोबारा कोशिश करें।';input.value='';return;}try{if(status)status.textContent='Gallery photo तैयार की जा रही है…';const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('इमेज पढ़ी नहीं जा सकी।'));i.src=url;});const maxSide=4200,scale=Math.min(1.6,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);const box=document.getElementById('galleryOcrResultBox');if(box)box.hidden=false;resultBox.innerHTML='';await scanParagraphSource(canvas,resultBox,status,{appendToTarget:false});}finally{URL.revokeObjectURL(url);}}catch(e){if(status)status.textContent='Gallery OCR नहीं हो पाया: '+(e.message||'कृपया साफ फोटो चुनें।');}finally{input.value='';}}
 async function scanParagraphCamera(){const status=document.getElementById('paragraphCameraStatus');if(status)status.textContent='अब Live Camera OCR उपलब्ध नहीं है। Gallery से फोटो चुनकर OCR करें।';chooseParagraphGalleryImage();}
+function ocrLinesToBookLikeHtml(result,base){
+  const lines=Array.isArray(result?.data?.lines)?result.data.lines:[];
+  if(!lines.length) return ocrTextToRichHtml(result?.data?.text||'');
+  const out=[];
+  for(const line of lines){
+    const text=String(line?.text||'').trim();
+    if(!text){out.push('<br>');continue;}
+    const b=line?.bbox;
+    if(looksLikeFormulaLine(text)&&b&&Number.isFinite(b.x0)&&Number.isFinite(b.x1)&&Number.isFinite(b.y0)&&Number.isFinite(b.y1)){
+      try{
+        const padX=Math.max(10,Math.round((b.x1-b.x0)*0.02)),padY=Math.max(8,Math.round((b.y1-b.y0)*0.35));
+        const x=Math.max(0,Math.floor(b.x0-padX)),y=Math.max(0,Math.floor(b.y0-padY));
+        const w=Math.min(base.width-x,Math.ceil(b.x1-b.x0+padX*2)),h=Math.min(base.height-y,Math.ceil(b.y1-b.y0+padY*2));
+        const c=document.createElement('canvas');c.width=Math.max(1,w);c.height=Math.max(1,h);c.getContext('2d').drawImage(base,x,y,w,h,0,0,w,h);
+        const src=c.toDataURL('image/webp',.94);
+        out.push(`<span class="ocr-book-line" contenteditable="false"><span class="ocr-book-line-text">${esc(text)}</span><img class="ocr-formula-line-image" src="${src}" alt="${esc(text)}"></span>`);
+      }catch{out.push(ocrLineToRichHtml(text));}
+    }else out.push(esc(text));
+    out.push('<br>');
+  }
+  if(out[out.length-1]==='<br>')out.pop();
+  return out.join('');
+}
 async function scanParagraphSource(source,textarea,status,options={}){
   status.textContent='इमेज साफ करके multi-pass OCR किया जा रहा है… पहली बार भाषा डेटा डाउनलोड होने में समय लग सकता है।';
   try{
@@ -861,7 +901,7 @@ async function scanParagraphSource(source,textarea,status,options={}){
     if(!scored.length){status.textContent='टेक्स्ट नहीं मिला। इमेज साफ रखें, रोशनी पर्याप्त रखें और फिर कोशिश करें।';return;}
     scored.sort((a,b)=>{const score=x=>x.confidence+Math.min(18,x.text.length/180)+Math.min(8,x.text.split(/\s+/).filter(Boolean).length/40)+Math.min(3,(x.text.match(/\n/g)||[]).length/8);return score(b)-score(a);});
     const best=scored[0],text=best.text;
-    const rich=ocrTextToRichHtml(text);
+    const rich=ocrLinesToBookLikeHtml(best.r,base);
     if(options.appendToTarget!==false){
       const target=textarea;
       if(target.isContentEditable){
