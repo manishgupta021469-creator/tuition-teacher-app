@@ -289,6 +289,17 @@ function renderFormulaFragment(input,depth=0){
   }
   return out;
 }
+function formulaExampleTailToHtml(tail){
+  let x=String(tail??'');
+  // Render negative scientific exponents explicitly instead of relying on the
+  // device font's Unicode superscript glyphs (some Android fonts drop the minus).
+  const superDigits={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'};
+  const supToAscii=value=>String(value??'').split('').map(ch=>superDigits[ch]??ch).join('');
+  x=x.replace(/10\s*([⁻−-])\s*([⁰¹²³⁴⁵⁶⁷⁸⁹]+|\d+)/g,(_,minus,digits)=>`10<sup class="formula-exp">−${supToAscii(digits)}</sup>`);
+  x=x.replace(/([A-Za-z])\s*([⁻−-])\s*([⁰¹²³⁴⁵⁶⁷⁸⁹]+|\d+)/g,(_,base,minus,digits)=>`${esc(base)}<sup class="formula-exp">−${supToAscii(digits)}</sup>`);
+  x=x.replace(/10\s*\^\s*\{\s*-\s*(\d+)\s*\}/g,(_,digits)=>`10<sup class="formula-exp">−${digits}</sup>`);
+  return x;
+}
 function formulaTextToMathML(text){
   const tex=formulaTextToTeX(text);if(!tex||!/[A-Za-z0-9ΔδπΣχμλΩ]/.test(tex))return '';
   return `<span class="formula-math" aria-label="${esc(formulaBodyPlain(tex))}">${renderFormulaFragment(tex)}</span>`;
@@ -304,7 +315,8 @@ function ocrLineToRichHtml(line){
   const math=formulaTextToMathML(body.trim());
   if(!math)return esc(repaired);
   const speech=formulaBodyPlain(body.trim());
-  return `${esc(prefix)} <span class="formula-source" data-ewl-speech="${esc(speech)}">${math}</span>${tail?' '+esc(tail):''}`;
+  const tailHtml=tail?` <span class="formula-example">${formulaExampleTailToHtml(esc(tail))}</span>`:'';
+  return `${esc(prefix)} <span class="formula-source" data-ewl-speech="${esc(speech)}">${math}</span>${tailHtml}`;
 }
 function ocrTextToRichHtml(text){return String(text??'').replace(/\r/g,'').split('\n').map(ocrLineToRichHtml).join('\n');}
 function renderMathParagraph(value){
