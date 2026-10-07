@@ -510,6 +510,13 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
 .paragraph-row-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:1px 3px}
 .paragraph-row-heading b{font-size:1.02rem;color:#203b30}
 .paragraph-row-heading span{color:#6a7d73;font-size:.88rem;white-space:nowrap}
+
+.paragraph-list-preview{display:grid;grid-template-columns:minmax(0,1fr);margin:0 0 9px;padding:7px 8px;border:1px solid #d7eadf;border-radius:11px;background:#f4fbf7;min-width:0}
+.paragraph-list-preview-label{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;font-weight:700;font-size:.82rem;line-height:1.2;color:#244438;text-align:center;overflow:hidden}
+.paragraph-list-preview-start,.paragraph-list-preview-end{display:inline-block;max-width:44%;padding:4px 7px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paragraph-list-preview-start{background:#e7f3ff;color:#24527a}
+.paragraph-list-preview-end{background:#f9e7fb;color:#713b78}
+.paragraph-list-preview-ellipsis{color:#687a71;font-weight:900}
 .paragraph-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .paragraph-action-grid button{width:100%;min-width:0;min-height:38px;padding:7px 8px;font-size:.78rem;line-height:1.15}
 .paragraph-action-grid .primary-test-btn{grid-column:1/-1;background:linear-gradient(135deg,#17a56d,#12b07c);color:#fff;border:0;box-shadow:0 5px 12px rgba(18,176,124,.18);font-weight:800}
