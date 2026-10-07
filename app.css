@@ -511,7 +511,7 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
 .paragraph-row-heading b{font-size:1.02rem;color:#203b30}
 .paragraph-row-heading span{color:#6a7d73;font-size:.88rem;white-space:nowrap}
 .paragraph-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.paragraph-action-grid button{width:100%;min-width:0;min-height:43px}
+.paragraph-action-grid button{width:100%;min-width:0;min-height:38px;padding:7px 8px;font-size:.78rem;line-height:1.15}
 .paragraph-action-grid .primary-test-btn{grid-column:1/-1;background:linear-gradient(135deg,#17a56d,#12b07c);color:#fff;border:0;box-shadow:0 5px 12px rgba(18,176,124,.18);font-weight:800}
 .paragraph-action-grid .primary-test-btn:hover{background:linear-gradient(135deg,#159b66,#0fa56f)}
 .pronunciation-btn{border:1px solid #bfe1cb;background:#eaf8ef;color:#187343}
@@ -525,7 +525,7 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
   .paragraph-option-a{padding:11px;border-radius:16px}
   .paragraph-row-heading{margin-bottom:8px}
   .paragraph-action-grid{gap:7px}
-  .paragraph-action-grid button{min-height:43px;padding:9px 7px;font-size:.82rem}
+  .paragraph-action-grid button{min-height:38px;padding:7px 6px;font-size:.76rem;line-height:1.15}
 }
 
 
