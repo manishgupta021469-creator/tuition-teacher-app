@@ -527,3 +527,11 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
   .paragraph-action-grid{gap:7px}
   .paragraph-action-grid button{min-height:43px;padding:9px 7px;font-size:.82rem}
 }
+
+
+/* V97 student selection/list layout: scrollable lists with stable navigation */
+.student-flow-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.student-flow-nav button{min-height:44px;font-weight:700}
+.scroll-list{display:flex;flex-direction:column;gap:9px;max-height:58vh;overflow-y:auto;padding-right:3px;-webkit-overflow-scrolling:touch}
+.scroll-list .compact-item{width:100%;text-align:left;min-height:48px}
+@media (min-width:700px){.student-flow-nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
