@@ -477,19 +477,34 @@ function openFormulaEditor(target){
     modal.addEventListener('click',e=>{if(e.target===modal)closeFormulaEditor();});
     document.body.appendChild(modal);
   }
-  const input=document.getElementById('formulaEditorInput');input.value=initial;
+  const input=document.getElementById('formulaEditorInput');input.textContent=initial;
   modal.hidden=false;document.body.classList.add('formula-editor-open');
   updateFormulaEditorPreview();
   // Android/mobile fix: delay focus until the modal is painted, and explicitly keep the editor interactive.
-  input.disabled=false; input.readOnly=false; input.style.pointerEvents='auto';
+  input.contentEditable='true'; input.setAttribute('contenteditable','true'); input.style.pointerEvents='auto'; input.style.userSelect='text'; input.style.webkitUserSelect='text';
   requestAnimationFrame(()=>{ input.focus({preventScroll:true}); const pos=input.value.length; input.setSelectionRange(pos,pos); });
-  setTimeout(()=>{ if(document.activeElement!==input){ input.focus({preventScroll:true}); const pos=input.value.length; input.setSelectionRange(pos,pos); } },80);
+  setTimeout(()=>{ if(document.activeElement!==input){ input.focus({preventScroll:true}); } },80);
 }
 function closeFormulaEditor(){const modal=document.getElementById('formulaEditorModal');if(modal)modal.hidden=true;document.body.classList.remove('formula-editor-open');__formulaEditorTarget=null;__formulaEditorInsertEditor=null;}
-function updateFormulaEditorPreview(){const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');if(!input||!preview)return;const value=input.value.trim();preview.innerHTML=value?formulaTextToMathML(value):'<span class="muted">Formula preview यहाँ दिखेगा</span>';}
-function formulaEditorInsert(value){const input=document.getElementById('formulaEditorInput');if(!input)return;const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;input.setRangeText(value,start,end,'end');input.focus();let caret=input.selectionStart;if(value==='\\frac{a}{b}')caret=start+6;else if(value==='^{x}'||value==='_{x}')caret=start+2;else if(value==='\\sqrt{x}')caret=start+6;input.setSelectionRange(caret,caret);updateFormulaEditorPreview();}
+function updateFormulaEditorPreview(){const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');if(!input||!preview)return;const value=(input.innerText||input.textContent||'').replace(/\u00a0/g,' ').trim();preview.innerHTML=value?formulaTextToMathML(value):'<span class="muted">Formula preview यहाँ दिखेगा</span>';}
+function formulaEditorInsert(value){
+  const input=document.getElementById('formulaEditorInput');if(!input)return;
+  input.focus();
+  const sel=window.getSelection();
+  let range;
+  if(sel&&sel.rangeCount&&input.contains(sel.anchorNode)){range=sel.getRangeAt(0);}
+  else{range=document.createRange();range.selectNodeContents(input);range.collapse(false);sel.removeAllRanges();sel.addRange(range);}
+  range.deleteContents();
+  const node=document.createTextNode(value);
+  range.insertNode(node);
+  range.setStartAfter(node);range.collapse(true);
+  sel.removeAllRanges();sel.addRange(range);
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  input.focus();
+  updateFormulaEditorPreview();
+}
 function applyFormulaEditor(){
-  const input=document.getElementById('formulaEditorInput');const value=input?.value?.trim()||'';if(!value)return alert('पहले formula लिखें।');
+  const input=document.getElementById('formulaEditorInput');const value=(input?.innerText||input?.textContent||'').replace(/\u00a0/g,' ').trim()||'';if(!value)return alert('पहले formula लिखें।');
   const rendered=formulaTextToMathML(value);if(!rendered)return alert('इस formula को render नहीं किया जा सका।');
   if(__formulaEditorMode==='edit'&&__formulaEditorTarget?.isConnected){
     const el=__formulaEditorTarget;el.setAttribute('data-ewl-speech',formulaBodyPlain(value));el.innerHTML=rendered;el.setAttribute('title','Formula edit करने के लिए tap करें');
@@ -527,6 +542,8 @@ function installFormulaEditor(){
   },true);
   document.addEventListener('focusin',e=>{const editor=e.target?.closest?.('.rich-paragraph-editor');if(editor){__lastRichParagraphEditor=editor;__formulaEditorInsertEditor=editor;}},true);
   document.addEventListener('input',e=>{if(e.target?.id==='formulaEditorInput')updateFormulaEditorPreview();});
+  document.addEventListener('beforeinput',e=>{if(e.target?.id==='formulaEditorInput')e.stopPropagation();},true);
+  document.addEventListener('keydown',e=>{if(e.target?.id==='formulaEditorInput')e.stopPropagation();},true);
   document.addEventListener('click',e=>{if(e.target?.id==='formulaEditorInput'){e.stopPropagation();e.target.focus();}},true);
 }
 function formulaInsertButtonHtml(){return `<button type="button" class="btn-secondary formula-insert-btn">ƒx Formula</button>`;}
