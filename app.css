@@ -497,3 +497,33 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
   .tree-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .tree-actions button{width:100%;margin:0}
 }
+
+/* V94 — Option A clean 2-column action grid for Test Type and Paragraph pages. */
+.option-a-test-types{display:grid;gap:12px}
+.test-type-card{border:1px solid #d7eadf;border-radius:17px;background:#fbfffc;padding:12px;box-shadow:0 3px 12px rgba(31,91,57,.04)}
+.test-type-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;margin-bottom:9px}
+.test-type-main{width:100%;min-width:0;text-align:left;font-size:1rem;font-weight:800;padding:13px 14px}
+.test-type-score{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:7px 11px;border:1px solid #cfe7d8;border-radius:11px;background:#f4fbf7;color:#187343;font-weight:800;white-space:nowrap}
+.test-type-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.test-type-actions button{width:100%;min-width:0;min-height:42px}
+.paragraph-option-a{display:block;margin:12px 0;padding:13px;border:1px solid #d7eadf;border-radius:17px;background:#fbfffc;box-shadow:0 3px 12px rgba(31,91,57,.04)}
+.paragraph-row-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:1px 3px}
+.paragraph-row-heading b{font-size:1.02rem;color:#203b30}
+.paragraph-row-heading span{color:#6a7d73;font-size:.88rem;white-space:nowrap}
+.paragraph-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.paragraph-action-grid button{width:100%;min-width:0;min-height:43px}
+.paragraph-action-grid .primary-test-btn{grid-column:1/-1;background:linear-gradient(135deg,#17a56d,#12b07c);color:#fff;border:0;box-shadow:0 5px 12px rgba(18,176,124,.18);font-weight:800}
+.paragraph-action-grid .primary-test-btn:hover{background:linear-gradient(135deg,#159b66,#0fa56f)}
+.pronunciation-btn{border:1px solid #bfe1cb;background:#eaf8ef;color:#187343}
+@media(max-width:600px){
+  .test-type-card{padding:10px;border-radius:16px}
+  .test-type-heading{grid-template-columns:minmax(0,1fr) auto;gap:7px}
+  .test-type-main{font-size:.96rem;padding:12px 11px}
+  .test-type-score{font-size:.82rem;min-height:38px;padding:6px 8px}
+  .test-type-actions{gap:7px}
+  .test-type-actions button{min-height:43px;padding:9px 8px;font-size:.82rem}
+  .paragraph-option-a{padding:11px;border-radius:16px}
+  .paragraph-row-heading{margin-bottom:8px}
+  .paragraph-action-grid{gap:7px}
+  .paragraph-action-grid button{min-height:43px;padding:9px 7px;font-size:.82rem}
+}
