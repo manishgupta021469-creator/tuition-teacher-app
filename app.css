@@ -535,3 +535,81 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
 .scroll-list{display:flex;flex-direction:column;gap:9px;max-height:58vh;overflow-y:auto;padding-right:3px;-webkit-overflow-scrolling:touch}
 .scroll-list .compact-item{width:100%;text-align:left;min-height:48px}
 @media (min-width:700px){.student-flow-nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* V98 — Exact requested selector/button layout: 4 top columns + 3 bottom columns. */
+.student-flow-top-nav{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  margin:0 0 12px;
+  align-items:stretch;
+}
+.student-flow-select{
+  min-width:0;
+  min-height:60px;
+  padding:7px 5px;
+  border:1px solid #cfe7d8;
+  border-radius:13px;
+  background:#ffffff;
+  color:#205a3f;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  box-shadow:0 2px 8px rgba(31,91,57,.05);
+}
+.student-flow-select:hover{background:#f0faf4;color:#17643b}
+.student-flow-select.is-selected{background:#f4fcf7;border-color:#9fd7b5;box-shadow:0 2px 9px rgba(31,91,57,.07)}
+.student-flow-select:disabled{opacity:.7;cursor:not-allowed}
+.student-flow-select-label{font-size:.67rem;font-weight:800;line-height:1.05;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.student-flow-select-value{font-size:.72rem;font-weight:700;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.student-flow-select:not(.is-selected) .student-flow-select-value{color:#7b8d84;font-weight:600}
+.student-flow-bottom-nav{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+  margin:14px 0 4px;
+  padding-top:4px;
+  background:transparent;
+}
+.student-flow-bottom-btn{
+  min-width:0;
+  min-height:52px;
+  padding:8px 6px;
+  border:1px solid transparent;
+  border-radius:13px;
+  color:#fff;
+  font-weight:800;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  line-height:1.05;
+  box-shadow:0 4px 10px rgba(31,91,57,.11);
+}
+.student-flow-bottom-btn span{font-size:.72rem;white-space:normal;text-align:center}
+.student-flow-bottom-btn.paragraph{background:linear-gradient(135deg,#10a968,#0d9b73)}
+.student-flow-bottom-btn.complete{background:linear-gradient(135deg,#1188e8,#1874db)}
+.student-flow-bottom-btn.qa{background:linear-gradient(135deg,#9a4ee8,#cf2db9)}
+.student-flow-bottom-btn:disabled{opacity:.5;box-shadow:none;cursor:not-allowed}
+.student-filter-card h2{margin-bottom:4px}
+.student-filter-search{width:100%;min-height:44px;margin:8px 0 10px;padding:10px 12px;border:1px solid #cfe7d8;border-radius:12px;background:#fff;color:#24473a}
+.student-filter-item{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+.student-filter-item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.student-filter-item small{flex:0 0 auto;color:#6f8578;font-size:.72rem}
+.student-filter-item.is-selected{background:#ebf9f0;border-color:#9fd7b5;color:#17643b}
+.student-chapter-hub{padding-bottom:12px}
+.student-chapter-hub-note{padding:13px;border:1px solid #cfe7d8;border-radius:13px;background:#f4fbf7;color:#2a654a;font-weight:700;text-align:center}
+.qa-question-preview{margin:7px 0 10px;padding:10px 11px;border:1px solid #d8ebe0;border-radius:11px;background:#f8fdf9;color:#27463a;line-height:1.45}
+@media(max-width:600px){
+  .student-flow-top-nav{gap:5px}
+  .student-flow-select{min-height:58px;padding:6px 4px;border-radius:12px}
+  .student-flow-select-label{font-size:.62rem}
+  .student-flow-select-value{font-size:.68rem}
+  .student-flow-bottom-nav{gap:6px;margin-top:12px}
+  .student-flow-bottom-btn{min-height:50px;border-radius:12px;padding:7px 4px}
+  .student-flow-bottom-btn span{font-size:.68rem}
+  .student-filter-item{min-height:52px}
+}
