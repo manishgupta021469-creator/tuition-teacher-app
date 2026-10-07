@@ -456,6 +456,7 @@ function formulaEditorToolbarHtml(){
 }
 let __formulaEditorTarget=null;
 let __formulaEditorInsertEditor=null;
+let __lastRichParagraphEditor=null;
 let __formulaEditorMode='insert';
 function openFormulaEditor(target){
   const isFormula=target?.classList?.contains('formula-source');
@@ -493,10 +494,22 @@ function applyFormulaEditor(){
   if(__formulaEditorMode==='edit'&&__formulaEditorTarget?.isConnected){
     const el=__formulaEditorTarget;el.setAttribute('data-ewl-speech',formulaBodyPlain(value));el.innerHTML=rendered;el.setAttribute('title','Formula edit करने के लिए tap करें');
   }else{
-    const editor=__formulaEditorInsertEditor||document.querySelector('.rich-paragraph-editor:focus');
-    if(!editor)return alert('Paragraph editor पर cursor रखकर फिर Formula Insert करें।');
-    editor.focus();document.execCommand('insertHTML',false,`<span class="formula-source" data-ewl-speech="${esc(formulaBodyPlain(value))}" title="Formula edit करने के लिए tap करें">${rendered}</span>`);
+    const editor=__formulaEditorInsertEditor||__lastRichParagraphEditor||document.querySelector('.rich-paragraph-editor');
+    if(!editor){closeFormulaEditor();return alert('पहले Paragraph में cursor रखकर Formula Insert करें।');}
+    __formulaEditorInsertEditor=editor;editor.focus();
+    const html=`<span class="formula-source" data-ewl-speech="${esc(formulaBodyPlain(value))}" title="Formula edit करने के लिए tap करें">${rendered}</span>`;
+    try{
+      const sel=window.getSelection();
+      if(sel&&sel.rangeCount&&editor.contains(sel.anchorNode)){document.execCommand('insertHTML',false,html);}
+      else {
+        const range=document.createRange();range.selectNodeContents(editor);range.collapse(false);
+        sel.removeAllRanges();sel.addRange(range);document.execCommand('insertHTML',false,html);
+      }
+    }catch{
+      editor.insertAdjacentHTML('beforeend',html);
+    }
     editor.dispatchEvent(new Event('input',{bubbles:true}));
+    __lastRichParagraphEditor=editor;
   }
   closeFormulaEditor();
 }
@@ -506,8 +519,13 @@ function installFormulaEditor(){
     const formula=e.target?.closest?.('.rich-paragraph-editor .formula-source');
     if(formula){e.preventDefault();e.stopPropagation();openFormulaEditor(formula);return;}
     const insert=e.target?.closest?.('.formula-insert-btn');
-    if(insert){e.preventDefault();const editor=insert.closest('.para')?.querySelector('.rich-paragraph-editor')||document.querySelector('.rich-paragraph-editor:focus');if(editor){__formulaEditorInsertEditor=editor;editor.focus();openFormulaEditor(null);__formulaEditorInsertEditor=editor;}}
+    if(insert){
+      e.preventDefault();e.stopPropagation();
+      const editor=insert.closest('.para')?.querySelector('.rich-paragraph-editor')||__lastRichParagraphEditor||document.querySelector('.rich-paragraph-editor');
+      if(editor){__formulaEditorInsertEditor=editor;__lastRichParagraphEditor=editor;editor.focus();openFormulaEditor(null);}
+    }
   },true);
+  document.addEventListener('focusin',e=>{const editor=e.target?.closest?.('.rich-paragraph-editor');if(editor){__lastRichParagraphEditor=editor;__formulaEditorInsertEditor=editor;}},true);
   document.addEventListener('input',e=>{if(e.target?.id==='formulaEditorInput')updateFormulaEditorPreview();});
   document.addEventListener('click',e=>{if(e.target?.id==='formulaEditorInput'){e.stopPropagation();e.target.focus();}},true);
 }

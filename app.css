@@ -311,8 +311,8 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 .original-test-text { padding: 10px 0; overflow-x: auto; }
 .paragraph-preview.math-paragraph > div { white-space: pre-wrap; }
 .math-paragraph mjx-container { max-width: 100%; overflow-x: auto; }
-.rich-paragraph-editor{min-height:150px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;line-height:1.7;white-space:pre-wrap;overflow:auto;font-size:16px}
-.rich-paragraph-editor:focus{outline:2px solid rgba(37,99,235,.22);border-color:#2563eb}
+.rich-paragraph-editor{min-height:150px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;line-height:1.7;white-space:pre-wrap;overflow:auto;font-size:16px;cursor:text;pointer-events:auto;user-select:text;-webkit-user-select:text;-webkit-user-modify:read-write-plaintext-only;touch-action:auto;caret-color:#2563eb}
+.rich-paragraph-editor:focus{outline:2px solid rgba(37,99,235,.22);border-color:#2563eb;-webkit-user-modify:read-write}
 .rich-paragraph-editor:empty:before{content:attr(data-placeholder);color:#94a3b8;pointer-events:none}
 .rich-paragraph-editor math{font-size:1.05em}
 .rich-paragraph-editor sup,.rich-paragraph-editor sub{line-height:0}
