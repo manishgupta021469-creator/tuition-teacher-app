@@ -1654,5 +1654,41 @@ boot();
 
 history.replaceState({appRoot:true},'',location.href);
 const navigationClickPattern=/(dashboard|teacherSubjectFlow|teacherBookFlow|teacherChapterFlow|editChapterParagraphs|editChapterQA|studentTests|studentSubjectFlow|studentBookFlow|studentChapterFlow|selectParagraph|selectQaItems|showChapterTypeHistory|showItemHistory|showAttemptResult|showQaHistory|showSubjectHistory|showStudentOverallHistory|startChapterTest|startSelectedParagraphTest|startSingleQaTest|showPronunciationHelp|authView|adminLoginView|teacherLoginOnly|teacherRegisterOnly|addPara|addChapterForm|forgotPasswordView)/;
-document.addEventListener('click',e=>{const b=e.target.closest('button,[data-s]');if(!b)return;const action=b.getAttribute('onclick')||'';const label=(b.innerText||'').trim().toLowerCase();if(label==='back'||label.startsWith('back ')||label==='exit'||(!(b.dataset.s||b.dataset.teacherSubject||b.dataset.adminOpen)&&!navigationClickPattern.test(action)))return;history.pushState({appScreen:true},'',location.pathname+'#app');},true);
-window.addEventListener('popstate',()=>{const buttons=[...root.querySelectorAll('button')];const back=buttons.find(b=>/^back(\b|\s)/i.test((b.innerText||'').trim()));if(back){back.click();return;}const exit=buttons.find(b=>/^exit$/i.test((b.innerText||'').trim()));if(exit){exit.click();return;}if(token){refresh().catch(()=>authView())}else authView()});
+let __handlingAppPopstate=false;
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button,[data-s]');
+  if(!b)return;
+  const action=b.getAttribute('onclick')||'';
+  const label=(b.innerText||'').trim().toLowerCase();
+  const isBack=label==='back'||label.startsWith('back ');
+  const isExit=label==='exit';
+  // Back must consume the same browser-history entry that was created for the
+  // current in-app screen. Otherwise Android/browser Back and the visible Back
+  // button can drift apart and return to an unrelated subject/home screen.
+  if(isBack&&!__handlingAppPopstate){
+    if(history.state?.appScreen){
+      e.preventDefault();
+      e.stopPropagation();
+      history.back();
+    }
+    return;
+  }
+  if(isExit||(!(b.dataset.s||b.dataset.teacherSubject||b.dataset.adminOpen)&&!navigationClickPattern.test(action)))return;
+  history.pushState({appScreen:true},'',location.pathname+'#app');
+},true);
+window.addEventListener('popstate',()=>{
+  const buttons=[...root.querySelectorAll('button')];
+  const back=buttons.find(b=>/^back(\b|\s)/i.test((b.innerText||'').trim()));
+  if(back){
+    __handlingAppPopstate=true;
+    try{back.click();}finally{__handlingAppPopstate=false;}
+    return;
+  }
+  const exit=buttons.find(b=>/^exit$/i.test((b.innerText||'').trim()));
+  if(exit){
+    __handlingAppPopstate=true;
+    try{exit.click();}finally{__handlingAppPopstate=false;}
+    return;
+  }
+  if(token){refresh().catch(()=>authView())}else authView();
+});
