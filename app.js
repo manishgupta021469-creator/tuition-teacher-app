@@ -478,7 +478,11 @@ function openFormulaEditor(target){
   }
   const input=document.getElementById('formulaEditorInput');input.value=initial;
   modal.hidden=false;document.body.classList.add('formula-editor-open');
-  updateFormulaEditorPreview();input.focus();input.setSelectionRange(input.value.length,input.value.length);
+  updateFormulaEditorPreview();
+  // Android/mobile fix: delay focus until the modal is painted, and explicitly keep the editor interactive.
+  input.disabled=false; input.readOnly=false; input.style.pointerEvents='auto';
+  requestAnimationFrame(()=>{ input.focus({preventScroll:true}); const pos=input.value.length; input.setSelectionRange(pos,pos); });
+  setTimeout(()=>{ if(document.activeElement!==input){ input.focus({preventScroll:true}); const pos=input.value.length; input.setSelectionRange(pos,pos); } },80);
 }
 function closeFormulaEditor(){const modal=document.getElementById('formulaEditorModal');if(modal)modal.hidden=true;document.body.classList.remove('formula-editor-open');__formulaEditorTarget=null;__formulaEditorInsertEditor=null;}
 function updateFormulaEditorPreview(){const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');if(!input||!preview)return;const value=input.value.trim();preview.innerHTML=value?formulaTextToMathML(value):'<span class="muted">Formula preview यहाँ दिखेगा</span>';}
@@ -505,6 +509,7 @@ function installFormulaEditor(){
     if(insert){e.preventDefault();const editor=insert.closest('.para')?.querySelector('.rich-paragraph-editor')||document.querySelector('.rich-paragraph-editor:focus');if(editor){__formulaEditorInsertEditor=editor;editor.focus();openFormulaEditor(null);__formulaEditorInsertEditor=editor;}}
   },true);
   document.addEventListener('input',e=>{if(e.target?.id==='formulaEditorInput')updateFormulaEditorPreview();});
+  document.addEventListener('click',e=>{if(e.target?.id==='formulaEditorInput'){e.stopPropagation();e.target.focus();}},true);
 }
 function formulaInsertButtonHtml(){return `<button type="button" class="btn-secondary formula-insert-btn">ƒx Formula</button>`;}
 
