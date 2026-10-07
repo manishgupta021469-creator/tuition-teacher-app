@@ -374,3 +374,85 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 @media (max-width:520px){.formula-editor-dialog{max-height:calc(100dvh - 8px);}.formula-editor-tools{max-height:28vh;}}
 .progress-chart-btn{white-space:nowrap;font-weight:800;border:1px solid #cbd5e1;background:#f8fafc;color:#1e40af;border-radius:10px;padding:9px 11px;cursor:pointer;min-height:40px}
 .progress-chart-card{overflow:hidden}.progress-chart-wrap{width:100%;overflow-x:auto;margin:8px 0 4px}.progress-chart-svg{display:block;width:100%;min-width:320px;height:auto;max-height:230px}.progress-grid-line{stroke:#e5e7eb;stroke-width:1}.progress-axis{stroke:#94a3b8;stroke-width:1.2}.progress-axis-label{font-size:9px;fill:#64748b}.progress-line{stroke:#2563eb;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.progress-dot{fill:#2563eb;stroke:#fff;stroke-width:2}.progress-trend{font-weight:800;text-align:center;margin:8px 0 12px}.progress-attempt-list{display:grid;gap:7px}.progress-attempt-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}.progress-attempt-row span{display:flex;flex-direction:column}.progress-attempt-row small{font-weight:500;color:#64748b;margin-top:2px}.progress-attempt-row strong{font-size:1.02rem;color:#1d4ed8}@media(max-width:600px){.progress-chart-btn{width:100%}.progress-attempt-row{align-items:flex-start}}
+
+/* V92: Option 2 — Fresh Green Education visual theme. Visual-only; no application logic/data changes. */
+:root{
+  --ink:#17352a;
+  --muted:#64786e;
+  --brand:#20a45a;
+  --brand-dark:#168447;
+  --brand-soft:#e8f8ef;
+  --teal:#16a085;
+  --line:#d8eadf;
+  --paper:rgba(255,255,255,.94);
+  --canvas:#eef9f2;
+  --danger:#b42318;
+  --radius:20px;
+  --shadow:0 9px 26px rgba(31,91,57,.075);
+}
+body{
+  background:radial-gradient(ellipse at 8% 0%,rgba(91,210,132,.18),transparent 38%),
+             radial-gradient(ellipse at 96% 30%,rgba(75,190,166,.13),transparent 34%),
+             linear-gradient(145deg,#f3fbf5 0%,#eaf8f0 52%,#f4fbf7 100%);
+  color:var(--ink);
+}
+header{
+  background:rgba(249,255,251,.94);
+  border-bottom-color:rgba(203,229,212,.9);
+  box-shadow:0 5px 20px rgba(31,91,57,.07);
+}
+main{padding:clamp(14px,3vw,30px)}
+.card{
+  background:rgba(255,255,255,.86);
+  border-color:rgba(255,255,255,.96);
+  border-radius:22px;
+  box-shadow:0 8px 26px rgba(31,91,57,.06);
+  backdrop-filter:blur(10px);
+}
+button{
+  background:linear-gradient(110deg,#20a45a 0%,#18a878 58%,#159c86 100%);
+  border-color:transparent;
+  border-radius:999px;
+  box-shadow:0 5px 13px rgba(24,148,88,.15);
+}
+button:hover{background:linear-gradient(110deg,#198f4d,#14946b 58%,#128a76);box-shadow:0 7px 17px rgba(24,148,88,.2)}
+.btn-secondary,.list{
+  color:#365848;
+  background:rgba(255,255,255,.8);
+  border-color:#d5e9dc;
+  box-shadow:none;
+}
+.btn-secondary:hover,.list:hover{color:#167342;background:#edf9f1;box-shadow:none}
+.btn-danger,.delete-student,button[onclick*="deleteSubject"],button[onclick*="deleteChapter"],button[onclick*="deleteParagraph"],button[data-admin-delete]{
+  background:#fff2f0;color:var(--danger);border-color:#ffd1cc;box-shadow:none
+}
+input,textarea,select{border-color:#cfe3d5;background:rgba(255,255,255,.94)}
+input:focus,textarea:focus,select:focus{border-color:#63bf86;box-shadow:0 0 0 3px rgba(32,164,90,.11);outline:none}
+label{color:#315342}
+.section-kicker,.header-eyebrow{color:#6b8275}
+.count-pill{background:#e8f8ef;border-color:#cfead9;color:#187343}
+.subject{background:rgba(247,253,249,.92);border-color:#d9ebe0;border-left-color:#39b76d;border-radius:18px;padding:16px}
+.book{background:rgba(255,255,255,.84);border-color:#deeee4;border-radius:15px;padding:14px}
+.chapter{background:rgba(239,250,243,.94);border-color:#d4eadc;border-radius:16px}
+.para,.attempt-question{background:rgba(251,255,252,.94);border-color:#dcece2;border-radius:17px}
+.testrow{border-color:#dcece2;border-radius:17px;box-shadow:0 3px 12px rgba(31,91,57,.04)}
+.word-result,.live-box{border-color:#d9eae0;border-radius:16px}
+.camera-panel{background:rgba(239,250,244,.94);border-color:#d1e8d8;border-radius:18px}
+.camera-status{border-radius:13px}
+.success-banner{background:#ecfdf3;border-color:#a7e7bf;color:#166534;border-radius:16px}
+.empty-state{background:#f6fcf8;border-color:#d3e8da;border-radius:15px}
+.auth-card{background:rgba(255,255,255,.92);border-color:rgba(255,255,255,.98);box-shadow:0 18px 50px rgba(31,91,57,.12)}
+.auth-brand img{box-shadow:0 8px 20px rgba(32,164,90,.18)}
+.profile-button{background:#edf9f1;color:#1d6840;border-color:#d5e9dc}
+.profile-avatar{background:#dff4e7;color:#187343}
+.profile-menu{border-color:#d8e9de;box-shadow:0 12px 32px rgba(31,91,57,.14)}
+.tree-summary{background:#e9f8ef;color:#1d6941;border-color:#d4eadd}
+.tree-summary::after{color:#20a45a}
+.subject-summary{background:#e3f6eb}
+.book-summary{background:#f4fbf7}
+.compact-item{border-color:#d9ebe0}
+@media(max-width:600px){
+  main{padding:12px}
+  header{background:rgba(249,255,251,.96)}
+  .card{padding:16px;margin-bottom:14px;border-radius:20px}
+}
