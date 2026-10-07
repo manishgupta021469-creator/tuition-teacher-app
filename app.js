@@ -452,7 +452,7 @@ function formulaEditorToolbarHtml(){
     ['Δ','Δ'],['Σ','Σ'],['π','π'],['α','α'],['β','β'],['γ','γ'],['μ','μ'],['λ','λ'],['Ω','Ω'],
     ['→','→'],['←','←'],['⇌','⇌'],['×','×'],['÷','÷'],['±','±'],['≤','≤'],['≥','≥']
   ];
-  return items.map(([v,label])=>`<button type="button" class="formula-tool-btn" title="${esc(label)}" onclick="formulaEditorInsert(${JSON.stringify(v)})">${esc(label)}</button>`).join('');
+  return items.map(([v,label])=>`<button type="button" class="formula-tool-btn" title="${esc(label)}" data-formula-token="${esc(v)}">${esc(label)}</button>`).join('');
 }
 let __formulaEditorTarget=null;
 let __formulaEditorInsertEditor=null;
@@ -474,7 +474,19 @@ function openFormulaEditor(target){
       <div class="formula-editor-hint">Fraction: <b>\\frac{numerator}{denominator}</b> · Superscript: <b>^{power}</b> · Subscript: <b>_{number}</b></div>
       <div class="button-row form-actions"><button type="button" onclick="applyFormulaEditor()">Save Formula</button><button type="button" class="btn-secondary" onclick="closeFormulaEditor()">Cancel</button></div>
     </div>`;
-    modal.addEventListener('click',e=>{if(e.target===modal)closeFormulaEditor();});
+    modal.addEventListener('click',e=>{
+      if(e.target===modal){closeFormulaEditor();return;}
+      const btn=e.target?.closest?.('.formula-tool-btn');
+      if(btn){e.preventDefault();e.stopPropagation();formulaEditorInsert(btn.getAttribute('data-formula-token')||'');}
+    },true);
+    modal.addEventListener('pointerdown',e=>{
+      const btn=e.target?.closest?.('.formula-tool-btn');
+      if(btn){e.preventDefault();e.stopPropagation();formulaEditorInsert(btn.getAttribute('data-formula-token')||'');}
+    },true);
+    modal.addEventListener('touchstart',e=>{
+      const btn=e.target?.closest?.('.formula-tool-btn');
+      if(btn){e.preventDefault();e.stopPropagation();}
+    },{capture:true,passive:false});
     document.body.appendChild(modal);
   }
   const input=document.getElementById('formulaEditorInput');
