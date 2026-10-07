@@ -625,3 +625,42 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
 .list-speaker-btn{display:inline-flex!important;align-items:center;justify-content:center;width:42px!important;min-width:42px!important;height:38px;min-height:38px!important;padding:0!important;border:1px solid #bfe1cb;background:#eaf8ef;color:#187343;border-radius:10px;font-size:1.05rem;line-height:1;cursor:pointer;font-weight:800}
 .list-speaker-btn:hover{background:#dff4e7}
 @media(max-width:600px){.list-speaker-btn{width:40px!important;min-width:40px!important;height:36px;min-height:36px!important;font-size:1rem}}
+/* V103 — Paragraph list compact one-row action layout, matching the approved reference image.
+   UI-only change for the Paragraph selection list; test logic, history, scoring and data are untouched. */
+.paragraph-list-preview > .paragraph-list-preview-label{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;width:100%;
+  font-weight:700;font-size:.82rem;line-height:1.15;color:#244438;text-align:center;overflow:hidden;
+}
+.paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-start,
+.paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-end{
+  flex:0 1 auto;max-width:44%;min-width:0;
+}
+.paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-start{text-align:left}
+.paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-end{text-align:right}
+.paragraph-list-actions{
+  display:grid;
+  grid-template-columns:minmax(46px,.75fr) minmax(78px,1.25fr) minmax(62px,1fr) minmax(96px,1.45fr) 40px;
+  gap:5px;
+  align-items:stretch;
+}
+.paragraph-list-actions button{
+  width:100%;min-width:0;min-height:38px;height:38px;
+  padding:3px 4px;font-size:.70rem;line-height:1.04;
+  border-radius:10px;white-space:normal;overflow:hidden;
+}
+.paragraph-list-actions .primary-test-btn{
+  grid-column:auto!important;min-height:38px;height:38px;
+  padding:3px 5px;font-size:.74rem;
+}
+.paragraph-list-actions .list-speaker-btn{
+  width:40px!important;min-width:40px!important;height:38px!important;min-height:38px!important;
+  padding:0!important;font-size:1rem;
+}
+@media(max-width:600px){
+  .paragraph-list-preview > .paragraph-list-preview-label{font-size:.78rem;gap:5px}
+  .paragraph-list-actions{grid-template-columns:minmax(44px,.75fr) minmax(74px,1.25fr) minmax(58px,1fr) minmax(92px,1.45fr) 38px;gap:4px}
+  .paragraph-list-actions button{min-height:36px;height:36px;padding:3px 3px;font-size:.66rem;line-height:1.02}
+  .paragraph-list-actions .primary-test-btn{min-height:36px;height:36px;font-size:.70rem;padding:3px 4px}
+  .paragraph-list-actions .list-speaker-btn{width:38px!important;min-width:38px!important;height:36px!important;min-height:36px!important;font-size:.96rem}
+}
+
