@@ -456,3 +456,44 @@ label{color:#315342}
   header{background:rgba(249,255,251,.96)}
   .card{padding:16px;margin-bottom:14px;border-radius:20px}
 }
+
+/* V93: Option 2 button/card layout refinement only — no feature/logic changes. */
+button{
+  border-radius:13px;
+  min-height:44px;
+  padding:10px 15px;
+  font-weight:700;
+  box-shadow:0 4px 10px rgba(24,148,88,.12);
+}
+button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
+.btn-secondary,.list{
+  border-radius:12px;
+  background:#ffffff;
+  border-color:#cfe7d8;
+  color:#286044;
+}
+.btn-secondary:hover,.list:hover{background:#edf9f1;color:#167342}
+.chapter button,.book>button,.subject>button{border-radius:12px}
+.button-row{gap:8px}
+.button-row button{border-radius:12px}
+.tree-actions{gap:8px}
+.tree-actions button{border-radius:12px}
+.testrow{padding:13px;border-radius:15px;background:#fbfffc}
+.para,.attempt-question{padding:15px;border-radius:16px}
+.progress-chart-btn{
+  border-radius:12px;
+  border-color:#bfe1cb;
+  background:#eaf8ef;
+  color:#187343;
+  box-shadow:none;
+}
+.progress-chart-btn:hover{background:#dff4e7;color:#12663a;box-shadow:none}
+.result-link{border-radius:10px;color:#187343;border-color:#cfe7d8;background:#f4fbf7}
+.result-link:hover{background:#e6f7ec;color:#12663a}
+@media(max-width:600px){
+  button{border-radius:12px}
+  .button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .button-row button{width:100%;min-width:0}
+  .tree-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .tree-actions button{width:100%;margin:0}
+}
