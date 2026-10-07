@@ -365,3 +365,10 @@ main:has(>#studentActions) #studentActions .student-action-button{display:inline
 .formula-editor-hint{font-size:13px;color:#64748b;margin:4px 0 8px;line-height:1.5;}
 .formula-insert-btn{white-space:nowrap;}
 @media (max-width:520px){.formula-editor-modal{padding:8px;align-items:flex-end}.formula-editor-dialog{border-radius:18px 18px 0 0;padding:13px;max-height:94vh}.formula-editor-preview{min-height:66px;font-size:1.2rem}.formula-tool-btn{min-width:40px;min-height:40px}.formula-editor-input{font-size:16px;}}
+/* Formula editor: keep the editor and its special-key palette usable while the
+   Android keyboard is open. The visualViewport height is synchronized by app.js. */
+.formula-editor-modal{height:100dvh;box-sizing:border-box;overflow:hidden;}
+.formula-editor-dialog{max-height:calc(100dvh - 16px);}
+.formula-editor-tools{max-height:34vh;overflow:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+.formula-tool-btn{flex:0 0 auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+@media (max-width:520px){.formula-editor-dialog{max-height:calc(100dvh - 8px);}.formula-editor-tools{max-height:28vh;}}

@@ -448,9 +448,13 @@ function richParagraphPayload(id){
 
 function formulaEditorToolbarHtml(){
   const items=[
-    ['\\frac{a}{b}','Fraction'],['^{x}','Superscript'],['_{x}','Subscript'],['\\sqrt{x}','√ Root'],
-    ['Δ','Δ'],['Σ','Σ'],['π','π'],['α','α'],['β','β'],['γ','γ'],['μ','μ'],['λ','λ'],['Ω','Ω'],
-    ['→','→'],['←','←'],['⇌','⇌'],['×','×'],['÷','÷'],['±','±'],['≤','≤'],['≥','≥']
+    ['\\frac{a}{b}','Fraction'],['^{x}','Superscript'],['_{x}','Subscript'],['\\sqrt{x}','√ Root'],['\\sqrt[n]{x}','ⁿ√ Root'],
+    ['Δ','Δ'],['Σ','Σ'],['Π','Π'],['∑','∑'],['∫','∫'],['∮','∮'],['π','π'],['∞','∞'],['θ','θ'],['α','α'],['β','β'],['γ','γ'],['δ','δ'],['λ','λ'],['μ','μ'],['ν','ν'],['ρ','ρ'],['σ','σ'],['τ','τ'],['φ','φ'],['ψ','ψ'],['ω','ω'],['Ω','Ω'],
+    ['′','′'],['°','°'],['·','·'],['∂','∂'],['∇','∇'],['√','√'],['∝','∝'],['∴','∴'],['∵','∵'],
+    ['→','→'],['←','←'],['↔','↔'],['⇒','⇒'],['⇌','⇌'],['↑','↑'],['↓','↓'],
+    ['×','×'],['÷','÷'],['±','±'],['−','−'],['≠','≠'],['≈','≈'],['≤','≤'],['≥','≥'],['<','<'],['>','>'],['=','='],['%','%'],
+    ['²','²'],['³','³'],['⁺','⁺'],['⁻','⁻'],['₁','₁'],['₂','₂'],['₃','₃'],['₄','₄'],['₅','₅'],['₆','₆'],['₇','₇'],['₈','₈'],['₉','₉'],['₀','₀'],
+    ['( )','( )'],['[ ]','[ ]'],['{ }','{ }']
   ];
   return items.map(([v,label])=>`<button type="button" class="formula-tool-btn" title="${esc(label)}" data-formula-token="${esc(v)}">${esc(label)}</button>`).join('');
 }
@@ -458,6 +462,9 @@ let __formulaEditorTarget=null;
 let __formulaEditorInsertEditor=null;
 let __lastRichParagraphEditor=null;
 let __formulaEditorMode='insert';
+let __formulaEditorSelectionStart=0;
+let __formulaEditorSelectionEnd=0;
+let __formulaEditorHandledPointer=false;
 function openFormulaEditor(target){
   const isFormula=target?.classList?.contains('formula-source');
   __formulaEditorTarget=isFormula?target:null;
@@ -477,16 +484,40 @@ function openFormulaEditor(target){
     modal.addEventListener('click',e=>{
       if(e.target===modal){closeFormulaEditor();return;}
       const btn=e.target?.closest?.('.formula-tool-btn');
-      if(btn){e.preventDefault();e.stopPropagation();formulaEditorInsert(btn.getAttribute('data-formula-token')||'');}
+      if(btn){e.preventDefault();e.stopPropagation();if(__formulaEditorHandledPointer){__formulaEditorHandledPointer=false;return;}formulaEditorInsert(btn.getAttribute('data-formula-token')||'');}
     },true);
+    // Save the caret before the formula toolbar takes focus. This keeps insertion at
+    // the user's exact position even when Android temporarily moves focus to a button.
     modal.addEventListener('pointerdown',e=>{
       const btn=e.target?.closest?.('.formula-tool-btn');
-      if(btn){e.preventDefault();e.stopPropagation();formulaEditorInsert(btn.getAttribute('data-formula-token')||'');}
+      const input=document.getElementById('formulaEditorInput');
+      if(btn){
+        if(input&&Number.isInteger(input.selectionStart)){
+          __formulaEditorSelectionStart=input.selectionStart;
+          __formulaEditorSelectionEnd=Number.isInteger(input.selectionEnd)?input.selectionEnd:input.selectionStart;
+        }
+        e.preventDefault();e.stopPropagation();__formulaEditorHandledPointer=true;formulaEditorInsert(btn.getAttribute('data-formula-token')||'');
+      }
     },true);
     modal.addEventListener('touchstart',e=>{
       const btn=e.target?.closest?.('.formula-tool-btn');
-      if(btn){e.preventDefault();e.stopPropagation();}
+      const input=document.getElementById('formulaEditorInput');
+      if(btn&&input&&Number.isInteger(input.selectionStart)){
+        __formulaEditorSelectionStart=input.selectionStart;
+        __formulaEditorSelectionEnd=Number.isInteger(input.selectionEnd)?input.selectionEnd:input.selectionStart;
+        e.preventDefault();e.stopPropagation();
+      }
     },{capture:true,passive:false});
+    // Keep the editor visible above the Android keyboard so the normal keyboard and
+    // the in-app formula keyboard can be used together.
+    const syncFormulaViewport=()=>{
+      const vv=window.visualViewport;
+      if(!vv||modal.hidden)return;
+      modal.style.height=vv.height+'px';
+      modal.style.top=vv.offsetTop+'px';
+      modal.style.bottom='auto';
+    };
+    if(window.visualViewport)window.visualViewport.addEventListener('resize',syncFormulaViewport);
     document.body.appendChild(modal);
   }
   const input=document.getElementById('formulaEditorInput');
@@ -494,7 +525,20 @@ function openFormulaEditor(target){
   // contenteditable: on Android that makes the control visually editable but breaks
   // native keyboard input and causes toolbar inserts to disappear.
   input.value=initial;
-  modal.hidden=false;document.body.classList.add('formula-editor-open');
+  if(!input.__formulaEditorSelectionTracking){
+    const rememberSelection=()=>{
+      if(Number.isInteger(input.selectionStart)){
+        __formulaEditorSelectionStart=input.selectionStart;
+        __formulaEditorSelectionEnd=Number.isInteger(input.selectionEnd)?input.selectionEnd:input.selectionStart;
+      }
+    };
+    ['select','click','keyup','input'].forEach(ev=>input.addEventListener(ev,rememberSelection));
+    input.__formulaEditorSelectionTracking=true;
+  }
+  __formulaEditorSelectionStart=input.value.length;
+  __formulaEditorSelectionEnd=input.value.length;
+  modal.hidden=false;
+  if(window.visualViewport){modal.style.height=window.visualViewport.height+'px';modal.style.top=window.visualViewport.offsetTop+'px';modal.style.bottom='auto';}document.body.classList.add('formula-editor-open');
   updateFormulaEditorPreview();
   requestAnimationFrame(()=>{
     try{
@@ -509,7 +553,7 @@ function openFormulaEditor(target){
     }
   },120);
 }
-function closeFormulaEditor(){const modal=document.getElementById('formulaEditorModal');if(modal)modal.hidden=true;document.body.classList.remove('formula-editor-open');__formulaEditorTarget=null;__formulaEditorInsertEditor=null;}
+function closeFormulaEditor(){const modal=document.getElementById('formulaEditorModal');if(modal){modal.hidden=true;modal.style.height='';modal.style.top='';modal.style.bottom='';}document.body.classList.remove('formula-editor-open');__formulaEditorTarget=null;__formulaEditorInsertEditor=null;__formulaEditorSelectionStart=0;__formulaEditorSelectionEnd=0;}
 function updateFormulaEditorPreview(){
   const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');
   if(!input||!preview)return;
@@ -519,12 +563,15 @@ function updateFormulaEditorPreview(){
 function formulaEditorInsert(value){
   const input=document.getElementById('formulaEditorInput');if(!input)return;
   const token=String(value??'');
-  input.focus();
-  const start=Number.isInteger(input.selectionStart)?input.selectionStart:input.value.length;
-  const end=Number.isInteger(input.selectionEnd)?input.selectionEnd:start;
-  // Insert using textarea selection APIs so this works reliably on Android Chrome and
-  // other mobile browsers. The caret is placed immediately after the inserted token.
+  const len=input.value.length;
+  let start=Number.isInteger(__formulaEditorSelectionStart)?__formulaEditorSelectionStart:input.selectionStart;
+  let end=Number.isInteger(__formulaEditorSelectionEnd)?__formulaEditorSelectionEnd:input.selectionEnd;
+  if(!Number.isInteger(start))start=len;if(!Number.isInteger(end))end=start;
+  start=Math.max(0,Math.min(start,len));end=Math.max(start,Math.min(end,len));
+  try{input.focus({preventScroll:true});}catch{input.focus();}
   input.setRangeText(token,start,end,'end');
+  __formulaEditorSelectionStart=start+token.length;
+  __formulaEditorSelectionEnd=__formulaEditorSelectionStart;
   input.dispatchEvent(new Event('input',{bubbles:true}));
   updateFormulaEditorPreview();
   try{input.focus({preventScroll:true});}catch{input.focus();}
