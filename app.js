@@ -477,34 +477,49 @@ function openFormulaEditor(target){
     modal.addEventListener('click',e=>{if(e.target===modal)closeFormulaEditor();});
     document.body.appendChild(modal);
   }
-  const input=document.getElementById('formulaEditorInput');input.textContent=initial;
+  const input=document.getElementById('formulaEditorInput');
+  // This is a real <textarea>, so use its value/selection APIs. Do not turn it into
+  // contenteditable: on Android that makes the control visually editable but breaks
+  // native keyboard input and causes toolbar inserts to disappear.
+  input.value=initial;
   modal.hidden=false;document.body.classList.add('formula-editor-open');
   updateFormulaEditorPreview();
-  // Android/mobile fix: delay focus until the modal is painted, and explicitly keep the editor interactive.
-  input.contentEditable='true'; input.setAttribute('contenteditable','true'); input.style.pointerEvents='auto'; input.style.userSelect='text'; input.style.webkitUserSelect='text';
-  requestAnimationFrame(()=>{ input.focus({preventScroll:true}); const pos=input.value.length; input.setSelectionRange(pos,pos); });
-  setTimeout(()=>{ if(document.activeElement!==input){ input.focus({preventScroll:true}); } },80);
+  requestAnimationFrame(()=>{
+    try{
+      input.focus({preventScroll:true});
+      const pos=input.value.length;
+      input.setSelectionRange(pos,pos);
+    }catch{}
+  });
+  setTimeout(()=>{
+    if(document.activeElement!==input){
+      try{input.focus({preventScroll:true});}catch{}
+    }
+  },120);
 }
 function closeFormulaEditor(){const modal=document.getElementById('formulaEditorModal');if(modal)modal.hidden=true;document.body.classList.remove('formula-editor-open');__formulaEditorTarget=null;__formulaEditorInsertEditor=null;}
-function updateFormulaEditorPreview(){const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');if(!input||!preview)return;const value=(input.innerText||input.textContent||'').replace(/\u00a0/g,' ').trim();preview.innerHTML=value?formulaTextToMathML(value):'<span class="muted">Formula preview यहाँ दिखेगा</span>';}
+function updateFormulaEditorPreview(){
+  const input=document.getElementById('formulaEditorInput'),preview=document.getElementById('formulaEditorPreview');
+  if(!input||!preview)return;
+  const value=String(input.value||'').replace(/\u00a0/g,' ').trim();
+  preview.innerHTML=value?formulaTextToMathML(value):'<span class="muted">Formula preview यहाँ दिखेगा</span>';
+}
 function formulaEditorInsert(value){
   const input=document.getElementById('formulaEditorInput');if(!input)return;
+  const token=String(value??'');
   input.focus();
-  const sel=window.getSelection();
-  let range;
-  if(sel&&sel.rangeCount&&input.contains(sel.anchorNode)){range=sel.getRangeAt(0);}
-  else{range=document.createRange();range.selectNodeContents(input);range.collapse(false);sel.removeAllRanges();sel.addRange(range);}
-  range.deleteContents();
-  const node=document.createTextNode(value);
-  range.insertNode(node);
-  range.setStartAfter(node);range.collapse(true);
-  sel.removeAllRanges();sel.addRange(range);
+  const start=Number.isInteger(input.selectionStart)?input.selectionStart:input.value.length;
+  const end=Number.isInteger(input.selectionEnd)?input.selectionEnd:start;
+  // Insert using textarea selection APIs so this works reliably on Android Chrome and
+  // other mobile browsers. The caret is placed immediately after the inserted token.
+  input.setRangeText(token,start,end,'end');
   input.dispatchEvent(new Event('input',{bubbles:true}));
-  input.focus();
   updateFormulaEditorPreview();
+  try{input.focus({preventScroll:true});}catch{input.focus();}
 }
 function applyFormulaEditor(){
-  const input=document.getElementById('formulaEditorInput');const value=(input?.innerText||input?.textContent||'').replace(/\u00a0/g,' ').trim()||'';if(!value)return alert('पहले formula लिखें।');
+  const input=document.getElementById('formulaEditorInput');
+  const value=String(input?.value||'').replace(/\u00a0/g,' ').trim()||'';if(!value)return alert('पहले formula लिखें।');
   const rendered=formulaTextToMathML(value);if(!rendered)return alert('इस formula को render नहीं किया जा सका।');
   if(__formulaEditorMode==='edit'&&__formulaEditorTarget?.isConnected){
     const el=__formulaEditorTarget;el.setAttribute('data-ewl-speech',formulaBodyPlain(value));el.innerHTML=rendered;el.setAttribute('title','Formula edit करने के लिए tap करें');
