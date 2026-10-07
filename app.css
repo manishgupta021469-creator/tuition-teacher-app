@@ -613,3 +613,8 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
   .student-flow-bottom-btn span{font-size:.68rem}
   .student-filter-item{min-height:52px}
 }
+
+/* V100 — compact per-item Speaker ON/OFF control; existing action buttons unchanged. */
+.list-speaker-btn{display:inline-flex!important;align-items:center;justify-content:center;width:42px!important;min-width:42px!important;height:38px;min-height:38px!important;padding:0!important;border:1px solid #bfe1cb;background:#eaf8ef;color:#187343;border-radius:10px;font-size:1.05rem;line-height:1;cursor:pointer;font-weight:800}
+.list-speaker-btn:hover{background:#dff4e7}
+@media(max-width:600px){.list-speaker-btn{width:40px!important;min-width:40px!important;height:36px;min-height:36px!important;font-size:1rem}}
