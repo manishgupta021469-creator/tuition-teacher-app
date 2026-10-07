@@ -172,3 +172,5 @@ This version keeps the stored paragraph text unchanged while improving the displ
 - Saved rich paragraphs use an internal marker and sanitized HTML/MathML; legacy plain-text paragraphs remain unchanged.
 - Speech matching uses a plain-text extraction of rich paragraphs, while display/test preview uses the preserved rich representation.
 - Browser/clipboard support still determines how much source formatting can be transferred; image OCR cannot recreate formatting that is not present in OCR output.
+
+V91 — Underline History feature added without changing existing test/scoring/database behavior. Added per-item Underline History buttons for Paragraph, Complete Paragraph Test, and each Q&A answer. Shows all saved attempts for the selected item with their existing underlined word result, score, and date/time. Canceled attempts remain excluded because only saved attempts are read.
