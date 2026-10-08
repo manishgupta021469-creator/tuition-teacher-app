@@ -865,3 +865,9 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 @media(max-width:600px){
   main:has(.student-flow-top-nav){height:calc(100dvh - 58px);}
 }
+
+/* V110 — Additive Read Content buttons only. Existing buttons and their handlers are unchanged. */
+.read-content-btn{font-weight:800;cursor:pointer;}
+.readable-content-card{padding-bottom:18px}
+.readable-content-body{font-size:1rem;line-height:1.75;color:var(--ink);background:var(--brand-soft);border:1px solid var(--line);border-radius:12px;padding:14px;white-space:normal;overflow-wrap:anywhere}
+.readable-content-body .formula-source,.readable-content-body .formula-math{max-width:100%;overflow-x:auto}
