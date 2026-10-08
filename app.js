@@ -772,66 +772,109 @@ function resetPasswordView(resetToken){
 async function load(){[state.teacher,state.students,state.content,state.results]=await Promise.all([api('/me'),api('/students'),api('/content'),api('/results')])}
 function dashboard(){
   const created=sessionStorage.getItem('teacherCreated'); sessionStorage.removeItem('teacherCreated');
-  const orderedStudents=state.students;
-  const ranked=state.results.slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0));
-  const totalTests=state.results.reduce((sum,r)=>sum+Number(r.tests||0),0);
-  const subjectIcons=['📖','📘','🧪','🧮','🌍'];
-  const subjectClasses=['dash-pink','dash-blue','dash-green','dash-purple','dash-orange'];
-  const recent=ranked.slice(0,3);
+  const orderedStudents=state.students||[];
+  const role=decodeJwtRole();
+  const teacherName=String(state.teacher?.name||'Teacher');
+  const teacherId=String(state.teacher?.email||state.teacher?.id||'');
+  const initial=teacherName.trim().charAt(0).toUpperCase()||'T';
+  const totalTests=(state.results||[]).reduce((sum,r)=>sum+Number(r.tests||0),0);
+  const subjectCount=(state.content||[]).length;
+  const bookCount=(state.content||[]).reduce((sum,s)=>sum+Number(s.books?.length||0),0);
   root.innerHTML=`
-  <header class="dash-header">
-    <div class="dash-brand"><button class="dash-menu" type="button" aria-label="Menu">☰</button><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><b>Easyway Learn</b><small>Read&nbsp; • &nbsp;Practice&nbsp; • &nbsp;Improve</small></div></div></div>
-    <div class="header-actions">
-      ${decodeJwtRole()==='admin_impersonate'?'<button id="backAdmin" class="btn-secondary" type="button">Back to Admin</button>':''}
-      <button id="teacherProfile" class="dash-profile" type="button" aria-expanded="false"><span class="profile-name">${esc(state.teacher?.name||'Teacher')}</span><span>⌄</span></button>
-      <button id="logout" class="dash-logout">Logout</button>
+  <header class="v112-dash-header">
+    <div class="v112-dash-brand">
+      <div class="v112-logo-frame"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"></div>
+      <div class="v112-brand-copy"><b>Easyway <span>Learn</span></b><small>Tuition Teacher App</small></div>
     </div>
-    <div id="profileMenu" class="profile-menu" hidden><b>${esc(state.teacher?.name||'Teacher')}</b><small>Teacher ID: ${esc(state.teacher?.email||state.teacher?.id||'')}</small><button id="profileChangePassword" class="btn-secondary" type="button">Change Password</button></div>
+    <div class="v112-header-right">
+      ${role==='admin_impersonate'?'<button id="backAdmin" class="v112-ghost-btn" type="button">Back to Admin</button>':''}
+      <button id="teacherProfile" class="v112-profile" type="button" aria-expanded="false">
+        <span class="v112-avatar">${esc(initial)}</span>
+        <span class="v112-profile-copy"><b>${esc(teacherName)}</b><small>Teacher ID: ${esc(teacherId)}</small></span>
+      </button>
+      <button id="logout" class="v112-logout" type="button">⇥ Logout</button>
+    </div>
+    <div id="profileMenu" class="profile-menu v112-profile-menu" hidden><b>${esc(teacherName)}</b><small>Teacher ID: ${esc(teacherId)}</small><button id="profileChangePassword" class="btn-secondary" type="button">Change Password</button></div>
   </header>
-  <main class="teacher-dashboard">
+  <main class="v112-dashboard">
     ${created?`<section class="success-banner"><b>${esc(created).replace(/\n/g,'<br>')}</b></section>`:''}
-    <section class="dash-welcome">
-      <div class="dash-welcome-person"><div><div class="dash-small-title">Welcome,</div><h1>${esc(state.teacher?.name||'Teacher')}</h1><p>Tuition Teacher <span>•</span> ${orderedStudents.length} Students</p></div></div>
+
+    <section class="v112-hero">
+      <div class="v112-hero-copy">
+        <div class="v112-hero-kicker">Good Morning,</div>
+        <h1>${esc(teacherName)} <span aria-hidden="true">👋</span></h1>
+        <p><b>Teacher</b><span class="v112-dot">•</span><span>${esc(teacherId||'—')}</span></p>
+        <div class="v112-tagline">Learn&nbsp; • &nbsp;Guide&nbsp; • &nbsp;Build a Brighter Future</div>
+        <span class="v112-hero-line"></span>
+      </div>
+      <div class="v112-hero-art" aria-hidden="true">
+        <div class="v112-art-plant">🌿</div>
+        <div class="v112-art-pencils">✏️</div>
+        <div class="v112-books"><span></span><span></span><span></span></div>
+        <div class="v112-hero-message">Better<br>Learning<br>Brighter<br>Future</div>
+      </div>
     </section>
 
-    <section class="dash-section-head"><div><span class="dash-section-icon">👥</span><h2>My Students</h2></div><span class="count-pill">${orderedStudents.length}/20</span></section>
-    <section class="dash-student-grid">
-      ${orderedStudents.slice(0,4).map((st,i)=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}
-      ${orderedStudents.length>4?'<button id="moreStudents" class="dash-more-card" type="button"><span>•••</span><b>More</b><small>View students</small><i>›</i></button>':''}
-      ${orderedStudents.length===0?'<div class="dash-empty">अभी कोई Student नहीं है। नीचे “Add Student” से जोड़ें।</div>':''}
-    </section>
-    <div id="extraStudents" class="dash-student-grid dash-extra" hidden>${orderedStudents.slice(4).map(st=>`<button class="dash-student-card" data-s="${st.id}" type="button"><span class="dash-student-info"><b>${esc(st.name)}</b><small>Class ${esc(st.class_name)}</small></span><span class="dash-arrow">›</span></button>`).join('')}</div>
-    <div class="dash-action-row"><button id="addStudent" class="dash-primary-action" type="button">＋ Add Student</button></div>
-
-    <section class="dash-section-head"><div><span class="dash-section-icon">📚</span><h2>Learning Materials</h2></div><button id="addSubject" class="dash-link-action" type="button">＋ Create Subject</button></section>
-    <section class="dash-subject-grid">
-      ${state.content.slice(0,5).map((sub,i)=>`<button class="dash-subject-card ${subjectClasses[i%subjectClasses.length]}" data-teacher-subject="${sub.id}" type="button"><span class="dash-subject-icon">${subjectIcons[i%subjectIcons.length]}</span><span><b>${esc(sub.name)}</b><small>${sub.books?.length||0} Books</small></span><span class="dash-manage">Manage</span></button>`).join('')}
-      ${state.content.length>5?'<button id="moreSubjects" class="dash-subject-card dash-more-card" type="button"><span class="dash-subject-icon">•••</span><span><b>More</b><small>Subjects</small></span><span class="dash-arrow">›</span></button>':''}
-      ${state.content.length===0?'<div class="dash-empty">अभी कोई Subject नहीं है। “Create Subject” से शुरू करें।</div>':''}
-    </section>
-    <div id="extraSubjects" class="dash-subject-grid dash-extra" hidden>${state.content.slice(5).map((sub,i)=>`<button class="dash-subject-card ${subjectClasses[(i+5)%subjectClasses.length]}" data-teacher-subject="${sub.id}" type="button"><span class="dash-subject-icon">${subjectIcons[(i+5)%subjectIcons.length]}</span><span><b>${esc(sub.name)}</b><small>${sub.books?.length||0} Books</small></span><span class="dash-manage">Manage</span></button>`).join('')}</div>
-    <div id="content" hidden>${renderContent()}</div>
-
-    <section class="dash-section-head dash-results-head"><div><span class="dash-section-icon">📋</span><h2>Student Performance</h2></div><span class="dash-stat-note">${totalTests} Tests</span></section>
-    <section class="dash-results-card">
-      ${recent.map((r,i)=>`<button class="dash-result-row" data-s="${r.student_id||r.id}" type="button"><span class="dash-result-icon ${['dash-purple','dash-blue','dash-green'][i]}">${i===0?'🎯':i===1?'📄':'✓'}</span><span class="dash-result-main"><b>${esc(r.name)}</b><small>${r.tests||0} test${Number(r.tests||0)===1?'':'s'} completed</small></span><strong>${Number(r.score||0).toFixed(0)}%</strong><span class="dash-arrow">›</span></button>`).join('')||'<div class="dash-empty">टेस्ट पूरा होने के बाद यहाँ Student Performance दिखाई देगी।</div>'}
+    <section class="v112-feature-grid" aria-label="Dashboard sections">
+      <button type="button" class="v112-feature-card v112-card-pink" onclick="dashboardStudentHub()">
+        <div class="v112-feature-art v112-student-art"><span>👦🏻</span><span>👧🏻</span><i>+</i></div>
+        <div class="v112-feature-title">Students</div>
+        <div class="v112-feature-sub">Select Student &amp;<br>Give Test</div>
+        <span class="v112-open-circle" aria-hidden="true">→</span>
+      </button>
+      <button type="button" class="v112-feature-card v112-card-peach" onclick="dashboardMaterialHub()">
+        <div class="v112-feature-art v112-material-art"><span class="v112-book-stack">📚</span><i>↥</i></div>
+        <div class="v112-feature-title">Learning Material</div>
+        <div class="v112-feature-sub">Books, Notes &amp;<br>Upload Material</div>
+        <span class="v112-open-circle" aria-hidden="true">→</span>
+      </button>
+      <button type="button" class="v112-feature-card v112-card-purple" onclick="dashboardPerformanceHub()">
+        <div class="v112-feature-art v112-performance-art"><span>▂▅▇</span><i>↗</i></div>
+        <div class="v112-feature-title">Student Performance</div>
+        <div class="v112-feature-sub">Track Progress &amp;<br>View Reports</div>
+        <span class="v112-open-circle" aria-hidden="true">→</span>
+      </button>
     </section>
 
+    <section class="v112-activity card" id="dashboardRecentActivity">
+      <div class="v112-activity-head">
+        <div class="v112-activity-title"><span class="v112-activity-icon">◔</span><div><h2>Recent Activity</h2><small>Latest updates and activities</small></div></div>
+        <button id="v112ViewAllActivity" type="button" class="v112-view-all">View All&nbsp; →</button>
+      </div>
+      <div id="v112ActivityList" class="v112-activity-list"><div class="v112-activity-row"><span class="v112-row-icon v112-row-pink">↑</span><div><b>Learning Material</b><small>${subjectCount} subject${subjectCount===1?'':'s'} · ${bookCount} book${bookCount===1?'':'s'}</small></div><span class="v112-row-time">Available now</span></div><div class="v112-activity-row"><span class="v112-row-icon v112-row-green">✓</span><div><b>Student Test Completed</b><small>${totalTests} saved test${totalTests===1?'':'s'}</small></div><span class="v112-row-time">Performance</span></div><div class="v112-activity-row"><span class="v112-row-icon v112-row-purple">▂▅▇</span><div><b>Performance Updated</b><small>${orderedStudents.length} student${orderedStudents.length===1?'':'s'} tracked</small></div><span class="v112-row-time">Live</span></div></div>
+    </section>
+
+    <section class="v112-motivation" aria-label="Motivation">
+      <div class="v112-lightbulb">💡</div>
+      <div><b>Small steps every day</b><span>create big results!</span></div>
+      <div class="v112-motivation-books">📚✏️</div>
+    </section>
   </main>`;
   logout.onclick=()=>{localStorage.clear();sessionStorage.removeItem('adminTeacherToken');location.reload()};
-  if(decodeJwtRole()==='admin_impersonate')backAdmin.onclick=backToAdmin;
+  if(role==='admin_impersonate' && typeof backAdmin!=='undefined')backAdmin.onclick=backToAdmin;
   teacherProfile.onclick=()=>{const menu=document.getElementById('profileMenu');menu.hidden=!menu.hidden;teacherProfile.setAttribute('aria-expanded',String(!menu.hidden))};
   profileChangePassword.onclick=changePasswordForm;
-  addStudent.onclick=addStudentForm; addSubject.onclick=addSubjectForm;
-  const bindStudentButtons=()=>{document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>studentTests(+b.dataset.s))}; bindStudentButtons();
-  const moreStudents=document.getElementById('moreStudents'); if(moreStudents)moreStudents.onclick=()=>{document.getElementById('extraStudents').hidden=false;moreStudents.remove();bindStudentButtons()};
-  const moreSubjects=document.getElementById('moreSubjects'); if(moreSubjects)moreSubjects.onclick=()=>{document.getElementById('extraSubjects').hidden=false;moreSubjects.remove();bindSubjectButtons()};
-  function bindSubjectButtons(){document.querySelectorAll('[data-teacher-subject]').forEach(b=>b.onclick=()=>teacherSubjectFlow(+b.dataset.teacherSubject))} bindSubjectButtons();
-  document.querySelectorAll('[data-quick="students"]').forEach(b=>b.onclick=()=>document.getElementById('addStudent')?.scrollIntoView({behavior:'smooth',block:'center'}));
-  document.querySelectorAll('[data-quick="subjects"]').forEach(b=>b.onclick=()=>document.querySelector('.dash-subject-grid')?.scrollIntoView({behavior:'smooth',block:'center'}));
-  document.querySelectorAll('[data-quick="results"]').forEach(b=>b.onclick=()=>document.querySelector('.dash-results-card')?.scrollIntoView({behavior:'smooth',block:'center'}));
-  document.querySelectorAll('[data-quick="password"]').forEach(b=>b.onclick=changePasswordForm);
+  v112ViewAllActivity.onclick=dashboardRecentActivity;
 }
+function dashboardStudentHub(){
+  const students=state.students||[];
+  root.innerHTML=`<header class="v112-inner-header"><div class="v112-inner-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><b>Students</b></div><button class="v112-ghost-btn" type="button" onclick="dashboard()">Back</button></header><main class="v112-dashboard v112-hub-page"><section class="v112-hub-hero"><div class="v112-hub-icon v112-hub-pink">👥</div><div><h1>Students</h1><p>Select a student to open their test and learning options.</p></div></section><section class="v112-hub-list">${students.map((st,i)=>`<button type="button" class="v112-hub-item" onclick="studentTests(${st.id})"><span class="v112-hub-index">${i+1}</span><span class="v112-hub-person"><span class="v112-mini-avatar">${esc(String(st.name||'S').trim().charAt(0).toUpperCase())}</span><span><b>${esc(st.name)}</b><small>Class ${esc(st.class_name||'')}</small></span></span><span class="v112-hub-arrow">→</span></button>`).join('')||'<div class="v112-empty-hub">अभी कोई Student नहीं है। Add Student से शुरू करें।</div>'}</section><div class="v112-hub-actions"><button type="button" onclick="addStudentForm()">＋ Add Student</button></div></main>`;
+}
+function dashboardMaterialHub(){
+  const subjects=state.content||[];
+  root.innerHTML=`<header class="v112-inner-header"><div class="v112-inner-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><b>Learning Material</b></div><button class="v112-ghost-btn" type="button" onclick="dashboard()">Back</button></header><main class="v112-dashboard v112-hub-page"><section class="v112-hub-hero"><div class="v112-hub-icon v112-hub-peach">📚</div><div><h1>Learning Material</h1><p>Choose a subject to manage books, chapters and uploads.</p></div></section><section class="v112-hub-list">${subjects.map((sub,i)=>`<button type="button" class="v112-hub-item" onclick="teacherSubjectFlow(${sub.id})"><span class="v112-hub-index">${i+1}</span><span class="v112-hub-person"><span class="v112-material-mini">📚</span><span><b>${esc(sub.name)}</b><small>${sub.books?.length||0} Book${(sub.books?.length||0)===1?'':'s'}</small></span></span><span class="v112-hub-arrow">→</span></button>`).join('')||'<div class="v112-empty-hub">अभी कोई Subject नहीं है। Create Subject से शुरू करें।</div>'}</section><div class="v112-hub-actions"><button type="button" onclick="addSubjectForm()">＋ Create Subject</button></div></main>`;
+}
+function dashboardPerformanceHub(){
+  const ranked=(state.results||[]).slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0));
+  root.innerHTML=`<header class="v112-inner-header"><div class="v112-inner-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><b>Student Performance</b></div><button class="v112-ghost-btn" type="button" onclick="dashboard()">Back</button></header><main class="v112-dashboard v112-hub-page"><section class="v112-hub-hero"><div class="v112-hub-icon v112-hub-purple">▂▅▇</div><div><h1>Student Performance</h1><p>Rank students by saved test performance and open their reports.</p></div></section><section class="v112-rank-list">${ranked.map((r,i)=>`<button type="button" class="v112-rank-item" onclick="studentTests(${r.student_id||r.id})"><span class="v112-rank-medal">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</span><span class="v112-rank-main"><b>${esc(r.name)}</b><small>${r.tests||0} test${Number(r.tests||0)===1?'':'s'} · Class ${esc(r.class_name||'')}</small><span class="v112-bar"><i style="width:${Math.max(0,Math.min(100,Number(r.score||0)))}%"></i></span></span><strong>${Number(r.score||0).toFixed(0)}%</strong><span class="v112-hub-arrow">→</span></button>`).join('')||'<div class="v112-empty-hub">अभी कोई test result नहीं है।</div>'}</section></main>`;
+}
+function dashboardRecentActivity(){
+  const ranked=(state.results||[]).slice().sort((a,b)=>Number(b.score||0)-Number(a.score||0));
+  const totalTests=ranked.reduce((s,r)=>s+Number(r.tests||0),0);
+  const subjects=state.content||[];
+  root.innerHTML=`<header class="v112-inner-header"><div class="v112-inner-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><b>Recent Activity</b></div><button class="v112-ghost-btn" type="button" onclick="dashboard()">Back</button></header><main class="v112-dashboard v112-hub-page"><section class="v112-hub-hero"><div class="v112-hub-icon v112-hub-blue">◔</div><div><h1>Recent Activity</h1><p>Quick overview of your teaching activity.</p></div></section><section class="v112-activity v112-activity-page"><div class="v112-activity-row"><span class="v112-row-icon v112-row-pink">↑</span><div><b>Learning Material</b><small>${subjects.length} subject${subjects.length===1?'':'s'} · ${subjects.reduce((n,s)=>n+(s.books?.length||0),0)} books available</small></div><span class="v112-row-time">Library</span></div>${ranked.slice(0,10).map(r=>`<div class="v112-activity-row"><span class="v112-row-icon v112-row-green">✓</span><div><b>Student Test Completed</b><small>${esc(r.name)} · ${r.tests||0} saved test${Number(r.tests||0)===1?'':'s'}</small></div><span class="v112-row-time">${Number(r.score||0).toFixed(0)}%</span></div>`).join('')||'<div class="v112-empty-hub">अभी कोई saved test नहीं है।</div>'}<div class="v112-activity-row"><span class="v112-row-icon v112-row-purple">▂▅▇</span><div><b>Performance Updated</b><small>${ranked.length} student${ranked.length===1?'':'s'} in the performance list</small></div><span class="v112-row-time">${totalTests} tests</span></div></section></main>`;
+}
+
 function teacherSubjectFlow(subjectId){const subject=state.content.find(s=>s.id===subjectId);if(!subject)return;root.innerHTML=`<header><div class="brand-lockup"><img src="/pwa-assets/icon-192.png" alt=""><div><b>Easyway Learn</b><small>${esc(subject.name)}</small></div></div><button class="btn-secondary" onclick="dashboard()">Back</button></header><main><section class="card"><h2>${esc(subject.name)} — Book चुनें</h2><div class="compact-grid">${subject.books.map(b=>`<button class="list compact-item" onclick="teacherBookFlow(${subjectId},${b.id})">${esc(b.name)}</button>`).join('')||'<p class="muted">अभी कोई Book नहीं है।</p>'}</div><div class="button-row"><button onclick="addBookForm(${subjectId})">+ Book</button><button class="btn-secondary" onclick="editSubject(${subjectId})">Edit Subject</button></div></section></main>`}
 function teacherBookFlow(subjectId,bookId){const subject=state.content.find(s=>s.id===subjectId),book=subject?.books.find(b=>b.id===bookId);if(!book)return;root.innerHTML=`<header><b>${esc(book.name)} — Chapter चुनें</b><button class="btn-secondary" onclick="teacherSubjectFlow(${subjectId})">Back</button></header><main><section class="card"><div class="compact-grid">${book.chapters.map(c=>`<button class="list compact-item" onclick="teacherChapterFlow(${subjectId},${bookId},${c.id})">${esc(c.name)}</button>`).join('')||'<p class="muted">अभी कोई Chapter नहीं है।</p>'}</div><button onclick="addChapterForm(${bookId})">+ Chapter</button><button class="btn-secondary" onclick="editBook(${bookId})">Edit Book</button></section></main>`}
 function teacherChapterFlow(subjectId,bookId,chapterId){const c=getChapter(chapterId);if(!c)return;root.innerHTML=`<header><b>${esc(c.name)} — Content चुनें</b><button class="btn-secondary" onclick="teacherBookFlow(${subjectId},${bookId})">Back</button></header><main><section class="card"><p>${c.paragraphs.length} paragraphs · ${c.qa.length} Q&A</p><div class="compact-grid"><button class="list compact-item" onclick="editChapterParagraphs(${chapterId})">Paragraph</button><button class="list compact-item" onclick="editChapterQA(${chapterId})">Question-Answer</button><button class="list compact-item" onclick="editChapterComplete(${chapterId})">Complete Chapter</button></div><button class="btn-secondary" onclick="editChapterName(${chapterId})">Edit Chapter Name</button></section></main>`}
@@ -1811,7 +1854,7 @@ async function boot(){const isAdminRoute=location.pathname.replace(/\/+$/,'')===
 boot();
 
 history.replaceState({appRoot:true},'',location.href);
-const navigationClickPattern=/(dashboard|teacherSubjectFlow|teacherBookFlow|teacherChapterFlow|editChapterParagraphs|editChapterQA|studentTests|studentSubjectFlow|studentBookFlow|studentChapterFlow|selectParagraph|selectQaItems|showChapterTypeHistory|showItemHistory|showAttemptResult|showQaHistory|showSubjectHistory|showStudentOverallHistory|studentListFlow|studentSubjectListFlow|studentBookListFlow|studentChapterListFlow|selectCompleteChapter|startChapterTest|startSelectedParagraphTest|startSingleQaTest|showPronunciationHelp|authView|adminLoginView|teacherLoginOnly|teacherRegisterOnly|addPara|addChapterForm|forgotPasswordView)/;
+const navigationClickPattern=/(dashboard|dashboardStudentHub|dashboardMaterialHub|dashboardPerformanceHub|dashboardRecentActivity|teacherSubjectFlow|teacherBookFlow|teacherChapterFlow|editChapterParagraphs|editChapterQA|studentTests|studentSubjectFlow|studentBookFlow|studentChapterFlow|selectParagraph|selectQaItems|showChapterTypeHistory|showItemHistory|showAttemptResult|showQaHistory|showSubjectHistory|showStudentOverallHistory|studentListFlow|studentSubjectListFlow|studentBookListFlow|studentChapterListFlow|selectCompleteChapter|startChapterTest|startSelectedParagraphTest|startSingleQaTest|showPronunciationHelp|authView|adminLoginView|teacherLoginOnly|teacherRegisterOnly|addPara|addChapterForm|forgotPasswordView)/;
 let __handlingAppPopstate=false;
 document.addEventListener('click',e=>{
   const b=e.target.closest('button,[data-s]');
