@@ -974,3 +974,36 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .v112-motivation span{font-size:clamp(.49rem,2.2vw,.6rem);line-height:1.1}
   .v112-motivation-books{font-size:1.35rem}
 }
+
+/* V115 precise dashboard refinement: Home is injected into the real #app header. */
+.ewl-global-home{display:inline-grid!important;visibility:visible!important;opacity:1!important;cursor:pointer;z-index:5}
+.v112-dash-header .ewl-global-home{display:inline-grid!important}
+/* Keep the dashboard fixed to the screen while making the feature artwork and labels easier to read. */
+@media(max-width:600px){
+  .v112-dashboard{padding-top:clamp(9px,1.5dvh,15px)!important;gap:clamp(4px,.7dvh,7px)!important}
+  .v112-feature-grid{flex-basis:clamp(142px,24dvh,190px)!important;gap:5px!important}
+  .v112-feature-card{padding:7px 5px 6px!important;justify-content:flex-start!important}
+  .v112-feature-art{width:clamp(52px,14vw,72px)!important;height:clamp(52px,14vw,72px)!important;margin:0 auto 5px!important}
+  .v112-feature-art span{font-size:clamp(1.55rem,7vw,2.15rem)!important}
+  .v112-book-stack{font-size:clamp(2rem,8vw,2.55rem)!important}
+  .v112-performance-art span{font-size:clamp(1.05rem,4.6vw,1.4rem)!important}
+  .v112-feature-art i{width:21px!important;height:21px!important;font-size:.75rem!important}
+  .v112-feature-title{font-size:clamp(.66rem,3.1vw,.82rem)!important;line-height:1.12!important;margin-bottom:3px!important}
+  .v112-feature-sub{font-size:clamp(.52rem,2.5vw,.65rem)!important;line-height:1.18!important}
+  .v112-open-circle{width:25px!important;height:25px!important;font-size:.95rem!important;margin-top:auto!important}
+  .v112-activity-head{padding:8px 9px 7px!important}
+  .v112-activity-title h2{font-size:clamp(.82rem,3.8vw,.98rem)!important}
+  .v112-activity-title small{font-size:clamp(.56rem,2.5vw,.65rem)!important}
+  .v112-activity-icon{width:30px!important;height:30px!important;flex-basis:30px!important;font-size:1rem!important}
+  .v112-view-all{font-size:clamp(.57rem,2.5vw,.66rem)!important;padding:5px 7px!important}
+  .v112-activity-list{padding:0 8px!important;justify-content:space-evenly!important}
+  .v112-activity-row{grid-template-columns:30px minmax(0,1fr) auto!important;gap:7px!important;padding:3px 0!important}
+  .v112-row-icon{width:27px!important;height:27px!important;font-size:.82rem!important}
+  .v112-activity-row b{font-size:clamp(.61rem,2.8vw,.73rem)!important;line-height:1.14!important}
+  .v112-activity-row small,.v112-row-time{font-size:clamp(.51rem,2.25vw,.61rem)!important;line-height:1.14!important}
+  .v112-row-time{max-width:76px!important}
+  .v112-motivation{flex-basis:clamp(42px,7.5dvh,58px)!important;padding:5px 8px!important;gap:7px!important}
+  .v112-motivation b{font-size:clamp(.65rem,3vw,.77rem)!important}
+  .v112-motivation span{font-size:clamp(.55rem,2.5vw,.65rem)!important}
+  .v112-motivation-books{font-size:1.55rem!important}
+}

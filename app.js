@@ -1867,7 +1867,7 @@ history.replaceState({appRoot:true},'',location.href);
 // V113: persistent Home shortcut on authenticated app screens. It only navigates; it does not alter saved records.
 function ensureGlobalHomeButton(){
   if(!token)return;
-  const header=document.querySelector('#root > header, #root > .app-shell header, #root header');
+  const header=document.querySelector('#app > header, #app > .app-shell header, #app header');
   if(!header||header.querySelector('.ewl-global-home'))return;
   const btn=document.createElement('button');btn.type='button';btn.className='ewl-global-home';btn.title='Dashboard';btn.setAttribute('aria-label','Home — Dashboard');btn.textContent='⌂';
   btn.addEventListener('click',()=>{try{dashboard();window.scrollTo({top:0,behavior:'auto'});}catch(e){console.error(e);}});
