@@ -908,3 +908,69 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .v112-dash-header .ewl-global-home{display:none}
 @media(min-width:601px){.v112-dashboard{padding-top:12px;padding-bottom:14px}.v112-hero{min-height:132px;margin-bottom:12px;padding:15px 20px}.v112-feature-grid{gap:12px;margin-bottom:12px}.v112-feature-card{min-height:250px;padding:13px 14px 15px!important}.v112-feature-art{width:105px;height:105px;margin-bottom:10px}.v112-feature-art span{font-size:2.7rem}.v112-book-stack{font-size:3.4rem!important}.v112-feature-art i{width:36px;height:36px;font-size:1.45rem}.v112-feature-title{font-size:1.05rem;margin-bottom:6px}.v112-feature-sub{font-size:.82rem}.v112-open-circle{width:38px;height:38px;font-size:1.35rem}.v112-activity{margin-bottom:12px!important}.v112-activity-head{padding:11px 16px 9px}.v112-activity-row{min-height:49px}.v112-row-icon{width:33px;height:33px}.v112-motivation{min-height:65px;padding:10px 18px}.v112-lightbulb{font-size:1.9rem}.v112-motivation b{font-size:1rem}.v112-motivation span{font-size:.9rem}.v112-motivation-books{font-size:2.3rem}}
 @media(max-width:600px){.v112-dash-header{min-height:58px}.v112-dashboard{padding:7px 8px 8px}.v112-hero{min-height:118px;margin-bottom:8px;padding:11px 12px}.v112-hero h1{font-size:1.45rem}.v112-hero p{margin:3px 0;font-size:.68rem}.v112-hero-kicker{font-size:.7rem}.v112-tagline{font-size:.56rem}.v112-hero-line{width:42px;height:4px;margin-top:6px}.v112-books{width:110px;height:50px}.v112-art-plant{font-size:1.6rem;bottom:10px}.v112-art-pencils{font-size:1rem}.v112-hero-message{font-size:.5rem;top:7px}.v112-feature-grid{gap:5px;margin-bottom:8px}.v112-feature-card{min-height:154px;padding:7px 6px 8px!important;border-radius:13px!important}.v112-feature-art{width:51px;height:51px;margin:0 auto 6px}.v112-feature-art span{font-size:1.35rem}.v112-student-art span+span{margin-left:-10px}.v112-book-stack{font-size:1.65rem!important}.v112-performance-art span{font-size:.9rem}.v112-feature-art i{width:20px;height:20px;font-size:.7rem;right:-2px;border-width:1px}.v112-feature-title{font-size:.59rem;margin-bottom:3px}.v112-feature-sub{font-size:.48rem;line-height:1.18}.v112-open-circle{width:23px;height:23px;font-size:.85rem}.v112-activity{margin-bottom:8px!important;border-radius:14px!important}.v112-activity-head{padding:7px 8px 6px}.v112-activity-title{gap:6px}.v112-activity-title h2{font-size:.76rem}.v112-activity-title small{font-size:.52rem}.v112-activity-icon{width:26px;height:26px;font-size:.9rem}.v112-view-all{font-size:.52rem!important;padding:4px 6px!important}.v112-activity-list{padding:0 7px}.v112-activity-row{grid-template-columns:25px minmax(0,1fr) auto;gap:6px;min-height:36px}.v112-row-icon{width:23px;height:23px;font-size:.7rem}.v112-activity-row b{font-size:.56rem}.v112-activity-row small,.v112-row-time{font-size:.46rem}.v112-motivation{min-height:44px;padding:6px 8px;gap:6px;border-radius:13px}.v112-lightbulb{font-size:1.25rem}.v112-motivation b{font-size:.65rem}.v112-motivation span{font-size:.58rem}.v112-motivation-books{font-size:1.45rem}.ewl-global-home{width:34px;height:34px;font-size:1.25rem!important}}
+
+/* V114: reliable top Home button, visible logo fallback, and no-scroll dashboard fit */
+.ewl-logo-fallback::before{content:"📘";display:grid;place-items:center;width:100%;height:100%;font-size:2rem;line-height:1;background:linear-gradient(145deg,#fff,#dcecff);border-radius:inherit}
+.v112-dash-header{position:relative}
+.v112-dash-header .ewl-global-home{display:inline-grid!important;margin-left:0;order:3;width:38px;height:38px;flex:0 0 38px}
+.v112-dash-header .v112-header-right{order:2}
+.v112-dash-brand{order:1;flex:1}
+.v112-dash-header .ewl-global-home{background:rgba(255,255,255,.18)!important;color:#fff!important}
+.v112-inner-header .ewl-global-home{order:5}
+@media(max-width:600px){
+  html:has(.v112-dash-header),body:has(.v112-dash-header){height:100%;min-height:100%;overflow:hidden}
+  body:has(.v112-dash-header) #app{height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+  .v112-dash-header{height:58px;min-height:58px;max-height:58px;flex:0 0 58px;padding:5px 8px;gap:6px;overflow:visible}
+  .v112-logo-frame{width:39px;height:39px;flex-basis:39px;border-radius:10px}
+  .v112-logo-frame img{width:37px;height:37px;border-radius:9px}
+  .v112-dash-brand{gap:7px}
+  .v112-brand-copy b{font-size:clamp(.84rem,4vw,1.04rem)}
+  .v112-brand-copy small{font-size:.56rem}
+  .v112-header-right{gap:4px}
+  .v112-avatar{width:32px;height:32px;font-size:1rem}
+  .v112-profile{padding:2px!important}
+  .v112-dash-header .ewl-global-home{width:32px;height:32px;flex-basis:32px;font-size:1.1rem!important;border-radius:10px!important}
+  .v112-dashboard{width:100%;height:calc(100dvh - 58px);min-height:0;flex:1;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:clamp(5px,1.05dvh,10px);padding:clamp(5px,1dvh,9px) 8px clamp(5px,1dvh,9px);margin:0}
+  .v112-hero{flex:0 0 clamp(88px,15dvh,125px);min-height:0;height:auto;margin:0;padding:8px 10px;border-radius:15px;box-sizing:border-box}
+  .v112-hero-copy{max-width:59%;justify-content:center}
+  .v112-hero-kicker{font-size:clamp(.56rem,2.5vw,.72rem)}
+  .v112-hero h1{font-size:clamp(1.18rem,5.8vw,1.6rem);margin:1px 0}
+  .v112-hero p{font-size:clamp(.56rem,2.7vw,.7rem);margin:2px 0}
+  .v112-tagline{font-size:clamp(.45rem,2.15vw,.58rem);line-height:1.15}
+  .v112-hero-line{width:32px;height:3px;margin-top:4px}
+  .v112-hero-art{min-width:0;width:41%;flex:0 0 41%}
+  .v112-books{width:90px;height:43px}
+  .v112-art-plant{left:0;bottom:7px;font-size:1.35rem}
+  .v112-art-pencils{right:8%;top:2px;font-size:.8rem}
+  .v112-hero-message{right:0;top:4px;font-size:clamp(.4rem,1.8vw,.5rem)}
+  .v112-feature-grid{flex:0 0 clamp(118px,22dvh,175px);min-height:0;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0}
+  .v112-feature-card{min-height:0;height:100%;box-sizing:border-box;padding:7px 5px!important;border-radius:12px!important}
+  .v112-feature-art{width:clamp(37px,10vw,55px);height:clamp(37px,10vw,55px);margin:0 auto 5px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
+  .v112-feature-art span{font-size:clamp(1.05rem,4.8vw,1.55rem)}
+  .v112-student-art span+span{margin-left:-9px}
+  .v112-book-stack{font-size:clamp(1.35rem,6vw,1.8rem)!important}
+  .v112-performance-art span{font-size:clamp(.75rem,3.4vw,1rem)}
+  .v112-performance-art i{font-size:1rem;right:4px;top:3px}
+  .v112-feature-art i{width:17px;height:17px;font-size:.58rem;right:-1px;bottom:0;border-width:1px}
+  .v112-feature-title{font-size:clamp(.52rem,2.45vw,.68rem);line-height:1.12;margin-bottom:3px;overflow-wrap:anywhere}
+  .v112-feature-sub{font-size:clamp(.43rem,2vw,.55rem);line-height:1.15;overflow-wrap:anywhere}
+  .v112-open-circle{width:21px;height:21px;font-size:.78rem}
+  .v112-activity{flex:1 1 0;min-height:0;margin:0!important;border-radius:13px!important;display:flex;flex-direction:column}
+  .v112-activity-head{flex:0 0 auto;padding:6px 8px 5px;gap:5px}
+  .v112-activity-title{gap:6px;min-width:0}
+  .v112-activity-title h2{font-size:clamp(.68rem,3vw,.8rem)}
+  .v112-activity-title small{font-size:clamp(.46rem,2vw,.54rem)}
+  .v112-activity-icon{width:25px;height:25px;font-size:.82rem;flex:0 0 25px}
+  .v112-view-all{font-size:.5rem!important;padding:4px 6px!important;white-space:nowrap}
+  .v112-activity-list{flex:1;min-height:0;padding:0 7px;display:flex;flex-direction:column;justify-content:space-evenly}
+  .v112-activity-row{grid-template-columns:25px minmax(0,1fr) auto;gap:5px;min-height:0;flex:1;padding:2px 0}
+  .v112-row-icon{width:22px;height:22px;font-size:.68rem}
+  .v112-activity-row b{font-size:clamp(.49rem,2.2vw,.59rem);line-height:1.1}
+  .v112-activity-row small,.v112-row-time{font-size:clamp(.4rem,1.8vw,.49rem);line-height:1.1}
+  .v112-row-time{max-width:64px;white-space:normal}
+  .v112-motivation{flex:0 0 clamp(36px,7dvh,53px);min-height:0;box-sizing:border-box;margin:0;padding:5px 8px;gap:7px;border-radius:12px}
+  .v112-lightbulb{font-size:1.25rem}
+  .v112-motivation b{font-size:clamp(.56rem,2.6vw,.7rem);line-height:1.1}
+  .v112-motivation span{font-size:clamp(.49rem,2.2vw,.6rem);line-height:1.1}
+  .v112-motivation-books{font-size:1.35rem}
+}
