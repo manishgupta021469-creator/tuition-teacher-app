@@ -876,9 +876,9 @@ function studentFlowContext(studentId,subjectId=null,bookId=null,chapterId=null)
 }
 function studentFlowTopNav(studentId,subjectId=null,bookId=null,chapterId=null){
   const {student,subject,book,chapter}=studentFlowContext(studentId,subjectId,bookId,chapterId);
-  const box=(kind,title,value,onclick,enabled=true)=>{const selectedTitle=value?title.replace(/\s+List$/,'')+' :':title;return `<button type="button" class="student-flow-select ${value?'is-selected':''}" ${enabled?`onclick="${onclick}"`: 'disabled'} aria-label="${esc(selectedTitle)}${value?': '+esc(value):''}"><span class="student-flow-select-label">${esc(selectedTitle)}</span><span class="student-flow-select-value">${value?esc(value):'Select'}</span></button>`;};
+  const box=(kind,title,value,onclick,enabled=true)=>{const selectedTitle=value?title.replace(/\s+List$/,'')+' :':title;return `<button type="button" class="student-flow-select ${value?'is-selected':''}" ${enabled?`onclick="${onclick}"`:'disabled'} aria-label="${esc(selectedTitle)}${value?': '+esc(value):''}"><span class="student-flow-select-label">${esc(selectedTitle)}</span><span class="student-flow-select-value">${value?esc(value):'Select'}</span></button>`;};
   return `<nav class="student-flow-top-nav" aria-label="Student selection lists">${
-    box('student','Student List',student?.name||'',`studentListFlow(${studentId})`)
+    box('student','Student List',student?.name||'',`studentListFlow(${studentId},${subjectId??'null'},${bookId??'null'},${chapterId??'null'})`)
   }${
     box('subject','Subject List',subject?.name||'',`studentSubjectListFlow(${studentId})`,!!student)
   }${
@@ -887,13 +887,23 @@ function studentFlowTopNav(studentId,subjectId=null,bookId=null,chapterId=null){
     box('chapter','Chapter List',chapter?.name||'',`studentChapterListFlow(${studentId},${subjectId},${bookId})`,!!book)
   }</nav>`;
 }
+function studentChangePreserveFlow(newStudentId,subjectId=null,bookId=null,chapterId=null){
+  const page=window.__studentFlowPage||'dashboard';
+  if(chapterId!=null){
+    if(page==='paragraph') return selectParagraph(newStudentId,chapterId);
+    if(page==='qa') return selectQaItems(newStudentId,chapterId);
+    if(page==='complete') return selectCompleteChapter(newStudentId,chapterId);
+    return studentChapterFlow(newStudentId,chapterId);
+  }
+  return studentTests(newStudentId);
+}
 function studentFlowBottomNav(studentId,chapterId=null){
   const ready=chapterId!=null;
   return `<nav class="student-flow-bottom-nav" aria-label="Chapter content choices"><button type="button" class="student-flow-bottom-btn paragraph" ${ready?`onclick="selectParagraph(${studentId},${chapterId})"`:'disabled'}>▣<span>Paragraph</span></button><button type="button" class="student-flow-bottom-btn complete" ${ready?`onclick="selectCompleteChapter(${studentId},${chapterId})"`:'disabled'}>▤<span>Complete Chapter</span></button><button type="button" class="student-flow-bottom-btn qa" ${ready?`onclick="selectQaItems(${studentId},${chapterId})"`:'disabled'}>▣<span>Question-Answer</span></button></nav>`;
 }
-function studentListFlow(currentStudentId){
+function studentListFlow(currentStudentId,subjectId=null,bookId=null,chapterId=null){
   const students=state.students||[];
-  root.innerHTML=`<header><b>Student List</b><button class="btn-secondary" onclick="studentTests(${currentStudentId})">Back</button></header><main>${studentFlowTopNav(currentStudentId)}<section class="card student-filter-card"><h2>Student चुनें</h2><p class="muted">Filter जैसी list में scroll करके student चुनें।</p><input id="studentFilterSearch" class="student-filter-search" placeholder="Student search…" autocomplete="off" oninput="filterStudentFlowList('student',this.value,${currentStudentId})"><div id="studentFlowFilterList" class="scroll-list">${students.map((st,i)=>`<button type="button" class="list compact-item student-filter-item ${st.id===currentStudentId?'is-selected':''}" onclick="studentTests(${st.id})"><span>${i+1}. ${esc(st.name)}</span>${st.class_name?`<small>Class ${esc(st.class_name)}</small>`:''}</button>`).join('')||'<p class="muted">अभी कोई Student नहीं है।</p>'}</div></section>${studentFlowBottomNav(currentStudentId,null)}</main>`;
+  root.innerHTML=`<header><b>Student List</b><button class="btn-secondary" onclick="studentTests(${currentStudentId})">Back</button></header><main>${studentFlowTopNav(currentStudentId,subjectId,bookId,chapterId)}<section class="card student-filter-card"><h2>Student चुनें</h2><p class="muted">Filter जैसी list में scroll करके student चुनें।</p><input id="studentFilterSearch" class="student-filter-search" placeholder="Student search…" autocomplete="off" oninput="filterStudentFlowList('student',this.value,${currentStudentId},${subjectId??'null'},${bookId??'null'},${chapterId??'null'})"><div id="studentFlowFilterList" class="scroll-list">${students.map((st,i)=>`<button type="button" class="list compact-item student-filter-item ${st.id===currentStudentId?'is-selected':''}" onclick="studentChangePreserveFlow(${st.id},${subjectId??'null'},${bookId??'null'},${chapterId??'null'})"><span>${i+1}. ${esc(st.name)}</span>${st.class_name?`<small>Class ${esc(st.class_name)}</small>`:''}</button>`).join('')||'<p class="muted">अभी कोई Student नहीं है।</p>'}</div></section>${studentFlowBottomNav(currentStudentId,null)}</main>`;
 }
 function filterStudentFlowList(kind,query,studentId,subjectId=null,bookId=null,chapterId=null){
   const list=document.getElementById('studentFlowFilterList'); if(!list)return;
@@ -901,7 +911,7 @@ function filterStudentFlowList(kind,query,studentId,subjectId=null,bookId=null,c
   let html='';
   if(kind==='student'){
     const rows=(state.students||[]).filter(st=>!q||String(st.name||'').toLocaleLowerCase().includes(q)||String(st.class_name||'').toLocaleLowerCase().includes(q));
-    html=rows.map((st,i)=>`<button type="button" class="list compact-item student-filter-item ${st.id===studentId?'is-selected':''}" onclick="studentTests(${st.id})"><span>${i+1}. ${esc(st.name)}</span>${st.class_name?`<small>Class ${esc(st.class_name)}</small>`:''}</button>`).join('');
+    html=rows.map((st,i)=>`<button type="button" class="list compact-item student-filter-item ${st.id===studentId?'is-selected':''}" onclick="studentChangePreserveFlow(${st.id},${subjectId??'null'},${bookId??'null'},${chapterId??'null'})"><span>${i+1}. ${esc(st.name)}</span>${st.class_name?`<small>Class ${esc(st.class_name)}</small>`:''}</button>`).join('');
   }else if(kind==='subject'){
     const rows=(state.content||[]).filter(sub=>!q||String(sub.name||'').toLocaleLowerCase().includes(q));
     html=rows.map((sub,i)=>`<button type="button" class="list compact-item student-filter-item ${sub.id===subjectId?'is-selected':''}" onclick="studentSubjectFlow(${studentId},${sub.id})"><span>${i+1}. ${esc(sub.name)}</span><small>Subject</small></button>`).join('');
@@ -929,6 +939,7 @@ function studentChapterListFlow(studentId,subjectId,bookId){
   root.innerHTML=`<header><b>Chapter List</b><button class="btn-secondary" onclick="studentBookFlow(${studentId},${subjectId},${bookId})">Back</button></header><main>${studentFlowTopNav(studentId,subjectId,bookId)}<section class="card student-filter-card"><h2>Chapter चुनें</h2><p class="muted">Filter जैसी list में scroll करके Chapter चुनें।</p><input id="studentFilterSearch" class="student-filter-search" placeholder="Chapter search…" autocomplete="off" oninput="filterStudentFlowList('chapter',this.value,${studentId},${subjectId},${bookId})"><div id="studentFlowFilterList" class="scroll-list">${book.chapters.map((c,i)=>`<button type="button" class="list compact-item student-filter-item" onclick="studentChapterFlow(${studentId},${c.id})"><span>${i+1}. ${esc(c.name)}</span><small>Chapter</small></button>`).join('')||'<p class="muted">इस Book में कोई Chapter नहीं है।</p>'}</div></section>${studentFlowBottomNav(studentId,null)}</main>`;
 }
 async function studentTests(id){
+  window.__studentFlowPage='dashboard';
   const st=state.students.find(x=>x.id===id);if(!st)return;
   let attempts=[];try{attempts=await api('/results/'+id)}catch(e){console.error(e)}
   window.__attempts=attempts;
@@ -954,12 +965,14 @@ function studentBookFlow(studentId,subjectId,bookId){
 }
 
 function studentChapterFlow(studentId,chapterId){
+  window.__studentFlowPage='chapter';
   const c=getChapter(chapterId);if(!c)return;
   const loc=state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===chapterId)));const subjectId=loc?.id;const book=loc?.books.find(b=>b.chapters.some(x=>x.id===chapterId));const bookId=book?.id;
   const all=window.__attempts||[];const chapterRows=all.filter(r=>r.chapter_id===chapterId);const chapterCorrect=chapterRows.reduce((n,r)=>n+Number(r.correct_words||0),0),chapterTotal=chapterRows.reduce((n,r)=>n+Number(r.total_words||0),0),chapterPct=chapterTotal?chapterCorrect/chapterTotal*100:0;
   root.innerHTML=`<header><b>${esc(c.name)} — Chapter</b><button class="btn-secondary" onclick="studentChapterListFlow(${studentId},${subjectId},${bookId})">Back</button></header><main>${studentFlowTopNav(studentId,subjectId,bookId,chapterId)}<section class="card student-chapter-hub"><h2>${esc(c.name)}</h2><p class="muted">Chapter की कुल accuracy: <b>${chapterTotal?chapterPct.toFixed(2)+'%':'अभी परिणाम नहीं'}</b> (${chapterCorrect}/${chapterTotal} words)</p><div class="student-chapter-hub-note">नीचे से Paragraph, Complete Chapter या Question-Answer चुनें।</div></section>${studentFlowBottomNav(studentId,chapterId)}</main>`;
 }
 function selectCompleteChapter(sid,cid){
+  window.__studentFlowPage='complete';
   const c=getChapter(cid);if(!c)return;
   const loc=state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)));const subId=loc?.id;const bk=loc?.books.find(b=>b.chapters.some(x=>x.id===cid));
   const latest=(window.__attempts||[]).filter(r=>r.student_id===sid&&r.chapter_id===cid&&(r.test_type==='chapter'||r.test_type==='paragraph')).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
@@ -969,6 +982,7 @@ function selectCompleteChapter(sid,cid){
 }
 function showChapterTypeHistory(sid,cid,type){const rows=(window.__attempts||[]).filter(r=>r.chapter_id===cid&&(type==='complete'?(r.test_type==='chapter'||r.test_type==='paragraph'):r.test_type===type)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));const c=getChapter(cid);root.innerHTML=`<header><b>${esc(c?.name||'Chapter')} — Attempt History</b><button class="btn-secondary" onclick="studentChapterFlow(${sid},${cid})">Back</button></header><main><section class="card"><h2>Previous Attempts</h2>${rows.length?rows.map(r=>`<div class="attempt-row"><span>${r.test_type==='qa'?'Question-Answer':r.test_type==='paragraph'?'Paragraph':'Complete Paragraph'} · ${new Date(r.created_at).toLocaleString()}</span><button class="result-link" onclick="showAttemptResult(${r.id})">${Number(r.score_percent).toFixed(2)}%</button></div>`).join(''):'<p class="muted">अभी कोई saved attempt नहीं है।</p>'}</section></main>`}
 function selectQaItems(sid,cid){
+  window.__studentFlowPage='qa';
   const c=getChapter(cid);if(!c?.qa.length)return alert('No Q&A');
   const loc=state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)));const subId=loc?.id;const bk=loc?.books.find(b=>b.chapters.some(x=>x.id===cid));
   root.innerHTML=`<header><b>${esc(c.name)} — Question-Answer Test</b><button class="btn-secondary" onclick="studentChapterFlow(${sid},${cid})">Back</button></header><main>${studentFlowTopNav(sid,subId,bk?.id,cid)}<section class="card"><h2>Q&A चुनें</h2>${c.qa.map((q,i)=>{const rows=(window.__attempts||[]).filter(r=>r.test_type==='qa'&&r.chapter_id===cid&&r.item_id===q.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));const latest=rows[0];return `<article class="testrow paragraph-option-a"><div class="paragraph-row-heading"><b>Question ${i+1}</b><span>Q&A</span></div><div class="qa-question-preview">${esc(q.question)}</div><div class="paragraph-action-grid"><button class="result-link" onclick="showQaHistory(${sid},${cid},${q.id},${i+1})">${latest?Number(latest.score_percent).toFixed(2)+'%':'History'}</button><button class="progress-chart-btn" onclick="showProgressChart(${sid},${cid},${q.id},'qa','Q&A ${i+1}', 'qa')">📈 Progress Chart</button><button class="history-underline-btn" onclick="showUnderlineHistory(${sid},${cid},${q.id},'qa','Q&A ${i+1}','qa')">📋 Underline History${latest?` · ${Number(latest.score_percent).toFixed(2)}%`:''}</button><button type="button" class="list-speaker-btn" onclick="toggleListSpeaker(this,'qa',${cid},${q.id})" aria-label="Speaker ON" title="Speaker ON">🔊</button><button class="primary-test-btn" onclick="startSingleQaTest(${sid},${cid},${q.id})">▶ Start Test</button></div></article>`}).join('')}</section>${studentFlowBottomNav(sid,cid)}</main>`;
@@ -978,6 +992,7 @@ function startSingleQaTest(sid,cid,qid){const c=getChapter(cid),q=c?.qa.find(x=>
 function showSubjectHistory(sid,subjectId){const sub=state.content.find(x=>x.id===subjectId);if(!sub)return;const ids=new Set(sub.books.flatMap(b=>b.chapters.map(c=>c.id)));const arr=(window.__attempts||[]).filter(r=>ids.has(r.chapter_id));root.innerHTML=`<header><b>${esc(sub.name)} — Result History</b><button class="btn-secondary" onclick="studentTests(${sid})">Back</button></header><main><section class="card"><h2>Subject Results</h2>${arr.length?arr.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(r=>`<div class="attempt-row"><span>${esc(r.chapter_name||'Chapter')} · ${esc(r.test_type)} · ${new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</span><button class="result-link" onclick="showAttemptResult(${r.id})">${Number(r.score_percent).toFixed(2)}%</button></div>`).join(''):'<p class="muted">अभी कोई saved result नहीं है।</p>'}</section></main>`}
 
 function selectParagraph(sid,cid){
+  window.__studentFlowPage='paragraph';
   const c=getChapter(cid);if(!c?.paragraphs.length)return alert('No paragraphs');const attempts=(window.__attempts||[]);const loc=state.content.find(s=>s.books.some(b=>b.chapters.some(x=>x.id===cid)));const subId=loc?.id;const bk=loc?.books.find(b=>b.chapters.some(x=>x.id===cid));
   root.innerHTML=`<header><b>${esc(c.name)} — Paragraph Test</b><button class="btn-secondary" onclick="studentChapterFlow(${sid},${cid})">Back</button></header><main>${studentFlowTopNav(sid,subId,bk?.id,cid)}<section class="card"><h2>किस paragraph का test देना है?</h2><p class="muted">कोई भी paragraph चुनें। किसी क्रम की बाध्यता नहीं है।</p>${c.paragraphs.map((p,i)=>{const rows=attempts.filter(r=>r.test_type==='paragraph'&&r.chapter_id===cid&&r.item_id===p.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));const latest=rows[0];return `<article class="testrow paragraph-option-a"><div class="paragraph-row-heading"><b>Paragraph ${i+1}</b><span>${tokenize(p.text).length} words</span></div><div class="paragraph-list-preview" aria-label="Paragraph preview"><span class="paragraph-list-preview-label">${paragraphListPreview(p.text)}</span></div><div class="paragraph-action-grid paragraph-list-actions"><button class="progress-chart-btn" onclick="showProgressChart(${sid},${cid},${p.id},'paragraph','Paragraph ${i+1}', 'paragraph')">📈 Progress Chart</button><button class="history-underline-btn" onclick="showUnderlineHistory(${sid},${cid},${p.id},'paragraph','Paragraph ${i+1}','paragraph')">📋 Underline History${latest?` · ${Number(latest.score_percent).toFixed(2)}%`:''}</button><button class="pronunciation-btn" onclick="showPronunciationHelp(${sid},${cid},${p.id},${i})">📖 Pronunciation Help</button><button type="button" class="list-speaker-btn" onclick="toggleListSpeaker(this,'paragraph',${cid},${p.id})" aria-label="Speaker ON" title="Speaker ON">🔊</button><button class="primary-test-btn" onclick="startSelectedParagraphTest(${sid},${cid},${p.id},${i})">▶ Start Test</button></div></article>`}).join('')}</section>${studentFlowBottomNav(sid,cid)}</main>`;
 }

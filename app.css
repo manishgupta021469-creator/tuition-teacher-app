@@ -829,3 +829,39 @@ button:hover{background:linear-gradient(110deg,#255fcf 0%,#166fbe 55%,#129c99 10
 .formula-source{color:#1a4b88}
 .camera-panel video,.camera-panel canvas{background:#102a52}
 @media(max-width:600px){header{background:linear-gradient(100deg,#103f94 0%,#1681d6 48%,#18b8ae 100%)}}
+
+
+/* V109 — Truly fixed student-flow controls.
+   The 4 top selectors and 3 bottom choices are outside the scrolling middle card.
+   Only the middle content card scrolls; selectors never drift even by 1px. */
+main:has(.student-flow-top-nav){
+  height:calc(100dvh - 62px);
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+main:has(.student-flow-top-nav) > .student-flow-top-nav{
+  position:relative !important;
+  top:auto !important;
+  flex:0 0 auto;
+  margin-top:0;
+}
+main:has(.student-flow-top-nav) > .card{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  margin-bottom:0;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
+  position:relative !important;
+  bottom:auto !important;
+  flex:0 0 auto;
+  margin-top:8px;
+}
+@media(max-width:600px){
+  main:has(.student-flow-top-nav){height:calc(100dvh - 58px);}
+}
