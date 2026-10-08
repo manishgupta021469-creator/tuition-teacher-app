@@ -871,3 +871,18 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .readable-content-card{padding-bottom:18px}
 .readable-content-body{font-size:1rem;line-height:1.75;color:var(--ink);background:var(--brand-soft);border:1px solid var(--line);border-radius:12px;padding:14px;white-space:normal;overflow-wrap:anywhere}
 .readable-content-body .formula-source,.readable-content-body .formula-math{max-width:100%;overflow-x:auto}
+
+
+/* V111 — Read button compactness and single-row action layout. Existing buttons/features unchanged. */
+.paragraph-action-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;align-items:stretch}
+.paragraph-action-grid button{min-height:34px;height:34px;padding:2px 3px;font-size:.62rem;line-height:1.02;white-space:normal;border-radius:8px}
+.paragraph-action-grid .read-content-btn{font-size:.70rem;font-weight:800;white-space:nowrap;padding:2px 4px}
+.paragraph-action-grid .list-speaker-btn{width:34px!important;min-width:34px!important;height:34px!important;min-height:34px!important;padding:0!important;font-size:.9rem}
+.paragraph-action-grid .primary-test-btn{grid-column:auto!important;min-height:34px;height:34px;padding:2px 3px;font-size:.64rem}
+@media(max-width:600px){
+  .paragraph-action-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:3px}
+  .paragraph-action-grid button{min-height:33px;height:33px;padding:2px;font-size:.57rem;line-height:1.0}
+  .paragraph-action-grid .read-content-btn{font-size:.66rem;padding:2px 3px}
+  .paragraph-action-grid .list-speaker-btn{width:33px!important;min-width:33px!important;height:33px!important;min-height:33px!important;font-size:.86rem}
+  .paragraph-action-grid .primary-test-btn{min-height:33px;height:33px;font-size:.60rem;padding:2px}
+}
