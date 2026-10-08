@@ -1007,3 +1007,42 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .v112-motivation span{font-size:clamp(.55rem,2.5vw,.65rem)!important}
   .v112-motivation-books{font-size:1.55rem!important}
 }
+
+/* V116: dashboard-only visual correction against the approved reference.
+   No application handlers, test logic, API calls, or stored data are changed. */
+@media(max-width:600px){
+  body:has(.v112-dash-header) #app{overflow:hidden!important}
+  .v112-dashboard{height:calc(100dvh - 58px)!important;max-height:calc(100dvh - 58px)!important;overflow:hidden!important;box-sizing:border-box!important;justify-content:space-between!important;gap:clamp(4px,.65dvh,8px)!important;padding:clamp(6px,.9dvh,12px) 8px!important}
+  .v112-hero{flex:0 0 clamp(105px,15.5dvh,170px)!important;min-height:0!important;margin:0!important;padding:10px 12px!important;border-radius:18px!important}
+  .v112-feature-grid{flex:0 0 clamp(178px,27dvh,285px)!important;min-height:0!important;gap:6px!important;margin:0!important}
+  .v112-feature-card{min-height:0!important;height:100%!important;padding:10px 7px 9px!important;border-radius:15px!important;justify-content:flex-start!important}
+  .v112-feature-art{width:clamp(60px,17vw,88px)!important;height:clamp(60px,17vw,88px)!important;margin:2px auto 10px!important;box-shadow:inset 0 0 0 3px rgba(255,255,255,.34),0 5px 12px rgba(75,82,150,.08)!important}
+  .v112-feature-art span{font-size:clamp(1.8rem,8vw,2.65rem)!important}
+  .v112-student-art span+span{margin-left:-13px!important}
+  .v112-book-stack{font-size:clamp(2.2rem,9vw,2.9rem)!important}
+  .v112-performance-art span{font-size:clamp(1.2rem,5.2vw,1.7rem)!important}
+  .v112-feature-art i{width:24px!important;height:24px!important;font-size:.84rem!important;right:-2px!important;bottom:0!important}
+  .v112-feature-title{font-size:clamp(.72rem,3.45vw,.92rem)!important;line-height:1.16!important;margin-bottom:5px!important;overflow-wrap:normal!important}
+  .v112-feature-sub{font-size:clamp(.59rem,2.8vw,.74rem)!important;line-height:1.22!important;overflow-wrap:normal!important}
+  .v112-open-circle{width:28px!important;height:28px!important;font-size:1rem!important;margin-top:auto!important;flex:0 0 28px!important}
+  .v112-activity{flex:0 0 clamp(205px,34dvh,360px)!important;min-height:0!important;margin:0!important;border-radius:17px!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+  .v112-activity-head{flex:0 0 auto!important;padding:9px 10px!important;gap:7px!important;border-bottom:1px solid #e5edf7!important}
+  .v112-activity-title{gap:8px!important;min-width:0!important}
+  .v112-activity-title h2{font-size:clamp(.92rem,4.1vw,1.12rem)!important;line-height:1.1!important;margin:0!important}
+  .v112-activity-title small{font-size:clamp(.62rem,2.8vw,.75rem)!important;line-height:1.2!important;margin-top:3px!important}
+  .v112-activity-icon{width:34px!important;height:34px!important;flex:0 0 34px!important;font-size:1.05rem!important}
+  .v112-view-all{font-size:clamp(.62rem,2.8vw,.76rem)!important;padding:7px 9px!important;min-height:38px!important;border-radius:22px!important;white-space:nowrap!important}
+  .v112-activity-list{flex:1 1 auto!important;min-height:0!important;padding:2px 9px!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;overflow:hidden!important}
+  .v112-activity-row{flex:0 0 auto!important;min-height:clamp(48px,7.3dvh,70px)!important;grid-template-columns:30px minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important;padding:7px 2px!important;border-bottom:1px solid #e6edf5!important}
+  .v112-activity-row:last-child{border-bottom:0!important}
+  .v112-row-icon{width:29px!important;height:29px!important;font-size:.86rem!important}
+  .v112-activity-row b{font-size:clamp(.68rem,3vw,.8rem)!important;line-height:1.16!important}
+  .v112-activity-row small,.v112-row-time{font-size:clamp(.56rem,2.45vw,.68rem)!important;line-height:1.18!important}
+  .v112-row-time{max-width:86px!important;white-space:normal!important;text-align:right!important}
+  .v112-motivation{flex:0 0 clamp(48px,8dvh,72px)!important;min-height:0!important;margin:0!important;padding:7px 10px!important;gap:8px!important;border-radius:15px!important;box-sizing:border-box!important}
+  .v112-lightbulb{font-size:1.55rem!important}
+  .v112-motivation b{font-size:clamp(.69rem,3.1vw,.82rem)!important;line-height:1.15!important}
+  .v112-motivation span{font-size:clamp(.59rem,2.65vw,.72rem)!important;line-height:1.15!important}
+  .v112-motivation-books{font-size:1.75rem!important}
+  .v112-dashboard>.success-banner{flex:0 0 auto!important;max-height:38px!important;padding:5px 8px!important;margin:0!important;font-size:.7rem!important;overflow:hidden!important}
+}
