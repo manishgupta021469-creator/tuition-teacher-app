@@ -621,6 +621,35 @@ button:hover{box-shadow:0 6px 14px rgba(24,148,88,.16)}
   .student-filter-item{min-height:52px}
 }
 
+/* V107 — Keep student flow selectors and test-type controls fixed while the selected content scrolls.
+   UI-only behavior; paragraph/Q&A/Complete Chapter data, test logic, history and scoring are untouched. */
+.student-flow-top-nav{
+  position:sticky;
+  top:0;
+  z-index:40;
+  margin-top:-1px;
+  padding:6px 0 8px;
+  background:rgba(241,250,246,.97);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  box-shadow:0 4px 12px rgba(24,91,61,.08);
+}
+.student-flow-bottom-nav{
+  position:sticky;
+  bottom:0;
+  z-index:40;
+  margin:14px -1px 0;
+  padding:8px 1px calc(8px + env(safe-area-inset-bottom, 0px));
+  background:rgba(255,255,255,.97);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  box-shadow:0 -5px 14px rgba(24,91,61,.10);
+}
+@media(max-width:600px){
+  .student-flow-top-nav{padding-top:5px;padding-bottom:7px}
+  .student-flow-bottom-nav{padding-top:7px}
+}
+
 /* V100 — compact per-item Speaker ON/OFF control; existing action buttons unchanged. */
 .list-speaker-btn{display:inline-flex!important;align-items:center;justify-content:center;width:42px!important;min-width:42px!important;height:38px;min-height:38px!important;padding:0!important;border:1px solid #bfe1cb;background:#eaf8ef;color:#187343;border-radius:10px;font-size:1.05rem;line-height:1;cursor:pointer;font-weight:800}
 .list-speaker-btn:hover{background:#dff4e7}
