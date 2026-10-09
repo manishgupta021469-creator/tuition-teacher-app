@@ -939,23 +939,30 @@ function attemptAccuracyPercent(attempt){
 function latestPerformanceAttempt(rows){
   return (rows||[]).slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))[0]||null;
 }
-function performanceScoreSummary(attempt){
-  if(!attempt)return `<div class="performance-score-summary is-empty"><span class="performance-score-caption">Last Score</span><strong>अभी टेस्ट नहीं</strong></div>`;
-  const hasCorrect=attempt.correct_words!==null&&attempt.correct_words!==undefined&&attempt.correct_words!=='';
-  const hasTotal=attempt.total_words!==null&&attempt.total_words!==undefined&&attempt.total_words!=='';
-  const correct=Number(attempt.correct_words),total=Number(attempt.total_words);
-  const pct=attemptAccuracyPercent(attempt);
-  if(hasCorrect&&hasTotal&&Number.isFinite(correct)&&Number.isFinite(total)&&total>0){
-    return `<div class="performance-score-summary"><span class="performance-score-caption">Last Score</span><strong>${Math.round(correct)} / ${Math.round(total)} शब्द सही</strong><span class="performance-score-percent">${pct===null?'—':pct.toFixed(2)+'%'}</span></div>`;
-  }
-  return `<div class="performance-score-summary is-empty"><span class="performance-score-caption">Last Score</span><strong>${pct===null?'रिकॉर्ड उपलब्ध':' '+pct.toFixed(2)+'%'}</strong><small>शब्दों की गिनती उपलब्ध नहीं</small></div>`;
+// Aggregate only the newest saved attempt for each Paragraph, Q&A item, or Complete Chapter.
+function performanceAggregate(rows){
+  const latestByItem=new Map();
+  (rows||[]).slice().sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0)).forEach(r=>{
+    const type=String(r.test_type||'unknown');
+    const item=(type==='chapter')?'complete-chapter':String(r.item_id??'no-item');
+    latestByItem.set(`${Number(r.chapter_id)}:${type}:${item}`,r);
+  });
+  const latest=[...latestByItem.values()];
+  const total=latest.reduce((n,r)=>n+Math.max(0,Number(r.total_words)||0),0);
+  const correct=latest.reduce((n,r)=>n+Math.max(0,Number(r.correct_words)||0),0);
+  return {attempts:latest,tests:latest.length,total,correct,percent:total>0?correct/total*100:null};
+}
+function performanceScoreSummary(summary){
+  if(!summary||!summary.tests)return `<div class="performance-score-summary is-empty"><span class="performance-score-caption">Total Score</span><strong>अभी टेस्ट नहीं</strong></div>`;
+  const pct=summary.percent;
+  return `<div class="performance-score-summary"><span class="performance-score-caption">Total Score · ${summary.tests} टेस्ट</span><strong>${Math.round(summary.correct)} / ${Math.round(summary.total)} शब्द सही</strong><span class="performance-score-percent">${pct===null?'—':pct.toFixed(2)+'%'}</span></div>`;
 }
 function performanceRowsForChapters(attempts,chapterIds,studentId=null){
   const ids=new Set((chapterIds||[]).map(Number));
   return (attempts||[]).filter(r=>ids.has(Number(r.chapter_id))&&(studentId==null||r.student_id==null||Number(r.student_id)===Number(studentId)));
 }
-function performanceResultCard(title,index,attempt,onClick){
-  return `<button type="button" class="performance-result-card" onclick="${onClick}"><span class="performance-result-title"><span class="performance-result-index">${index}.</span><b>${esc(title)}</b><span class="performance-result-arrow" aria-hidden="true">→</span></span>${performanceScoreSummary(attempt)}</button>`;
+function performanceResultCard(title,index,summary,onClick){
+  return `<button type="button" class="performance-result-card" onclick="${onClick}"><span class="performance-result-title"><span class="performance-result-index">${index}.</span><b>${esc(title)}</b><span class="performance-result-arrow" aria-hidden="true">→</span></span>${performanceScoreSummary(summary)}</button>`;
 }
 async function studentPerformanceFlow(studentId){
   window.__studentPerformanceMode=true;
@@ -967,9 +974,9 @@ async function studentPerformanceFlow(studentId){
   const subjects=(state.content||[]).map(sub=>{
     const chapterIds=(sub.books||[]).flatMap(b=>(b.chapters||[]).map(c=>c.id));
     const rows=performanceRowsForChapters(attempts,chapterIds,studentId);
-    return {sub,latest:latestPerformanceAttempt(rows)};
+    return {sub,summary:performanceAggregate(rows)};
   });
-  root.innerHTML=`<header><b>${esc(st.name)} — Student Performance</b><button class="btn-secondary" onclick="dashboardPerformanceHub()">Back</button></header><main>${studentFlowTopNav(studentId)}<section class="card"><h2>Subject-wise Score</h2><p class="muted">हर Subject में पिछली बार के टेस्ट का स्कोर और सही शब्दों की गिनती दिखाई जाती है।</p><div class="compact-grid performance-score-grid">${subjects.map((row,i)=>performanceResultCard(row.sub.name,i+1,row.latest,`studentPerformanceSubjectFlow(${studentId},${row.sub.id})`)).join('')||'<p class="muted">अभी कोई Subject उपलब्ध नहीं है।</p>'}</div></section></main>`;
+  root.innerHTML=`<header><b>${esc(st.name)} — Student Performance</b><button class="btn-secondary" onclick="dashboardPerformanceHub()">Back</button></header><main>${studentFlowTopNav(studentId)}<section class="card"><h2>Subject-wise Score</h2><p class="muted">हर Subject का कुल स्कोर उसके सभी Chapters के नवीनतम item-wise टेस्ट रिकॉर्ड जोड़कर दिखाया जाता है।</p><div class="compact-grid performance-score-grid">${subjects.map((row,i)=>performanceResultCard(row.sub.name,i+1,row.summary,`studentPerformanceSubjectFlow(${studentId},${row.sub.id})`)).join('')||'<p class="muted">अभी कोई Subject उपलब्ध नहीं है।</p>'}</div></section></main>`;
 }
 function studentPerformanceSubjectFlow(studentId,subjectId){
   window.__studentPerformanceMode=true;
@@ -977,16 +984,16 @@ function studentPerformanceSubjectFlow(studentId,subjectId){
   const attempts=window.__attempts||[];
   const books=(sub.books||[]).map(book=>{
     const rows=performanceRowsForChapters(attempts,(book.chapters||[]).map(c=>c.id),studentId);
-    return {book,latest:latestPerformanceAttempt(rows)};
+    return {book,summary:performanceAggregate(rows)};
   });
-  root.innerHTML=`<header><b>${esc(sub.name)} — Books</b><button class="btn-secondary" onclick="studentPerformanceFlow(${studentId})">Back</button></header><main>${studentFlowTopNav(studentId,subjectId)}<section class="card"><h2>Book चुनें</h2><div class="compact-grid performance-score-grid">${books.map((row,i)=>performanceResultCard(row.book.name,i+1,row.latest,`studentPerformanceBookFlow(${studentId},${subjectId},${row.book.id})`)).join('')||'<p class="muted">इस Subject में कोई Book नहीं है।</p>'}</div></section>${studentFlowBottomNav(studentId,null)}</main>`;
+  root.innerHTML=`<header><b>${esc(sub.name)} — Books</b><button class="btn-secondary" onclick="studentPerformanceFlow(${studentId})">Back</button></header><main>${studentFlowTopNav(studentId,subjectId)}<section class="card"><h2>Book चुनें</h2><div class="compact-grid performance-score-grid">${books.map((row,i)=>performanceResultCard(row.book.name,i+1,row.summary,`studentPerformanceBookFlow(${studentId},${subjectId},${row.book.id})`)).join('')||'<p class="muted">इस Subject में कोई Book नहीं है।</p>'}</div></section>${studentFlowBottomNav(studentId,null)}</main>`;
 }
 function studentPerformanceBookFlow(studentId,subjectId,bookId){
   window.__studentPerformanceMode=true;
   const sub=(state.content||[]).find(x=>Number(x.id)===Number(subjectId));const book=sub?.books.find(x=>Number(x.id)===Number(bookId));if(!book)return;
   const attempts=window.__attempts||[];
-  const chapters=(book.chapters||[]).map(chapter=>({chapter,latest:latestPerformanceAttempt(performanceRowsForChapters(attempts,[chapter.id],studentId))}));
-  root.innerHTML=`<header><b>${esc(book.name)} — Chapters</b><button class="btn-secondary" onclick="studentPerformanceSubjectFlow(${studentId},${subjectId})">Back</button></header><main>${studentFlowTopNav(studentId,subjectId,bookId)}<section class="card"><h2>Chapter चुनें</h2><div class="compact-grid performance-score-grid">${chapters.map((row,i)=>performanceResultCard(row.chapter.name,i+1,row.latest,`studentChapterFlow(${studentId},${row.chapter.id})`)).join('')||'<p class="muted">इस Book में कोई Chapter नहीं है।</p>'}</div></section>${studentFlowBottomNav(studentId,null)}</main>`;
+  const chapters=(book.chapters||[]).map(chapter=>({chapter,summary:performanceAggregate(performanceRowsForChapters(attempts,[chapter.id],studentId))}));
+  root.innerHTML=`<header><b>${esc(book.name)} — Chapters</b><button class="btn-secondary" onclick="studentPerformanceSubjectFlow(${studentId},${subjectId})">Back</button></header><main>${studentFlowTopNav(studentId,subjectId,bookId)}<section class="card"><h2>Chapter चुनें</h2><div class="compact-grid performance-score-grid">${chapters.map((row,i)=>performanceResultCard(row.chapter.name,i+1,row.summary,`studentChapterFlow(${studentId},${row.chapter.id})`)).join('')||'<p class="muted">इस Book में कोई Chapter नहीं है।</p>'}</div></section>${studentFlowBottomNav(studentId,null)}</main>`;
 }
 function studentFlowTopNav(studentId,subjectId=null,bookId=null,chapterId=null){
   const {student,subject,book,chapter}=studentFlowContext(studentId,subjectId,bookId,chapterId);
