@@ -1106,3 +1106,30 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
  .v117-choice-card b{font-size:.85rem;padding-right:8px}
  .v117-choice-arrow{width:24px;height:24px;right:8px;bottom:8px;font-size:.95rem}
 }
+
+
+/* V118 — Paragraph Last Accuracy button and per-paragraph accuracy history.
+   Additive only: preserves existing scoring, test controls and data behavior. */
+.paragraph-action-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.paragraph-action-grid .last-accuracy-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  min-width:0;padding:2px 1px;background:#fff5df;color:#8b5b12;
+  border:1px solid #f0d6a0;font-weight:800;
+}
+.paragraph-action-grid .last-accuracy-btn span{display:block;max-width:100%;font-size:inherit;line-height:1;overflow-wrap:anywhere}
+.paragraph-action-grid .last-accuracy-btn strong{display:block;font-size:.65rem;line-height:1;white-space:nowrap}
+.accuracy-history-card{overflow:hidden}
+.accuracy-history-list{display:grid;gap:8px;margin-top:12px}
+.accuracy-history-row{padding:11px 12px;border:1px solid #dce8f7;border-radius:13px;background:#fff}
+.accuracy-history-row.is-latest{border-color:#f0d6a0;background:#fffaf0}
+.accuracy-history-row-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.accuracy-history-row-top span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.accuracy-history-row-top small{color:var(--muted);font-size:.82rem}
+.accuracy-history-row-top strong{color:#176b50;font-size:1.08rem;white-space:nowrap}
+.accuracy-history-row p{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:8px 0 0;color:var(--muted);font-size:.9rem}
+.accuracy-history-result{padding:2px 7px;border-radius:999px;background:#eef6ff;color:#285b97;font-size:.78rem;font-weight:800}
+@media(max-width:600px){
+  .paragraph-action-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .paragraph-action-grid .last-accuracy-btn{min-height:33px;height:33px;font-size:.55rem;line-height:1;padding:2px 1px}
+  .paragraph-action-grid .last-accuracy-btn strong{font-size:.52rem}
+}
