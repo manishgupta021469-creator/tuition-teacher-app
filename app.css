@@ -1176,3 +1176,25 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .last-accuracy-btn{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;min-width:0;min-height:38px;padding:7px 9px;border:1px solid #b8ebcd;border-radius:10px;background:linear-gradient(145deg,#e9fff3,#d9f8e8);color:#177552;font-weight:800;box-shadow:none;cursor:pointer;}
 .last-accuracy-btn strong{display:block;font-size:.78rem;line-height:1;white-space:nowrap;}
 
+
+
+/* V121 — more colorful Student Performance Subject/Book/Chapter cards. */
+.performance-score-grid>.performance-result-card:nth-child(4n+1){background:linear-gradient(145deg,#fff 0%,#ffe8f2 100%);border-color:#f1c2d8;}
+.performance-score-grid>.performance-result-card:nth-child(4n+2){background:linear-gradient(145deg,#fff 0%,#e5f2ff 100%);border-color:#b9d7f4;}
+.performance-score-grid>.performance-result-card:nth-child(4n+3){background:linear-gradient(145deg,#fff 0%,#fff0d9 100%);border-color:#f0d3a3;}
+.performance-score-grid>.performance-result-card:nth-child(4n){background:linear-gradient(145deg,#fff 0%,#e5f8ec 100%);border-color:#b8e4c7;}
+.performance-score-grid>.performance-result-card:nth-child(4n+1) .performance-result-title{background:#ffd7e8;}
+.performance-score-grid>.performance-result-card:nth-child(4n+2) .performance-result-title{background:#d6eaff;}
+.performance-score-grid>.performance-result-card:nth-child(4n+3) .performance-result-title{background:#ffe5b8;}
+.performance-score-grid>.performance-result-card:nth-child(4n) .performance-result-title{background:#d3f3de;}
+
+.v117-choice-grid .v117-choice-card.v117-book-choice:nth-child(4n+1){background:linear-gradient(145deg,#fff 0%,#fff0d8 100%)!important;border-color:#f1c987!important;}
+.v117-choice-grid .v117-choice-card.v117-book-choice:nth-child(4n+2){background:linear-gradient(145deg,#fff 0%,#e6f3ff 100%)!important;border-color:#b7d8f5!important;}
+.v117-choice-grid .v117-choice-card.v117-book-choice:nth-child(4n+3){background:linear-gradient(145deg,#fff 0%,#f9e6ff 100%)!important;border-color:#dfb8ef!important;}
+.v117-choice-grid .v117-choice-card.v117-book-choice:nth-child(4n){background:linear-gradient(145deg,#fff 0%,#e2f8e9 100%)!important;border-color:#b3e3c3!important;}
+.v117-choice-grid .v117-choice-card.v117-chapter-choice:nth-child(4n+1){background:linear-gradient(145deg,#fff 0%,#e3f8ed 100%)!important;border-color:#afe4c7!important;}
+.v117-choice-grid .v117-choice-card.v117-chapter-choice:nth-child(4n+2){background:linear-gradient(145deg,#fff 0%,#e5efff 100%)!important;border-color:#bfd0fa!important;}
+.v117-choice-grid .v117-choice-card.v117-chapter-choice:nth-child(4n+3){background:linear-gradient(145deg,#fff 0%,#fff0df 100%)!important;border-color:#f0d0a7!important;}
+.v117-choice-grid .v117-choice-card.v117-chapter-choice:nth-child(4n){background:linear-gradient(145deg,#fff 0%,#fbe5f0 100%)!important;border-color:#edbfd6!important;}
+.student-paragraph-list-item+.student-paragraph-list-item{position:relative;margin-top:17px!important;padding-top:17px!important;}
+.student-paragraph-list-item+.student-paragraph-list-item::before{content:"";display:block;height:2px;width:100%;background:#111;margin:0 0 14px;border-radius:2px;}
