@@ -1108,28 +1108,52 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 }
 
 
-/* V118 — Paragraph Last Accuracy button and per-paragraph accuracy history.
-   Additive only: preserves existing scoring, test controls and data behavior. */
-.paragraph-action-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-.paragraph-action-grid .last-accuracy-btn{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  min-width:0;padding:2px 1px;background:#fff5df;color:#8b5b12;
-  border:1px solid #f0d6a0;font-weight:800;
-}
-.paragraph-action-grid .last-accuracy-btn span{display:block;max-width:100%;font-size:inherit;line-height:1;overflow-wrap:anywhere}
-.paragraph-action-grid .last-accuracy-btn strong{display:block;font-size:.65rem;line-height:1;white-space:nowrap}
+/* V119 — Student Performance word-count cards and per-item score summaries.
+   Additive UI styles using the existing Easyway Learn theme variables. */
+.performance-score-grid{grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px}
+.performance-result-tile{min-width:0;padding:7px;border:1px solid var(--line);border-radius:14px;background:var(--paper);box-shadow:0 3px 10px rgba(20,33,61,.045)}
+.performance-result-tile>.compact-item{width:100%;min-height:54px;border:1px solid var(--line);background:var(--brand-soft);color:var(--ink);font-weight:800}
+.performance-score-summary{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;padding:8px 9px;border:1px solid var(--line);border-radius:11px;background:var(--brand-soft);color:var(--ink);line-height:1.2;overflow-wrap:anywhere}
+.performance-score-caption{font-size:.68rem;font-weight:800;color:var(--brand-dark)}
+.performance-score-summary strong{font-size:.85rem;font-weight:900;color:var(--brand-dark)}
+.performance-score-percent{font-size:.78rem;font-weight:900;color:var(--teal)}
+.performance-score-summary small{font-size:.67rem;color:var(--muted);font-weight:600}
+.performance-score-summary.is-empty{background:var(--paper);border-style:dashed;color:var(--muted)}
+.performance-score-summary.is-empty strong{color:var(--muted);font-size:.76rem}
+.performance-item-score{margin:8px 0}
+.performance-item-score .performance-score-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:3px}
+.performance-item-score .performance-score-caption{grid-column:1/-1}
+.performance-item-score .performance-score-summary strong{font-size:.82rem}
+.student-chapter-hub .performance-score-summary{max-width:260px;margin:7px 0 12px}
+.readable-qa-part{padding:10px 0}
+.readable-qa-part+.readable-qa-part{border-top:1px solid var(--line);margin-top:8px}
+.readable-qa-part>b{display:block;color:var(--brand-dark);margin-bottom:5px}
+.readable-qa-part p{margin:0;overflow-wrap:anywhere}
+/* Retain the previously requested Last Accuracy button, matching the existing green/blue button palette. */
+.paragraph-list-actions{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.paragraph-list-actions .last-accuracy-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;padding:2px 1px;background:linear-gradient(145deg,#e9fff3,#d9f8e8);color:#177552;border:1px solid #b8ebcd;font-weight:800;box-shadow:none}
+.paragraph-list-actions .last-accuracy-btn span{display:block;max-width:100%;font-size:inherit;line-height:1;overflow-wrap:anywhere}
+.paragraph-list-actions .last-accuracy-btn strong{display:block;font-size:.62rem;line-height:1;white-space:nowrap}
 .accuracy-history-card{overflow:hidden}
 .accuracy-history-list{display:grid;gap:8px;margin-top:12px}
-.accuracy-history-row{padding:11px 12px;border:1px solid #dce8f7;border-radius:13px;background:#fff}
-.accuracy-history-row.is-latest{border-color:#f0d6a0;background:#fffaf0}
+.accuracy-history-row{padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:var(--paper)}
+.accuracy-history-row.is-latest{border-color:#b8ebcd;background:var(--brand-soft)}
 .accuracy-history-row-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .accuracy-history-row-top span{display:flex;flex-direction:column;gap:3px;min-width:0}
 .accuracy-history-row-top small{color:var(--muted);font-size:.82rem}
-.accuracy-history-row-top strong{color:#176b50;font-size:1.08rem;white-space:nowrap}
+.accuracy-history-row-top strong{color:var(--brand-dark);font-size:1.08rem;white-space:nowrap}
 .accuracy-history-row p{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:8px 0 0;color:var(--muted);font-size:.9rem}
-.accuracy-history-result{padding:2px 7px;border-radius:999px;background:#eef6ff;color:#285b97;font-size:.78rem;font-weight:800}
+.accuracy-history-result{padding:2px 7px;border-radius:999px;background:var(--brand-soft);color:var(--brand-dark);font-size:.78rem;font-weight:800}
 @media(max-width:600px){
-  .paragraph-action-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
-  .paragraph-action-grid .last-accuracy-btn{min-height:33px;height:33px;font-size:.55rem;line-height:1;padding:2px 1px}
-  .paragraph-action-grid .last-accuracy-btn strong{font-size:.52rem}
+  .performance-score-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .performance-result-tile{padding:6px}
+  .performance-score-summary{padding:7px;font-size:.76rem}
+  .performance-score-summary strong{font-size:.75rem}
+  .performance-score-percent{font-size:.72rem}
+  .paragraph-list-actions{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .paragraph-list-actions button{min-height:36px;height:36px;padding:2px 1px;font-size:.57rem;line-height:1.02}
+  .paragraph-list-actions .primary-test-btn{min-height:36px;height:36px;font-size:.60rem;padding:2px 2px}
+  .paragraph-list-actions .list-speaker-btn{width:38px!important;min-width:0!important;height:36px!important;min-height:36px!important;font-size:.92rem}
+  .paragraph-list-actions .last-accuracy-btn{min-height:36px;height:36px;font-size:.55rem;line-height:1;padding:2px 1px}
+  .paragraph-list-actions .last-accuracy-btn strong{font-size:.50rem}
 }
