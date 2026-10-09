@@ -1157,3 +1157,22 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .paragraph-list-actions .last-accuracy-btn{min-height:36px;height:36px;font-size:.55rem;line-height:1;padding:2px 1px}
   .paragraph-list-actions .last-accuracy-btn strong{font-size:.50rem}
 }
+
+
+/* V120: integrated clickable Student Performance cards. The title and score share one button. */
+.performance-result-card{appearance:none;-webkit-appearance:none;display:flex;flex-direction:column;align-items:stretch;gap:7px;width:100%;min-width:0;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink);text-align:left;cursor:pointer;box-shadow:0 3px 10px rgba(20,33,61,.045);}
+.performance-result-card:hover{border-color:var(--brand);}
+.performance-result-card:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
+.performance-result-title{display:flex;align-items:center;gap:7px;min-width:0;min-height:44px;padding:8px 9px;border-radius:10px;background:var(--brand-soft);color:var(--ink);font-weight:800;}
+.performance-result-title .performance-result-index{flex:0 0 auto;color:var(--brand-dark);}
+.performance-result-title b{flex:1;min-width:0;overflow-wrap:anywhere;font-size:.88rem;}
+.performance-result-arrow{flex:0 0 auto;color:var(--brand-dark);font-weight:900;}
+.performance-result-card .performance-score-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:8px;row-gap:3px;width:100%;min-width:0;margin:0;padding:7px 2px 1px;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none;}
+.performance-result-card .performance-score-caption{grid-column:1/-1;}
+.performance-result-card .performance-score-summary strong{font-size:.81rem;}
+.performance-result-card .performance-score-summary .performance-score-percent{white-space:nowrap;}
+.performance-result-card .performance-score-summary.is-empty{background:transparent;border-style:none;}
+.performance-result-card .performance-score-summary.is-empty strong{font-size:.76rem;}
+.last-accuracy-btn{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;min-width:0;min-height:38px;padding:7px 9px;border:1px solid #b8ebcd;border-radius:10px;background:linear-gradient(145deg,#e9fff3,#d9f8e8);color:#177552;font-weight:800;box-shadow:none;cursor:pointer;}
+.last-accuracy-btn strong{display:block;font-size:.78rem;line-height:1;white-space:nowrap;}
+
