@@ -1225,3 +1225,15 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .teacher-content-item-card>summary b{font-size:.84rem;}
   .teacher-content-item-card>summary span{font-size:.68rem;}
 }
+
+/* Public demo entry and safe sample-data mode */
+.take-demo-button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;min-height:62px;margin:8px 0 16px;padding:15px 18px;border:1px solid #0f7ce9;border-radius:14px;background:linear-gradient(135deg,#0f7ce9,#1657c0);color:#fff;font-size:1.08rem;font-weight:800;text-align:left;box-shadow:0 8px 20px rgba(15,124,233,.2)}
+.take-demo-button small{font-size:.78rem;font-weight:500;opacity:.92}
+.take-demo-button:disabled{opacity:.72;cursor:wait}
+.demo-mode-banner{margin:12px 0;padding:11px 14px;border:1px solid #b6d7fb;border-radius:12px;background:#eef7ff;color:#164d85;font-size:.88rem;font-weight:700;line-height:1.45}
+.demo-role-options{display:grid;grid-template-columns:1fr;gap:12px;margin:18px 0}
+.demo-role-options button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:76px;padding:16px;text-align:left;font-weight:800}
+.demo-role-options button small{font-size:.8rem;font-weight:500;line-height:1.4;color:#52657e}
+.demo-content-note{font-size:.82rem;line-height:1.5;color:#66758a;margin:12px 0}
+.demo-role-card .auth-brand{margin-bottom:18px}
+@media(min-width:520px){.demo-role-options{grid-template-columns:1fr 1fr}}
