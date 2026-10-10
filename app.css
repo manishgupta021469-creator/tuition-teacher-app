@@ -1198,3 +1198,30 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .v117-choice-grid .v117-choice-card.v117-chapter-choice:nth-child(4n){background:linear-gradient(145deg,#fff 0%,#fbe5f0 100%)!important;border-color:#edbfd6!important;}
 .student-paragraph-list-item+.student-paragraph-list-item{position:relative;margin-top:17px!important;padding-top:17px!important;}
 .student-paragraph-list-item+.student-paragraph-list-item::before{content:"";display:block;height:2px;width:100%;background:#111;margin:0 0 14px;border-radius:2px;}
+
+
+/* V124 — expandable material cards and My Notes choice; scoped to the requested screens. */
+.teacher-content-card-list{display:flex;flex-direction:column;gap:9px;margin:10px 0 14px;}
+.teacher-content-item-card{border:1px solid #cfe4d6;border-radius:13px;background:#fff;overflow:hidden;box-shadow:0 2px 7px rgba(29,83,55,.05);}
+.teacher-content-item-card>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:50px;padding:12px 13px;cursor:pointer;background:linear-gradient(135deg,#f4fbf6,#eaf7ef);color:#214e38;}
+.teacher-content-item-card>summary::-webkit-details-marker{display:none;}
+.teacher-content-item-card>summary::after{content:'＋';flex:0 0 auto;font-size:1.1rem;font-weight:900;color:#17784b;}
+.teacher-content-item-card[open]>summary::after{content:'−';}
+.teacher-content-item-card>summary b{flex:0 0 auto;}
+.teacher-content-item-card>summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;color:#557363;text-align:right;}
+.teacher-content-item-body{padding:13px;border-top:1px solid #dceee2;overflow-wrap:anywhere;}
+.teacher-content-item-body .readable-qa-part{padding:10px;margin:6px 0;border-radius:10px;background:#f8fcf9;}
+.teacher-content-item-body .readable-qa-part p{margin:7px 0;white-space:normal;overflow-wrap:anywhere;}
+.teacher-content-item-body .notes-full-content{margin-top:12px;padding:10px;border:1px solid #e0ece4;border-radius:10px;background:#fbfdfb;}
+.paragraph-add-top{display:block;width:100%;margin:0 0 12px;min-height:46px;font-weight:800;}
+.student-flow-bottom-nav{grid-template-columns:repeat(4,minmax(0,1fr));}
+.student-flow-bottom-btn.notes{background:linear-gradient(135deg,#d97706,#b45309);}
+.student-flow-bottom-btn{padding-left:3px;padding-right:3px;}
+@media(max-width:600px){
+  .student-flow-bottom-nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+  .student-flow-bottom-btn{min-height:48px;padding:6px 2px;border-radius:10px;}
+  .student-flow-bottom-btn span{font-size:.61rem;line-height:1.05;}
+  .teacher-content-item-card>summary{gap:6px;padding:11px 9px;}
+  .teacher-content-item-card>summary b{font-size:.84rem;}
+  .teacher-content-item-card>summary span{font-size:.68rem;}
+}

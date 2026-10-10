@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS qa_items (
   position INTEGER NOT NULL,
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
+  item_type TEXT NOT NULL DEFAULT 'qa' CHECK (item_type IN ('qa','notes')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS test_results (
@@ -55,7 +56,7 @@ CREATE TABLE IF NOT EXISTS test_results (
   teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
   student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   chapter_id INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
-  test_type TEXT NOT NULL CHECK (test_type IN ('paragraph','qa','chapter')),
+  test_type TEXT NOT NULL CHECK (test_type IN ('paragraph','qa','chapter','notes')),
   item_id INTEGER,
   total_words INTEGER NOT NULL CHECK (total_words >= 0),
   correct_words INTEGER NOT NULL CHECK (correct_words >= 0),
