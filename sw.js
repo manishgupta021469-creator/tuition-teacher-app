@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyway-learn-shell-v125-demo-portal';
+const CACHE_NAME = 'easyway-learn-shell-v126-hindi-guide';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/pwa-assets/icon-192.png', '/pwa-assets/icon-512.png', '/pwa-assets/teacher-avatar.svg', '/pwa-assets/student-avatar.svg'];
 
 self.addEventListener('install', event => {

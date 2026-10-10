@@ -717,9 +717,57 @@ function typesetMath(container=root){
   if(window.MathJax?.typesetPromise) window.MathJax.typesetPromise([container]).catch(()=>{});
 }
 async function api(url,opt={}){opt.headers={...(opt.headers||{}),'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})};const r=await fetch('/api'+url,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Request failed');return d}
-function authView(){root.innerHTML=`<main class="center"><section class="card auth-card"><div class="auth-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo" onerror="this.onerror=null;this.style.display='none';this.parentElement.classList.add('ewl-logo-fallback');this.parentElement.setAttribute('aria-label','Easyway Learn logo')"><div><h1>Easyway Learn</h1><p>Tuition Teacher · Reading & Learning</p></div></div><h2>Welcome</h2><button class="take-demo-button" type="button" onclick="startDemo()">▶ Take Demo <small>Try the app with sample students and results</small></button><div class="auth-choice-grid"><button class="list" type="button" onclick="teacherLoginOnly()">🔐 Login</button><button class="list" type="button" onclick="teacherRegisterOnly()">🆕 Create Teacher Account</button></div></section></main>`}
+function authView(){root.innerHTML=`<main class="center"><section class="card auth-card"><div class="auth-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo" onerror="this.onerror=null;this.style.display='none';this.parentElement.classList.add('ewl-logo-fallback');this.parentElement.setAttribute('aria-label','Easyway Learn logo')"><div><h1>Easyway Learn</h1><p>Tuition Teacher · Reading & Learning</p></div></div><h2>Welcome</h2><button class="take-demo-button" type="button" onclick="startDemo()">▶ Take Demo <small>नमूना विद्यार्थी, सामग्री और टेस्ट के साथ ऐप देखें</small></button><button class="app-guide-open-button" type="button" onclick="showAppGuide()">📖 ऐप कैसे इस्तेमाल करें? <small>टीचर और स्टूडेंट के लिए आसान हिंदी गाइड</small></button><div class="auth-choice-grid"><button class="list" type="button" onclick="teacherLoginOnly()">🔐 Login</button><button class="list" type="button" onclick="teacherRegisterOnly()">🆕 Create Teacher Account</button></div></section></main>`}
 async function startDemo(){const b=root.querySelector('.take-demo-button');if(b){b.disabled=true;b.textContent='डेमो तैयार हो रहा है…';}try{token=null;const d=await api('/auth/demo',{method:'POST',body:JSON.stringify({})});token=d.token;localStorage.setItem('token',token);sessionStorage.setItem('demoEntryRole','choose');await load();demoRoleView()}catch(e){alert(e.message||'Demo नहीं खुल पाया।');if(b){b.disabled=false;b.innerHTML='▶ Take Demo <small>Try the app with sample students and results</small>';}}}
-function demoRoleView(){if(!isDemoMode())return authView();sessionStorage.setItem('demoEntryRole','choose');root.innerHTML=`<main class="center"><section class="card auth-card demo-role-card"><div class="auth-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><h1>Easyway Learn</h1><p>Demo Portal</p></div></div><div class="demo-mode-banner">DEMO MODE · Sample content and pre-filled test scores</div><h2>डेमो किस रूप में देखना है?</h2><p class="muted">टीचर का डैशबोर्ड या किसी विद्यार्थी का लर्निंग और टेस्ट अनुभव चुनें।</p><div class="demo-role-options"><button class="list demo-role-teacher" type="button" onclick="openTeacherDemo()">👩‍🏫 Teacher Demo <small>Students, material and performance reports</small></button><button class="list demo-role-student" type="button" onclick="openStudentDemo()">🧑‍🎓 Student Demo <small>Choose a class 6 student and explore saved tests</small></button></div><p class="demo-content-note">डेमो में बदलाव/डिलीट बंद हैं। यह नमूना सामग्री आधिकारिक UP Board पुस्तक की हूबहू प्रति नहीं है।</p><button type="button" class="btn-secondary" onclick="exitDemo()">Exit Demo</button></section></main>`;}
+function showAppGuide(){
+  if(document.querySelector('.ewl-guide-overlay'))return;
+  const previousFocus=document.activeElement;
+  const layer=document.createElement('div');
+  layer._ewlPreviousFocus=previousFocus;
+  layer.className='ewl-guide-overlay';
+  layer.setAttribute('role','dialog');
+  layer.setAttribute('aria-modal','true');
+  layer.setAttribute('aria-labelledby','ewlGuideTitle');
+  layer.innerHTML=`<section class="ewl-guide-dialog"><header class="ewl-guide-header"><div><span class="ewl-guide-eyebrow">EASYWAY LEARN · HINDI HELP</span><h2 id="ewlGuideTitle">ऐप कैसे इस्तेमाल करें?</h2><p>टीचर और स्टूडेंट दोनों के लिए आसान गाइड</p></div><button type="button" class="ewl-guide-close" data-guide-close aria-label="गाइड बंद करें" title="गाइड बंद करें">✕</button></header>
+  <div class="ewl-guide-body">
+    <section class="ewl-guide-intro"><b>इस ऐप से क्या कर सकते हैं?</b><p>पढ़ाई की सामग्री व्यवस्थित करें, विद्यार्थी से टेक्स्ट पढ़वाकर/बुलवाकर टेस्ट लें, और सही पढ़े गए शब्दों व प्रगति का रिकॉर्ड देखें।</p></section>
+    <details class="ewl-guide-section" open><summary><span>👩‍🏫</span><b>टीचर के लिए: शुरू से अंत तक</b></summary><ol>
+      <li><b>अपना पोर्टल खोलें:</b> नया शिक्षक हैं तो <b>Create Teacher Account</b> चुनें। पहले से खाता है तो <b>Login</b> करें। सिर्फ़ ऐप देखने के लिए <b>Take Demo</b> दबाएँ।</li>
+      <li><b>विद्यार्थी जोड़ें:</b> डैशबोर्ड में <b>Students</b> खोलें, <b>Add Student</b> दबाएँ और नाम/कक्षा भरकर सेव करें। किसी विद्यार्थी का कार्ड चुनकर आगे बढ़ें।</li>
+      <li><b>पढ़ाई की सामग्री बनाएँ:</b> <b>Learning Material</b> → Subject → Book → Chapter खोलें। विषय, किताब और अध्याय बनाएँ। अध्याय में <b>Paragraph</b>, <b>Complete Chapter</b>, <b>Question-Answer</b> और <b>My Notes</b> अलग-अलग रखे जा सकते हैं।</li>
+      <li><b>टेक्स्ट जोड़ें:</b> जहाँ उपलब्ध हो, टाइप करें, कॉपी-पेस्ट करें या फोटो से <b>Gallery OCR</b> इस्तेमाल करें। OCR से निकले शब्द सेव करने से पहले ज़रूर जाँचें। Paragraph और Complete Chapter अलग सामग्री हैं।</li>
+      <li><b>टेस्ट शुरू करें:</b> <b>Students</b> → विद्यार्थी → Subject → Book → Chapter में जाएँ। Paragraph, Complete Chapter, Question-Answer या My Notes चुनें और <b>Start Test</b> दबाएँ।</li>
+      <li><b>रिज़ल्ट देखें:</b> टेस्ट पूरा होने पर स्कोर देखें। डैशबोर्ड का <b>Student Performance</b> और किसी आइटम का Accuracy/History/Progress Chart पिछला प्रदर्शन समझने में मदद करता है।</li>
+    </ol></details>
+    <details class="ewl-guide-section" open><summary><span>🧑‍🎓</span><b>स्टूडेंट के लिए: पढ़ें और टेस्ट दें</b></summary><ol>
+      <li><b>पहले अभ्यास करें:</b> टीचर द्वारा चुना गया Subject, Book और Chapter खोलें। पढ़ने के लिए Paragraph, पूरा पाठ देखने के लिए Complete Chapter, प्रश्न-उत्तर अभ्यास के लिए Question-Answer या My Notes चुनें।</li>
+      <li><b>टेक्स्ट देखें/सुनें:</b> <b>View</b> से पूरा टेक्स्ट खोलें। 🔊 स्पीकर बटन से सुन सकते हैं, जहाँ यह उपलब्ध हो।</li>
+      <li><b>टेस्ट दें:</b> <b>Start Test</b> दबाएँ। टेस्ट शुरू होने के बाद संदर्भ टेक्स्ट छिप जाता है; उसे स्पष्ट आवाज़ में पढ़ें। फोन/ब्राउज़र माइक्रोफ़ोन की अनुमति माँगे तो <b>Allow</b> करें।</li>
+      <li><b>टेस्ट पूरा करें:</b> बोलना समाप्त होने पर <b>Finish &amp; Score</b> दबाएँ। गलती से शुरू किया हो तो <b>Cancel Test — No Score</b> चुनें। परिणाम और पिछली कोशिशें वहाँ देखें जहाँ Accuracy/History दी गई है।</li>
+      <li><b>स्कोर का मतलब:</b> यह मुख्यतः टेक्स्ट को सही बोलकर पढ़ने की जाँच है—यह अपने-आप में प्रश्नों की समझ या लिखित उत्तर की परीक्षा नहीं है। सही पहचाने गए शब्द और कुल शब्द स्कोर को प्रभावित करते हैं।</li>
+    </ol></details>
+    <section class="ewl-guide-section ewl-guide-info"><h3>🎙️ टेस्ट शुरू न हो तो</h3><ul><li>Android पर Chrome में ऐप खोलकर देखें और वेबसाइट की Microphone अनुमति Allow करें।</li><li>शांत जगह में, साफ़ और सामान्य गति से पढ़ें। नेटवर्क/ब्राउज़र की स्पीच पहचान पर नतीजा निर्भर कर सकता है।</li><li>स्क्रीन पर माइक्रोफ़ोन की त्रुटि आए तो अनुमति और ब्राउज़र सपोर्ट जाँचें; बिना स्कोर वाला Cancel विकल्प सुरक्षित है।</li></ul></section>
+    <section class="ewl-guide-section ewl-guide-info"><h3>📊 Accuracy और History</h3><p>जहाँ शब्द-गिनती उपलब्ध है, Accuracy का आधार है: <b>सही शब्द ÷ कुल शब्द × 100</b>। Item की पिछली कोशिशें History में अलग दिखाई जा सकती हैं। किसी पुराने परिणाम को नया टेस्ट समझने के बजाय तारीख/समय देखें।</p></section>
+    <section class="ewl-guide-section ewl-guide-demo"><h3>🧪 Demo इस्तेमाल करते समय</h3><ul><li><b>Teacher Demo</b> में नमूना डैशबोर्ड, विद्यार्थी, सामग्री और रिपोर्ट देखें। <b>Student Demo</b> में सूची से कक्षा 6 का नमूना विद्यार्थी चुनें।</li><li>डेमो की साझा सामग्री और विद्यार्थी बदले/डिलीट नहीं किए जा सकते। डेमो में टेस्ट देने पर नया प्रयास साझा डेमो इतिहास में सेव हो सकता है। कोई निजी जानकारी न डालें।</li><li>नमूना पाठ समझाने के लिए है; यह आधिकारिक UP Board पुस्तक का हूबहू पाठ नहीं है।</li></ul></section>
+    <section class="ewl-guide-section ewl-guide-info"><h3>ℹ️ विद्यार्थी लॉगिन के बारे में</h3><p>मौजूदा ऐप में अलग विद्यार्थी-ईमेल/पासवर्ड वाला लॉगिन नहीं है। वास्तविक टेस्ट शिक्षक पोर्टल से विद्यार्थी चुनकर शुरू होता है। बिना असली खाते के विद्यार्थी अनुभव देखने के लिए <b>Take Demo → Student Demo</b> इस्तेमाल करें।</p></section>
+  </div><footer class="ewl-guide-footer"><span>गाइड बंद करके आप वहीं से जारी रख सकते हैं जहाँ थे।</span><button type="button" data-guide-close>समझ गया — वापस जाएँ</button></footer></section>`;
+  document.body.appendChild(layer);
+  layer.querySelectorAll('[data-guide-close]').forEach(btn=>btn.addEventListener('click',closeAppGuide));
+  layer.addEventListener('click',e=>{if(e.target===layer)closeAppGuide()});
+  window.__ewlGuideEsc=e=>{if(e.key==='Escape')closeAppGuide()};
+  document.addEventListener('keydown',window.__ewlGuideEsc);
+  const close=layer.querySelector('.ewl-guide-close');
+  close?.focus({preventScroll:true});
+}
+function closeAppGuide(){
+  const layer=document.querySelector('.ewl-guide-overlay');
+  const previousFocus=layer?layer._ewlPreviousFocus:null;
+  if(layer)layer.remove();
+  if(window.__ewlGuideEsc){document.removeEventListener('keydown',window.__ewlGuideEsc);delete window.__ewlGuideEsc;}
+  if(previousFocus&&typeof previousFocus.focus==='function')previousFocus.focus({preventScroll:true});
+}
+
+function demoRoleView(){if(!isDemoMode())return authView();sessionStorage.setItem('demoEntryRole','choose');root.innerHTML=`<main class="center"><section class="card auth-card demo-role-card"><div class="auth-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><div><h1>Easyway Learn</h1><p>Demo Portal</p></div></div><div class="demo-mode-banner">DEMO MODE · Sample content and pre-filled test scores</div><h2>डेमो किस रूप में देखना है?</h2><p class="muted">पहले तरीका समझना हो तो हिंदी गाइड खोलें, या नीचे से टीचर/स्टूडेंट अनुभव चुनें।</p><button class="app-guide-open-button" type="button" onclick="showAppGuide()">📖 ऐप कैसे इस्तेमाल करें? <small>टीचर और स्टूडेंट के लिए चरण-दर-चरण गाइड</small></button><div class="demo-role-options"><button class="list demo-role-teacher" type="button" onclick="openTeacherDemo()">👩‍🏫 Teacher Demo <small>विद्यार्थी, पढ़ाई की सामग्री और प्रदर्शन रिपोर्ट देखें</small></button><button class="list demo-role-student" type="button" onclick="openStudentDemo()">🧑‍🎓 Student Demo <small>कक्षा 6 के विद्यार्थी चुनें और टेस्ट का अनुभव देखें</small></button></div><p class="demo-content-note">डेमो में साझा सामग्री/विद्यार्थी बदलना या हटाना बंद है। डेमो टेस्ट देने पर नया प्रयास साझा डेमो इतिहास में सेव हो सकता है। सामग्री नमूना है, आधिकारिक UP Board पुस्तक की हूबहू प्रति नहीं।</p><button type="button" class="btn-secondary" onclick="exitDemo()">Exit Demo</button></section></main>`;}
 function openTeacherDemo(){if(!isDemoMode())return authView();sessionStorage.setItem('demoEntryRole','teacher');dashboard()}
 function openStudentDemo(){if(!isDemoMode())return authView();sessionStorage.setItem('demoEntryRole','student');demoStudentPicker()}
 function demoStudentPicker(){if(!isDemoMode())return authView();const list=state.students||[];root.innerHTML=`<header class="v112-inner-header"><div class="v112-inner-brand"><img src="/pwa-assets/icon-192.png" alt="Easyway Learn logo"><b>Student Demo</b></div><button class="v112-ghost-btn" type="button" onclick="demoRoleView()">Back</button></header><main class="v112-dashboard v112-hub-page"><div class="demo-mode-banner">DEMO MODE · हर विद्यार्थी के Paragraph, Complete Chapter, Question Answer, My Notes और टेस्ट परिणाम पहले से उपलब्ध हैं।</div><section class="v112-hub-hero"><div class="v112-hub-icon v112-hub-pink">🎓</div><div><h1>कक्षा 6 के विद्यार्थी चुनें</h1><p>UP Board sample class · 5 demo students</p></div></section><section class="v112-hub-list v117-card-grid">${list.map((st,i)=>`<button type="button" class="v112-hub-item v117-select-card v117-student-card" onclick="studentTests(${st.id})"><span class="v112-hub-index">${i+1}</span><span class="v112-hub-person"><span class="v112-mini-avatar">${esc(String(st.name||'S').trim().charAt(0).toUpperCase())}</span><span><b>${esc(st.name)}</b><small>Class ${esc(st.class_name||'')}</small></span></span><span class="v112-hub-arrow">→</span></button>`).join('')||'<div class="v112-empty-hub">Demo students तैयार नहीं हैं। Exit Demo करके दोबारा प्रयास करें।</div>'}</section></main>`;}
@@ -2016,8 +2064,16 @@ function ensureGlobalHomeButton(){
   btn.addEventListener('click',()=>{try{dashboard();window.scrollTo({top:0,behavior:'auto'});}catch(e){console.error(e);}});
   header.appendChild(btn);
 }
+function ensureGlobalHelpButton(){
+  if(!token||document.querySelector('.ewl-guide-overlay'))return;
+  const header=document.querySelector('#app > header, #app header');
+  if(!header||header.querySelector('.ewl-global-help'))return;
+  const btn=document.createElement('button');btn.type='button';btn.className='ewl-global-help';btn.title='ऐप कैसे इस्तेमाल करें?';btn.setAttribute('aria-label','ऐप कैसे इस्तेमाल करें?');btn.textContent='?';
+  btn.addEventListener('click',showAppGuide);
+  header.appendChild(btn);
+}
 (function installGlobalHomeObserver(){
-  const install=()=>{const rootNode=document.getElementById('app');if(!rootNode||window.__ewlHomeObserver)return;window.__ewlHomeObserver=new MutationObserver(()=>ensureGlobalHomeButton());window.__ewlHomeObserver.observe(rootNode,{childList:true,subtree:true});ensureGlobalHomeButton();};
+  const install=()=>{const rootNode=document.getElementById('app');if(!rootNode||window.__ewlHomeObserver)return;window.__ewlHomeObserver=new MutationObserver(()=>{ensureGlobalHomeButton();ensureGlobalHelpButton()});window.__ewlHomeObserver.observe(rootNode,{childList:true,subtree:true});ensureGlobalHomeButton();ensureGlobalHelpButton();};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 

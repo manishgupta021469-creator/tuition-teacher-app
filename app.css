@@ -1237,3 +1237,36 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .demo-content-note{font-size:.82rem;line-height:1.5;color:#66758a;margin:12px 0}
 .demo-role-card .auth-brand{margin-bottom:18px}
 @media(min-width:520px){.demo-role-options{grid-template-columns:1fr 1fr}}
+
+
+/* V126: Hindi in-app usage guide, available before login and from authenticated screens. */
+.app-guide-open-button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;margin:8px 0 14px;padding:13px 16px;border:1px solid #c5d8f4;border-radius:13px;background:linear-gradient(135deg,#f1f7ff,#f6f2ff);color:#164d85;text-align:left;font-weight:800;line-height:1.35;cursor:pointer}
+.app-guide-open-button small{font-size:.78rem;font-weight:500;color:#506786}
+.ewl-global-help{display:inline-grid;place-items:center;order:4;flex:0 0 38px;width:38px;height:38px;margin-left:5px;border:1px solid rgba(255,255,255,.46);border-radius:12px;background:rgba(255,255,255,.16);color:#fff;font-size:1.15rem;font-weight:900;cursor:pointer}
+.v112-inner-header .ewl-global-help{margin-left:0}
+.ewl-guide-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:clamp(8px,2.5vw,24px);background:rgba(9,24,46,.68);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.ewl-guide-dialog{display:flex;flex-direction:column;width:min(880px,100%);max-height:calc(100dvh - 16px);margin:auto 0;border:1px solid #d7e4f2;border-radius:20px;overflow:hidden;background:#f8fbff;color:#17324f;box-shadow:0 24px 80px rgba(0,0,0,.28)}
+.ewl-guide-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 22px;background:linear-gradient(110deg,#1269dc,#08a9d2);color:#fff}
+.ewl-guide-eyebrow{font-size:.7rem;letter-spacing:.09em;font-weight:800;opacity:.88}
+.ewl-guide-header h2{margin:4px 0 3px;font-size:clamp(1.2rem,3vw,1.8rem);color:#fff}
+.ewl-guide-header p{margin:0;font-size:.88rem;opacity:.94}
+.ewl-guide-close{flex:0 0 38px;width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.5);border-radius:12px;background:rgba(255,255,255,.14);color:#fff;font-size:1.1rem;cursor:pointer}
+.ewl-guide-body{overflow:auto;padding:14px 18px 8px}
+.ewl-guide-intro{margin-bottom:12px;padding:14px 16px;border-radius:14px;border:1px solid #cddff5;background:#edf6ff;line-height:1.55}
+.ewl-guide-intro p{margin:5px 0 0;color:#4e6481}
+.ewl-guide-section{margin:10px 0;padding:13px 15px;border:1px solid #dce6f1;border-radius:14px;background:#fff;line-height:1.55}
+.ewl-guide-section summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;color:#173d7c}
+.ewl-guide-section summary::-webkit-details-marker{display:none}
+.ewl-guide-section summary span{font-size:1.2rem}
+.ewl-guide-section summary b{font-size:1rem}
+.ewl-guide-section ol,.ewl-guide-section ul{padding-left:23px;margin:12px 0 0}
+.ewl-guide-section li{margin:9px 0;color:#43566e}
+.ewl-guide-section li b{color:#203d60}
+.ewl-guide-section h3{margin:0 0 6px;color:#173d7c;font-size:1rem}
+.ewl-guide-section p{margin:5px 0;color:#43566e}
+.ewl-guide-info{background:#f7fbff}
+.ewl-guide-demo{border-color:#c8d9f4;background:#f1f6ff}
+.ewl-guide-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid #dce6f1;background:#fff}
+.ewl-guide-footer span{font-size:.78rem;color:#66758a}
+.ewl-guide-footer button{flex:0 0 auto;min-height:42px;padding:10px 15px;border:0;border-radius:12px;background:#1269dc;color:#fff;font-weight:800;cursor:pointer}
+@media(max-width:600px){.ewl-global-help{flex-basis:31px;width:31px;height:31px;margin-left:3px;border-radius:9px;font-size:1rem}.ewl-guide-overlay{padding:5px}.ewl-guide-dialog{max-height:calc(100dvh - 10px);border-radius:14px}.ewl-guide-header{padding:15px 14px;gap:8px}.ewl-guide-header h2{font-size:1.2rem}.ewl-guide-header p{font-size:.78rem}.ewl-guide-close{flex-basis:32px;width:32px;height:32px;border-radius:9px}.ewl-guide-body{padding:8px 9px 5px}.ewl-guide-intro{padding:11px 12px}.ewl-guide-section{margin:7px 0;padding:10px 11px}.ewl-guide-section li{margin:8px 0;font-size:.91rem}.ewl-guide-section summary b{font-size:.93rem}.ewl-guide-footer{align-items:stretch;flex-direction:column;padding:10px}.ewl-guide-footer button{width:100%}.ewl-guide-footer span{font-size:.74rem}}
