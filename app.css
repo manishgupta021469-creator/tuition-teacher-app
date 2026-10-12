@@ -1270,3 +1270,122 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .ewl-guide-footer span{font-size:.78rem;color:#66758a}
 .ewl-guide-footer button{flex:0 0 auto;min-height:42px;padding:10px 15px;border:0;border-radius:12px;background:#1269dc;color:#fff;font-weight:800;cursor:pointer}
 @media(max-width:600px){.ewl-global-help{flex-basis:31px;width:31px;height:31px;margin-left:3px;border-radius:9px;font-size:1rem}.ewl-guide-overlay{padding:5px}.ewl-guide-dialog{max-height:calc(100dvh - 10px);border-radius:14px}.ewl-guide-header{padding:15px 14px;gap:8px}.ewl-guide-header h2{font-size:1.2rem}.ewl-guide-header p{font-size:.78rem}.ewl-guide-close{flex-basis:32px;width:32px;height:32px;border-radius:9px}.ewl-guide-body{padding:8px 9px 5px}.ewl-guide-intro{padding:11px 12px}.ewl-guide-section{margin:7px 0;padding:10px 11px}.ewl-guide-section li{margin:8px 0;font-size:.91rem}.ewl-guide-section summary b{font-size:.93rem}.ewl-guide-footer{align-items:stretch;flex-direction:column;padding:10px}.ewl-guide-footer button{width:100%}.ewl-guide-footer span{font-size:.74rem}}
+
+/* V127 — Requested paragraph-card border and button color polish only.
+   No JavaScript, test scoring, history, navigation, data, or database changes. */
+.student-paragraph-list-item,
+.paragraph-option-a{
+  border:2px solid #5f7083 !important;
+  border-radius:22px !important;
+  box-shadow:0 5px 16px rgba(31,58,93,.09) !important;
+}
+.student-paragraph-list-item{
+  background:linear-gradient(145deg,#f1f8ff 0%,#ffffff 88%) !important;
+}
+.student-paragraph-list-item:nth-of-type(even){
+  background:linear-gradient(145deg,#fbf2ff 0%,#ffffff 88%) !important;
+}
+.student-paragraph-list-item+.student-paragraph-list-item{
+  margin-top:17px !important;
+  padding-top:11px !important;
+}
+.student-paragraph-list-item+.student-paragraph-list-item::before{
+  content:none !important;
+  display:none !important;
+}
+.paragraph-row-heading b{color:#163d73}
+.paragraph-row-heading span{font-weight:600}
+.paragraph-list-preview{
+  border-color:#cbd9e8 !important;
+  background:linear-gradient(135deg,#ffffff,#f4faff) !important;
+  border-radius:14px !important;
+}
+.paragraph-list-preview-start{background:#dceeff !important;color:#1c5b9d !important}
+.paragraph-list-preview-end{background:#f8e2fb !important;color:#743a80 !important}
+.performance-item-score .performance-score-summary{
+  padding:8px 10px !important;
+  border:1px solid #c6d8ee !important;
+  border-radius:14px !important;
+  background:linear-gradient(135deg,#eef6ff,#ffffff) !important;
+  box-shadow:none !important;
+}
+.paragraph-action-grid button{
+  border-width:1px;
+  border-style:solid;
+  border-radius:13px !important;
+  box-shadow:0 4px 9px rgba(32,70,120,.10);
+  font-weight:800;
+}
+.paragraph-action-grid .progress-chart-btn,
+.paragraph-list-actions .progress-chart-btn{
+  background:linear-gradient(145deg,#e8fff1,#c9f5d9) !important;
+  border-color:#91dfb1 !important;
+  color:#087849 !important;
+}
+.paragraph-action-grid .progress-chart-btn:hover,
+.paragraph-list-actions .progress-chart-btn:hover{background:linear-gradient(145deg,#d8fbe6,#b7efcd) !important}
+.paragraph-action-grid .history-underline-btn,
+.paragraph-list-actions .history-underline-btn{
+  background:linear-gradient(145deg,#8c55f4,#672bd1) !important;
+  border-color:#6734cb !important;
+  color:#fff !important;
+  box-shadow:0 5px 12px rgba(103,52,203,.22) !important;
+}
+.paragraph-action-grid .history-underline-btn:hover,
+.paragraph-list-actions .history-underline-btn:hover{background:linear-gradient(145deg,#7740e2,#5520bb) !important}
+.paragraph-action-grid .pronunciation-btn,
+.paragraph-list-actions .pronunciation-btn{
+  background:linear-gradient(145deg,#e1f8ff,#bcecff) !important;
+  border-color:#83d2f1 !important;
+  color:#075da7 !important;
+}
+.paragraph-action-grid .pronunciation-btn:hover,
+.paragraph-list-actions .pronunciation-btn:hover{background:linear-gradient(145deg,#d2f3ff,#a9e4fa) !important}
+.paragraph-action-grid .read-content-btn,
+.paragraph-list-actions .read-content-btn{
+  background:linear-gradient(145deg,#288af8,#1760df) !important;
+  border-color:#1e68df !important;
+  color:#fff !important;
+  box-shadow:0 5px 12px rgba(31,105,225,.22) !important;
+}
+.paragraph-action-grid .read-content-btn:hover,
+.paragraph-list-actions .read-content-btn:hover{background:linear-gradient(145deg,#1b76eb,#124fc3) !important}
+.paragraph-action-grid .list-speaker-btn,
+.paragraph-list-actions .list-speaker-btn{
+  background:linear-gradient(145deg,#f3f0ff,#dfddff) !important;
+  border-color:#c5bdff !important;
+  color:#5b45b7 !important;
+}
+.paragraph-action-grid .list-speaker-btn:hover,
+.paragraph-list-actions .list-speaker-btn:hover{background:linear-gradient(145deg,#e8e3ff,#d0cbff) !important}
+.paragraph-action-grid .last-accuracy-btn,
+.paragraph-list-actions .last-accuracy-btn{
+  background:linear-gradient(145deg,#e6fff1,#c9f5dc) !important;
+  border-color:#8fe1b3 !important;
+  color:#08774e !important;
+}
+.paragraph-action-grid .primary-test-btn,
+.paragraph-list-actions .primary-test-btn{
+  background:linear-gradient(145deg,#16bd79,#07985f) !important;
+  border-color:#078c58 !important;
+  color:#fff !important;
+  box-shadow:0 5px 12px rgba(8,153,94,.22) !important;
+}
+.paragraph-action-grid .primary-test-btn:hover,
+.paragraph-list-actions .primary-test-btn:hover{background:linear-gradient(145deg,#10a96b,#087b4e) !important}
+.paragraph-action-grid .result-link{
+  background:linear-gradient(145deg,#e5f2ff,#cfe5ff) !important;
+  border-color:#a9cdf8 !important;
+  color:#2059a8 !important;
+}
+.student-flow-bottom-btn{
+  border:1px solid rgba(255,255,255,.42) !important;
+  border-radius:15px !important;
+  box-shadow:0 5px 13px rgba(31,73,139,.16) !important;
+}
+@media(max-width:600px){
+  .student-paragraph-list-item,.paragraph-option-a{border-radius:19px !important}
+  .student-paragraph-list-item+.student-paragraph-list-item{padding-top:11px !important}
+  .paragraph-action-grid button{border-radius:11px !important}
+}
+
