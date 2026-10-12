@@ -1389,3 +1389,19 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .paragraph-action-grid button{border-radius:11px !important}
 }
 
+
+
+/* V128: dashboard-only stable vector brand mark and contained student portraits. */
+.v112-logo-frame{overflow:hidden;isolation:isolate}
+.v112-logo-mark{display:block;width:78%;height:78%;max-width:46px;max-height:46px;min-width:0;min-height:0;object-fit:contain;flex:0 0 auto}
+.v112-student-art{isolation:isolate;overflow:visible}
+.v112-student-face{position:absolute;display:block;width:54%;height:78%;bottom:8%;object-fit:contain;filter:drop-shadow(0 3px 5px rgba(40,46,86,.16));pointer-events:none}
+.v112-student-boy{left:5%;z-index:1}
+.v112-student-girl{right:4%;z-index:2}
+.v112-student-art i{z-index:3}
+@media(max-width:600px){
+  .v112-logo-mark{width:78%;height:78%;max-width:36px;max-height:36px}
+  .v112-student-face{width:55%;height:79%;bottom:8%}
+  .v112-student-boy{left:4%}
+  .v112-student-girl{right:3%}
+}
