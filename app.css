@@ -1405,3 +1405,8 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .v112-student-boy{left:4%}
   .v112-student-girl{right:3%}
 }
+
+/* V129: ensure all three trailing preview words remain readable on narrow screens. */
+.paragraph-list-preview > .paragraph-list-preview-label{overflow:visible;flex-wrap:wrap;justify-content:center;row-gap:4px}
+.paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-start{flex:0 1 auto;max-width:46%;}
+.paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-end{flex:0 1 auto;max-width:54%;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;text-align:right;}
