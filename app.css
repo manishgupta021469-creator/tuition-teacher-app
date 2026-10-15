@@ -1410,3 +1410,20 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
 .paragraph-list-preview > .paragraph-list-preview-label{overflow:visible;flex-wrap:wrap;justify-content:center;row-gap:4px}
 .paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-start{flex:0 1 auto;max-width:46%;}
 .paragraph-list-preview > .paragraph-list-preview-label .paragraph-list-preview-end{flex:0 1 auto;max-width:54%;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;text-align:right;}
+
+/* V130: school principal and individual student portal additions, using existing app palette */
+.ewl-new-portal-grid{margin-top:8px}
+.ewl-new-portal-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-height:76px}
+.ewl-new-portal-grid button small{display:block;font-size:.78rem;color:var(--muted);font-weight:500;line-height:1.4}
+.individual-subject,.individual-book,.individual-chapter{border:1px solid var(--line);border-radius:12px;background:#fff;margin:10px 0;padding:11px 13px;min-width:0}
+.individual-subject>summary,.individual-book>summary,.individual-chapter>summary{cursor:pointer;font-weight:750;color:var(--ink);padding:4px 0;overflow-wrap:anywhere}
+.individual-subject>summary::marker,.individual-book>summary::marker,.individual-chapter>summary::marker{color:var(--brand)}
+.individual-study-content{padding:8px 2px 2px}
+.individual-text-item{border-left:3px solid var(--brand);background:#f8faff;padding:10px 12px;margin:10px 0;border-radius:0 10px 10px 0;overflow-wrap:anywhere}
+.individual-text-item p{white-space:pre-wrap;overflow-wrap:anywhere}
+.individual-text-item button{font-size:.88rem;min-height:38px;padding:8px 12px}
+.ewl-individual-test-overlay{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.56);display:grid;place-items:center;padding:14px;overflow:auto}
+.ewl-individual-test-dialog{width:min(620px,100%);max-height:min(92dvh,900px);overflow:auto;margin:0;border-color:#c8d8f4}
+.ewl-individual-test-dialog button{margin:3px 0}
+.ewl-individual-test-dialog textarea{min-height:130px}
+@media(max-width:600px){.ewl-new-portal-grid{grid-template-columns:1fr}.ewl-individual-test-overlay{padding:8px;align-items:end}.ewl-individual-test-dialog{padding:16px;border-radius:18px;max-height:94dvh}.individual-subject,.individual-book,.individual-chapter{padding:10px}.individual-text-item button{width:100%}}
