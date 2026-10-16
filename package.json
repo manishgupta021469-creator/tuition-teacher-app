@@ -1,6 +1,6 @@
 {
   "name": "tuition-teacher-test-app",
-  "version": "133.0.0",
+  "version": "134.0.0",
   "private": true,
   "scripts": {
     "start": "node index.js",

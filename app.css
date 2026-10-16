@@ -1527,3 +1527,16 @@ main:has(.student-flow-top-nav) > .student-flow-bottom-nav{
   .ewl-drill-test-row>span:last-child,.ewl-drill-report-card>span:last-child{display:none}
   .ewl-drill-row-main{padding:10px;gap:8px}
 }
+
+
+/* V134: separate, mobile-friendly demo account credentials */
+.demo-login-details{margin-top:18px;padding:12px;border:1px solid var(--line,#d8e2ee);border-radius:14px;background:var(--card-bg,#f8fbff);text-align:left}
+.demo-login-details>summary{font-weight:800;cursor:pointer;padding:4px 2px;color:var(--text,#17324d)}
+.demo-login-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+.demo-login-card{display:flex;flex-direction:column;gap:7px;padding:13px;border:1px solid var(--line,#d8e2ee);border-radius:12px;background:#fff;min-width:0}
+.demo-login-card>b{font-size:1rem;color:var(--text,#17324d)}
+.demo-login-card>small{color:var(--muted,#5d6b7a);font-size:.85rem}
+.demo-login-card>label{margin:2px 0 0;font-size:.78rem;font-weight:700;color:var(--muted,#5d6b7a)}
+.demo-login-card>code{display:block;overflow-wrap:anywhere;font-size:.83rem;padding:8px;border-radius:7px;background:#f0f5fa;color:#18344d;user-select:all}
+.demo-login-card>button{margin-top:4px;width:100%;white-space:normal}
+@media(min-width:640px){.demo-login-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.demo-login-card{padding:11px}.demo-login-card>button{font-size:.85rem}}
